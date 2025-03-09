@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { NavLink } from 'react-router-dom';
-import { FiMenu, FiX, FiHome, FiFileText, FiBell } from 'react-icons/fi';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { FiMenu, FiX, FiHome, FiFileText, FiBell, FiLogOut } from 'react-icons/fi';
 import './SuperAdminSideBar.css';
 
 const SuperAdminSideBar = () => {
   const [isOpen, setIsOpen] = useState(window.innerWidth >= 768);
   const [notifications, setNotifications] = useState([]);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const handleResize = () => {
@@ -33,11 +34,31 @@ const SuperAdminSideBar = () => {
     fetchNotifications();
   }, []);
 
-  const unreadCount = notifications.filter(n => !n.read).length || 0;
-
   const toggleSidebar = () => {
     setIsOpen(!isOpen);
   };
+
+  const handleLogout = async () => {
+    try {
+      const response = await fetch('http://localhost:8081/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+
+      if (response.ok) {
+        // Clear tokens or session data
+        localStorage.removeItem('authToken');
+        sessionStorage.clear();
+
+        // Redirect to main content or entry page
+        navigate('/'); // Assuming '/' routes to App.js or your main content
+      } else {
+        console.error('Logout failed');
+      }
+    } catch (error) {
+      console.error('Error during logout:', error);
+    }
+};
 
   return (
     <>
@@ -55,7 +76,7 @@ const SuperAdminSideBar = () => {
         </div>
         <nav className="sidebar-nav">
           <NavLink 
-            to="/superadmin/sdashboard" 
+            to="/superadmin/sdashboard"
             className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}
             onClick={() => window.innerWidth < 768 && setIsOpen(false)}
           >
@@ -64,35 +85,33 @@ const SuperAdminSideBar = () => {
           </NavLink>
           
           <NavLink 
-            to="/superadmin/applications" 
+            to="/superadmin/applications"
             className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}
             onClick={() => window.innerWidth < 768 && setIsOpen(false)}
           >
             <FiFileText className="nav-icon" />
             <span>Applications</span>
-            {unreadCount > 0 && (
-              <span className="notification-badge" aria-label={`${unreadCount} unread applications`}>
-                {unreadCount}
-              </span>
-            )}
           </NavLink>
+          
+          {/* Logout link styled like other nav links */}
+          <div 
+            className="nav-link"
+            onClick={() => {
+              handleLogout();
+              if (window.innerWidth < 768) setIsOpen(false);
+            }}
+            style={{ cursor: 'pointer' }}
+          >
+            <FiLogOut className="nav-icon" />
+            <span>Log Out</span>
+          </div>
         </nav>
 
-        <div className="sidebar-footer">
-          <div className="notifications">
-            <FiBell className="notification-icon" />
-            {unreadCount > 0 && (
-              <span className="notification-badge" aria-label={`${unreadCount} unread notifications`}>
-                {unreadCount}
-              </span>
-            )}
-          </div>
-        </div>
       </div>
 
       {isOpen && window.innerWidth < 768 && (
         <div 
-          className="sidebar-overlay" 
+          className="sidebar-overlay"
           onClick={toggleSidebar}
           role="button"
           aria-label="Close sidebar"

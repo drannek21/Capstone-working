@@ -1,25 +1,29 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import styles from "./Signup.module.css"; // ✅ Import the CSS module
+import styles from "./Signup.module.css";
 
 const Signup = () => {
   const [formData, setFormData] = useState({
     email: "",
     password: "",
     confirmPassword: "",
-    name: "", // Added name field
+    name: "",
   });
 
-  const [error, setError] = useState(""); // ✅ State for error message
-  const [loading, setLoading] = useState(false); // ✅ Loading state
-  const navigate = useNavigate(); // ✅ Navigation hook
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   // Handle input changes
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
 
-    // ✅ Clear error message when user types
-    if (e.target.name === "confirmPassword") {
+    // Clear error message when user types in confirmPassword field
+    if (name === "confirmPassword") {
       setError("");
     }
   };
@@ -28,27 +32,27 @@ const Signup = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // ✅ Check if passwords match
+    // Check if passwords match
     if (formData.password !== formData.confirmPassword) {
       setError("Passwords do not match");
       return;
     }
 
-    setLoading(true); // Set loading to true while submitting
+    setLoading(true);
 
     try {
       // Sending the POST request to create a new user
       const response = await fetch("http://localhost:8081/users", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json", // Ensures the request body is in JSON format
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           email: formData.email,
           password: formData.password,
-          name: formData.name, // Send the name along with the rest of the data
+          name: formData.name,
           role: "user",
-          status: "Unverified" // Default role for new users
+          status: "Unverified"
         }),
       });
 
@@ -64,65 +68,73 @@ const Signup = () => {
       console.error("Error:", error);
       setError("Something went wrong. Please try again later.");
     } finally {
-      setLoading(false); // Set loading to false after submitting
+      setLoading(false);
     }
   };
 
   return (
-    <div className={styles["signup-container"]}>
-      <div className={styles["signup-box"]}>
+    <div className={styles.signupContainer}>
+      <div className={styles.signupBox}>
         <h2>Sign Up</h2>
         <form onSubmit={handleSubmit}>
-          <div className={styles["input-group"]}>
-            <label>Name</label> {/* Added name input */}
+          <div className={styles.inputGroup}>
+            <label htmlFor="name">Name</label>
             <input
+              id="name"
               type="text"
               name="name"
               placeholder="Enter your name"
-              required
+              value={formData.name}
               onChange={handleChange}
+              required
             />
           </div>
-          <div className={styles["input-group"]}>
-            <label>Email</label>
+          <div className={styles.inputGroup}>
+            <label htmlFor="email">Email</label>
             <input
+              id="email"
               type="email"
               name="email"
               placeholder="Enter your email"
-              required
+              value={formData.email}
               onChange={handleChange}
+              required
             />
           </div>
-          <div className={styles["input-group"]}>
-            <label>Password</label>
+          <div className={styles.inputGroup}>
+            <label htmlFor="password">Password</label>
             <input
+              id="password"
               type="password"
               name="password"
               placeholder="Enter your password"
-              required
+              value={formData.password}
               onChange={handleChange}
+              required
             />
           </div>
-          <div className={styles["input-group"]}>
-            <label>Confirm Password</label>
+          <div className={styles.inputGroup}>
+            <label htmlFor="confirmPassword">Confirm Password</label>
             <input
+              id="confirmPassword"
               type="password"
               name="confirmPassword"
               placeholder="Confirm your password"
-              required
+              value={formData.confirmPassword}
               onChange={handleChange}
+              required
             />
           </div>
-          {error && <p className={styles["error-message"]}>{error}</p>} {/* ✅ Display error if passwords don't match */}
+          {error && <p className={styles.errorMessage}>{error}</p>}
           <button
             type="submit"
-            disabled={loading || error}
-            className={styles["signup-btn"]}
+            disabled={loading}
+            className={styles.signupBtn}
           >
             {loading ? "Creating Account..." : "Create Account"}
           </button>
         </form>
-        <p className={styles["login-text"]}>
+        <p className={styles.loginText}>
           Already have an account? <a href="/login">Login</a>
         </p>
       </div>

@@ -9,19 +9,48 @@ const SDashboard = () => {
   
   const barangays = ["All", "Brgy 1", "Brgy 2", "Brgy 3", "Brgy 4"];
 
+  // Resize handler with debounce
   useEffect(() => {
+    let resizeTimeout;
+    
     const handleResize = () => {
-      setWindowWidth(window.innerWidth);
+      clearTimeout(resizeTimeout);
+      
+      resizeTimeout = setTimeout(() => {
+        setWindowWidth(window.innerWidth);
+        
+        chartsRef.current.forEach(chart => {
+          if (chart) {
+            chart.getEchartsInstance().resize();
+          }
+        });
+      }, 250); // Debounce resize events
+    };
+
+    window.addEventListener('resize', handleResize);
+    
+    // Initial render
+    handleResize();
+    
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      clearTimeout(resizeTimeout);
+    };
+  }, []);
+
+  // Update charts when data changes
+  useEffect(() => {
+    // Small timeout to ensure state has updated
+    const updateTimeout = setTimeout(() => {
       chartsRef.current.forEach(chart => {
         if (chart) {
           chart.getEchartsInstance().resize();
         }
       });
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+    }, 100);
+    
+    return () => clearTimeout(updateTimeout);
+  }, [selectedBrgy]);
 
   const brgyData = {
     "All": { population: [43, 44, 46, 46, 48, 50, 51, 53, 54, 56, 57, 62], growth: [10, 12, 8, 15], distribution: [150, 80, 10] },
@@ -34,6 +63,13 @@ const SDashboard = () => {
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const quarters = ["Q1", "Q2", "Q3", "Q4"];
 
+  // Dynamic font size calculation based on screen width
+  const getFontSize = (baseSize) => {
+    if (windowWidth < 480) return baseSize - 2;
+    if (windowWidth < 768) return baseSize - 1;
+    return baseSize;
+  };
+
   const populationOption = {
     title: {
       text: 'Population Growth',
@@ -41,7 +77,7 @@ const SDashboard = () => {
       top: 5,
       textStyle: {
         color: '#333',
-        fontSize: windowWidth < 768 ? 12 : 14,
+        fontSize: getFontSize(14),
         fontWeight: 'normal'
       }
     },
@@ -49,6 +85,10 @@ const SDashboard = () => {
       trigger: 'axis',
       axisPointer: {
         type: 'line'
+      },
+      formatter: (params) => {
+        const data = params[0];
+        return `${data.name}: <strong>${data.value}</strong> residents`;
       }
     },
     grid: {
@@ -62,14 +102,20 @@ const SDashboard = () => {
       type: 'category',
       data: months,
       axisLabel: {
-        fontSize: windowWidth < 768 ? 9 : 10,
-        interval: windowWidth < 480 ? 2 : 0
+        fontSize: getFontSize(10),
+        interval: windowWidth < 480 ? 2 : 0,
+        rotate: windowWidth < 480 ? 30 : 0
       }
     },
     yAxis: {
       type: 'value',
       axisLabel: {
-        fontSize: windowWidth < 768 ? 9 : 10
+        fontSize: getFontSize(10)
+      },
+      splitLine: {
+        lineStyle: {
+          color: 'rgba(0,0,0,0.05)'
+        }
       }
     },
     series: [{
@@ -77,7 +123,7 @@ const SDashboard = () => {
       type: 'line',
       smooth: true,
       symbol: 'circle',
-      symbolSize: 4,
+      symbolSize: 6,
       data: brgyData[selectedBrgy].population,
       areaStyle: {
         color: {
@@ -113,12 +159,16 @@ const SDashboard = () => {
       top: 5,
       textStyle: {
         color: '#333',
-        fontSize: windowWidth < 768 ? 12 : 14,
+        fontSize: getFontSize(14),
         fontWeight: 'normal'
       }
     },
     tooltip: {
-      trigger: 'axis'
+      trigger: 'axis',
+      formatter: (params) => {
+        const data = params[0];
+        return `${data.name}: <strong>${data.value}%</strong> growth`;
+      }
     },
     grid: {
       top: 40,
@@ -131,13 +181,19 @@ const SDashboard = () => {
       type: 'category',
       data: quarters,
       axisLabel: {
-        fontSize: windowWidth < 768 ? 9 : 10
+        fontSize: getFontSize(10)
       }
     },
     yAxis: {
       type: 'value',
       axisLabel: {
-        fontSize: windowWidth < 768 ? 9 : 10
+        fontSize: getFontSize(10),
+        formatter: '{value}%'
+      },
+      splitLine: {
+        lineStyle: {
+          color: 'rgba(0,0,0,0.05)'
+        }
       }
     },
     series: [{
@@ -161,6 +217,12 @@ const SDashboard = () => {
           }]
         },
         borderRadius: [3, 3, 0, 0]
+      },
+      label: {
+        show: windowWidth > 768,
+        position: 'top',
+        formatter: '{c}%',
+        fontSize: getFontSize(10)
       }
     }]
   };
@@ -172,13 +234,13 @@ const SDashboard = () => {
       top: 5,
       textStyle: {
         color: '#333',
-        fontSize: windowWidth < 768 ? 12 : 14,
+        fontSize: getFontSize(14),
         fontWeight: 'normal'
       }
     },
     tooltip: {
       trigger: 'item',
-      formatter: '{b}: {c} ({d}%)'
+      formatter: '{b}: <strong>{c}</strong> ({d}%)'
     },
     legend: {
       orient: 'horizontal',
@@ -188,14 +250,14 @@ const SDashboard = () => {
       itemHeight: 8,
       data: ['Female', 'Male', 'LGBTQ+'],
       textStyle: {
-        fontSize: windowWidth < 768 ? 9 : 10,
+        fontSize: getFontSize(10),
         padding: [0, 0, 0, 2]
       }
     },
     series: [{
       name: 'Gender Distribution',
       type: 'pie',
-      radius: ['35%', '65%'],
+      radius: windowWidth < 480 ? ['30%', '60%'] : ['35%', '65%'],
       center: ['50%', '45%'],
       avoidLabelOverlap: true,
       itemStyle: {
@@ -208,7 +270,7 @@ const SDashboard = () => {
       emphasis: {
         label: {
           show: true,
-          fontSize: windowWidth < 768 ? 10 : 12,
+          fontSize: getFontSize(12),
           fontWeight: 'bold'
         }
       },
@@ -228,10 +290,13 @@ const SDashboard = () => {
       <div className="dashboard-header">
         <h2 className="dashboard-title">Analytics Dashboard</h2>
         <div className="dropdown-container">
+          <label htmlFor="barangay-select" className="select-label">Select Barangay:</label>
           <select 
+            id="barangay-select"
             value={selectedBrgy} 
             onChange={(e) => setSelectedBrgy(e.target.value)}
             className="brgy-select"
+            aria-label="Select Barangay"
           >
             {barangays.map((brgy) => (
               <option key={brgy} value={brgy}>{brgy}</option>
@@ -247,6 +312,8 @@ const SDashboard = () => {
             option={populationOption}
             style={{ width: '100%', height: '100%' }}
             opts={{ renderer: 'svg' }}
+            notMerge={true}
+            lazyUpdate={true}
           />
         </div>
 
@@ -257,6 +324,8 @@ const SDashboard = () => {
               option={growthOption}
               style={{ width: '100%', height: '100%' }}
               opts={{ renderer: 'svg' }}
+              notMerge={true}
+              lazyUpdate={true}
             />
           </div>
 
@@ -266,6 +335,8 @@ const SDashboard = () => {
               option={distributionOption}
               style={{ width: '100%', height: '100%' }}
               opts={{ renderer: 'svg' }}
+              notMerge={true}
+              lazyUpdate={true}
             />
           </div>
         </div>

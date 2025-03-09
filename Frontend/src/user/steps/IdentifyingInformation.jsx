@@ -25,8 +25,8 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
     // Handle phone number input with prefix "09" and 11 digits
     if (name === "contactNumber") {
       let formattedValue = value.replace(/\D/g, ""); // Remove non-digit characters
-      if (!formattedValue.startsWith("09")) {
-        formattedValue = "09" + formattedValue.slice(2); // Ensure the number starts with "09"
+      if (!formattedValue.startsWith("09") && formattedValue.length > 0) {
+        formattedValue = "09" + formattedValue.substring(formattedValue.length > 2 ? 2 : 0);
       }
       if (formattedValue.length <= 11) {
         updateFormData({ [name]: formattedValue });
@@ -47,17 +47,6 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
       updateFormData({ [name]: incomeValue ? incomeValue.toString() : '' });
       return;
     }
-// Format Monthly Income with Peso sign
-    if (name === "income") {
-      const numericValue = value.replace(/\D/g, ''); // Remove non-numeric characters
-      if (numericValue !== "") {
-        updateFormData({ [name]: numericValue });
-      } else {
-        updateFormData({ [name]: '' });
-      }
-      return;
-    }
-    
 
     // Limit Age to 3 digits (1 to 999)
     if (name === "age") {
@@ -162,17 +151,24 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
     setErrors(formErrors);
   
     if (Object.keys(formErrors).length === 0) {
+      // Show success message briefly
+      setSuccessMessage("Form submitted successfully!");
       setTimeout(() => {
+        setSuccessMessage("");
         nextStep();
-      }, 3000); 
+      }, 2000); 
     } else {
+      // Auto-clear errors after a few seconds
       setTimeout(() => {
         setErrors({});
       }, 3000); 
     }
   };
 
-  // Format Monthly Income to include Peso sign
+  // State for success message
+  const [successMessage, setSuccessMessage] = useState("");
+
+  // Format Monthly Income to include Peso sign for display (not used in current implementation)
   const formatIncome = (income) => {
     return income ? `₱${income}` : '';
   };
@@ -180,37 +176,39 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
   return (
     <form onSubmit={handleSubmit} className="identifying-form">
       <h2 className="identifying-header">Step 1: Identifying Information</h2>
+      
+      {successMessage && <div className="success-message">{successMessage}</div>}
 
       {/* Names - Side by Side */}
       <div className="identifying-row">
-        <div>
+        <div className="form-group">
           <label className="identifying-label">First Name</label>
           <input
             type="text"
             name="firstName"
-            value={formData.firstName}
+            value={formData.firstName || ''}
             onChange={handleChange}
             className="identifying-input"
           />
           {errors.firstName && <span className="error">{errors.firstName}</span>}
         </div>
-        <div>
+        <div className="form-group">
           <label className="identifying-label">Middle Name</label>
           <input
             type="text"
             name="middleName"
-            value={formData.middleName}
+            value={formData.middleName || ''}
             onChange={handleChange}
             className="identifying-input"
           />
           {errors.middleName && <span className="error">{errors.middleName}</span>}
         </div>
-        <div>
+        <div className="form-group">
           <label className="identifying-label">Last Name</label>
           <input
             type="text"
             name="lastName"
-            value={formData.lastName}
+            value={formData.lastName || ''}
             onChange={handleChange}
             className="identifying-input"
           />
@@ -220,22 +218,24 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
 
       {/* Age & Gender */}
       <div className="identifying-row">
-        <div>
+        <div className="form-group">
           <label className="identifying-label">Age</label>
           <input
             type="number"
             name="age"
-            value={formData.age}
+            value={formData.age || ''}
             onChange={handleChange}
             className="identifying-input"
+            min="1"
+            max="999"
           />
           {errors.age && <span className="error">{errors.age}</span>}
         </div>
-        <div>
+        <div className="form-group">
           <label className="identifying-label">Gender</label>
           <select
             name="gender"
-            value={formData.gender}
+            value={formData.gender || ''}
             onChange={handleChange}
             className="identifying-input"
           >
@@ -250,23 +250,23 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
 
       {/* Birthdate & Birthplace */}
       <div className="identifying-row">
-        <div>
+        <div className="form-group">
           <label className="identifying-label">Date of Birth</label>
           <input
             type="date"
             name="dateOfBirth"
-            value={formData.dateOfBirth}
+            value={formData.dateOfBirth || ''}
             onChange={handleChange}
             className="identifying-input"
           />
           {errors.dateOfBirth && <span className="error">{errors.dateOfBirth}</span>}
         </div>
-        <div>
+        <div className="form-group">
           <label className="identifying-label">Place of Birth</label>
           <input
             type="text"
             name="placeOfBirth"
-            value={formData.placeOfBirth}
+            value={formData.placeOfBirth || ''}
             onChange={handleChange}
             className="identifying-input"
           />
@@ -275,12 +275,12 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
       </div>
 
       {/* Address */}
-      <div>
+      <div className="form-group">
         <label className="identifying-label">Address</label>
         <input
           type="text"
           name="address"
-          value={formData.address}
+          value={formData.address || ''}
           onChange={handleChange}
           className="identifying-input"
         />
@@ -289,22 +289,22 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
 
       {/* Educational Attainment & Civil Status */}
       <div className="identifying-row">
-        <div>
+        <div className="form-group">
           <label className="identifying-label">Educational Attainment</label>
           <input
             type="text"
             name="education"
-            value={formData.education}
+            value={formData.education || ''}
             onChange={handleChange}
             className="identifying-input"
           />
           {errors.education && <span className="error">{errors.education}</span>}
         </div>
-        <div>
+        <div className="form-group">
           <label className="identifying-label">Civil Status</label>
           <select
             name="civilStatus"
-            value={formData.civilStatus}
+            value={formData.civilStatus || ''}
             onChange={handleChange}
             className="identifying-input"
           >
@@ -320,23 +320,23 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
 
       {/* Occupation & Religion */}
       <div className="identifying-row">
-        <div>
+        <div className="form-group">
           <label className="identifying-label">Occupation</label>
           <input
             type="text"
             name="occupation"
-            value={formData.occupation}
+            value={formData.occupation || ''}
             onChange={handleChange}
             className="identifying-input"
           />
           {errors.occupation && <span className="error">{errors.occupation}</span>}
         </div>
-        <div>
+        <div className="form-group">
           <label className="identifying-label">Religion</label>
           <input
             type="text"
             name="religion"
-            value={formData.religion}
+            value={formData.religion || ''}
             onChange={handleChange}
             className="identifying-input"
           />
@@ -346,37 +346,39 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
 
       {/* Company & Monthly Income */}
       <div className="identifying-row">
-        <div>
+        <div className="form-group">
           <label className="identifying-label">Company/Agency</label>
           <input
             type="text"
             name="company"
-            value={formData.company}
+            value={formData.company || ''}
             onChange={handleChange}
             className="identifying-input"
           />
           {errors.company && <span className="error">{errors.company}</span>}
         </div>
-        <div>
+        <div className="form-group">
           <label className="identifying-label">Monthly Income</label>
-          <input
-            type="text"
-            name="income"
-            placeholder="₱"
-            value={formData.income}
-            onChange={handleChange}
-            className="identifying-input"
-          />
+          <div className="peso-input-container">
+            <span className="peso-sign">₱</span>
+            <input
+              type="text"
+              name="income"
+              value={formData.income || ''}
+              onChange={handleChange}
+              className="identifying-input peso-input"
+            />
+          </div>
           {errors.income && <span className="error">{errors.income}</span>}
         </div>
       </div>
 
       {/* Employment Status */}
-      <div>
+      <div className="form-group">
         <label className="identifying-label">Employment Status</label>
         <select
           name="employmentStatus"
-          value={formData.employmentStatus}
+          value={formData.employmentStatus || ''}
           onChange={handleChange}
           className="identifying-input"
         >
@@ -390,25 +392,27 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
 
       {/* Contact Number & Email */}
       <div className="identifying-row">
-        <div>
+        <div className="form-group">
           <label className="identifying-label">Contact Number</label>
           <input
-            type="number"
+            type="text"
             name="contactNumber"
-            value={formData.contactNumber}
+            value={formData.contactNumber || ''}
             onChange={handleChange}
             className="identifying-input"
+            placeholder="09XXXXXXXXX"
           />
           {errors.contactNumber && <span className="error">{errors.contactNumber}</span>}
         </div>
-        <div>
+        <div className="form-group">
           <label className="identifying-label">Email Address</label>
           <input
-            type="text"
+            type="email"
             name="email"
-            value={formData.email}
+            value={formData.email || ''}
             onChange={handleChange}
             className="identifying-input"
+            placeholder="example@email.com"
           />
           {errors.email && <span className="error">{errors.email}</span>}
         </div>
@@ -416,11 +420,11 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
 
       {/* Pantawid Beneficiary & Indigenous */}
       <div className="identifying-row">
-        <div>
+        <div className="form-group">
           <label className="identifying-label">Pantawid Beneficiary</label>
           <select
             name="pantawidBeneficiary"
-            value={formData.pantawidBeneficiary}
+            value={formData.pantawidBeneficiary || ''}
             onChange={handleChange}
             className="identifying-input"
           >
@@ -430,11 +434,11 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
           </select>
           {errors.pantawidBeneficiary && <span className="error">{errors.pantawidBeneficiary}</span>}
         </div>
-        <div>
+        <div className="form-group">
           <label className="identifying-label">Indigenous</label>
           <select
             name="indigenous"
-            value={formData.indigenous}
+            value={formData.indigenous || ''}
             onChange={handleChange}
             className="identifying-input"
           >
@@ -450,7 +454,3 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
     </form>
   );
 }
-
-
-
-

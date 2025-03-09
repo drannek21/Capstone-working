@@ -1,0 +1,11 @@
+{
+  "name": "capstone",
+  "version": "1.0.0",
+  "description": "Capstone project",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "author": "",
+  "license": "ISC"
+}

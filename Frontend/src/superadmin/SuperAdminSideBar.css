@@ -150,6 +150,11 @@
   animation: fadeIn 0.3s ease;
   backdrop-filter: blur(2px);
 }
+.nav-link.logout-button {
+  margin-top: auto; /* This pushes it to the bottom of the nav section */
+  margin-top: 1rem; /* Or add some specific spacing */
+}
+
 
 @keyframes fadeIn {
   from { opacity: 0; }
@@ -197,5 +202,12 @@
   .notification-badge {
     font-size: 0.7rem;
     padding: 0.1rem 0.35rem;
+  }
+  .logout-button {
+    padding: 0.6rem 0.75rem;
+  }
+  
+  .logout-icon {
+    font-size: 1.1rem;
   }
 }
