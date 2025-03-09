@@ -1,0 +1,44 @@
+.pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  
+  .pagination-dot {
+    width: 12px;
+    height: 12px;
+    background-color: #ccc;
+    border-radius: 50%;
+    transition: background 0.3s;
+  }
+  
+  .pagination-dot.active {
+    background-color: #16C47F; /* ✅ Green */
+    transform: scale(1.2);
+  }
+  
+  .pagination p {
+    font-size: 14px;
+    font-weight: bold;
+    margin-left: 10px;
+    color: #16C47F; /* ✅ Green */
+  }
+  
+ 
+  
+  /* ✅ Form Inputs */
+  input, select {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #acacac; /* ✅ Green */
+    border-radius: 5px;
+    font-size: 16px;
+    box-sizing: border-box;
+  }
+  
+  input:focus, select:focus {
+    outline: 2px solid #16C47F; /* ✅ Green */
+  }
+  

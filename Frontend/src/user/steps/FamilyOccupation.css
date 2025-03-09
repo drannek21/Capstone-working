@@ -1,0 +1,119 @@
+@import './shared.css';
+
+.family-form.step-form {
+  max-width: 800px;
+  margin: 20px auto;
+}
+
+.family-header.step-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.subtitle {
+  display: block;
+  font-size: 0.9em;
+  color: #666;
+  margin-top: 5px;
+}
+
+.family-input-group {
+  margin-bottom: 30px;
+}
+
+.child-form {
+  background: #f8f9fa;
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 30px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.child-form h4 {
+  color: #16C47F;
+  margin-bottom: 20px;
+  font-size: 1.2em;
+}
+
+.child-section {
+  margin-bottom: 25px;
+  padding: 15px;
+  background: white;
+  border-radius: 8px;
+}
+
+.child-section h5 {
+  color: #333;
+  margin-bottom: 15px;
+  font-size: 1em;
+}
+
+.name-row.step-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.birth-info {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 15px;
+}
+
+.form-input.step-input {
+  margin-bottom: 5px;
+}
+
+.form-input.step-input.error {
+  border-color: #f44336;
+  background-color: #fff8f8;
+}
+
+.error-message.step-error {
+  margin-top: 5px;
+}
+
+.form-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  margin-top: 30px;
+}
+
+.back-btn.step-button {
+  background: #6c757d;
+}
+
+.back-btn.step-button:hover {
+  background: #5a6268;
+}
+
+.next-btn.step-button:hover {
+  background: #14b374;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .family-form.step-form {
+    padding: 20px;
+  }
+
+  .name-row.step-row,
+  .birth-info {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .child-form {
+    padding: 15px;
+  }
+
+  .child-section {
+    padding: 10px;
+  }
+
+  .form-buttons {
+    flex-direction: column;
+  }
+}

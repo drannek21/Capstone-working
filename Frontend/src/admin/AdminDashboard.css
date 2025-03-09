@@ -1,0 +1,52 @@
+/* Admin Dashboard Layout */
+.admin-dashboard {
+  display: flex;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+/* Sidebar */
+.sidebar {
+  flex-shrink: 0;
+  width: 250px;
+  transition: transform 0.3s ease-in-out;
+}
+
+/* Main Content */
+.main-content {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  margin-left: 250px; /* Ensures main content stays aligned with sidebar */
+  transition: margin-left 0.3s ease-in-out;
+}
+
+
+/* Content Area */
+.dashboard-content {
+  flex-grow: 1;
+  padding:20px 20px; /* Ensures content does not overlap with fixed header */
+}
+
+/* Sidebar Hidden - Adjustments */
+.sidebar.hidden + .main-content {
+  margin-left: 0;
+}
+
+.sidebar.hidden + .main-content .admin-header {
+  left: 0;
+  width: 100%; /* Full width when sidebar is hidden */
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .main-content {
+      margin-left: 0;
+  }
+
+  .admin-header {
+      left: 0;
+      width: 100%;
+  }
+}

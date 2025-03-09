@@ -1,0 +1,260 @@
+/* 🔹 Hero Section */
+.hero {
+  width: 100vw;
+  max-width: 100%;
+  min-height: 100vh;
+  margin: 0;
+  background: url("../assets/hero-bg.jpg") center/cover no-repeat;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  padding: 50px 20px;
+  position: relative;
+  text-align: left;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.hero::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1;
+}
+
+/* 🔹 Hero Content */
+.hero-content {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 50px;
+  padding: 40px;
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  border-radius: 15px;
+  box-shadow: 0px 15px 40px rgba(0, 0, 0, 0.3);
+  z-index: 2;
+  margin: 40px auto;
+  max-width: 1200px;
+}
+
+/* 🔹 Logo */
+.hero-logo {
+  width: 300px;
+  height: auto;
+  animation: fadeIn 1.5s ease-in-out;
+}
+
+/* 🔹 Text */
+.hero-text {
+  max-width: 550px;
+}
+
+.hero-text h2 {
+  font-size: 2.5rem;
+  font-weight: bold;
+  margin-bottom: 15px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.5);
+  animation: fadeInDown 1.2s ease-in-out;
+}
+
+.hero-text p {
+  font-size: 1.2rem;
+  opacity: 0.9;
+  line-height: 1.8;
+  animation: fadeInDown 1.4s ease-in-out;
+}
+
+/* 🔹 Buttons */
+.hero-buttons {
+  margin-top: 25px;
+  display: flex;
+  gap: 20px;
+}
+
+.hero-buttons button {
+  padding: 14px 30px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 17px;
+  font-weight: bold;
+  text-transform: uppercase;
+  transition: 0.3s ease-in-out;
+  animation: fadeIn 1.5s ease-in-out;
+}
+
+/* ✅ Login Button */
+.hero-buttons .login-hero {
+  background: #16C47F;
+  color: white;
+  box-shadow: 0 8px 20px rgba(22, 196, 127, 0.4);
+  transition: all 0.3s ease;
+  padding: 14px 50px;
+  min-width: 170px;
+  text-align: center;
+}
+
+/* ✅ Login Button - Green Gradient */
+.hero-buttons .login-hero {
+  background: linear-gradient(135deg, #16C47F 0%, #0E9B64 100%);
+  color: white;
+  box-shadow: 0 8px 20px rgba(22, 196, 127, 0.4);
+  transition: all 0.3s ease;
+  padding: 14px 50px;
+  min-width: 170px;
+  text-align: center;
+  border: none;
+}
+
+.hero-buttons .login-hero:hover {
+  background: linear-gradient(135deg, #0E9B64 0%, #16C47F 100%);
+  transform: scale(1.07);
+  box-shadow: 0 10px 30px rgba(14, 155, 100, 0.6);
+}
+
+/* ✅ Learn More Button - White Gradient with Border */
+.hero-buttons .learn-more {
+  background: linear-gradient(135deg, white 0%, #f0f0f0 100%);
+  color: #16C47F;
+  border: 2px solid #16C47F;
+  transition: all 0.3s ease;
+}
+
+.hero-buttons .learn-more:hover {
+  background: linear-gradient(135deg, #16C47F 0%, #0E9B64 100%);
+  color: white;
+  border-color: #0E9B64;
+  transform: scale(1.07);
+}
+
+.hero .herotitle {
+  color: white; /* Ensures it only applies within Hero */
+}
+
+
+/* ✅ Learn More Button */
+.hero-buttons .learn-more {
+  background: white;
+  color: #16C47F;
+  border: 2px solid #16C47F;
+  transition: all 0.3s ease;
+}
+
+.hero-buttons .learn-more:hover {
+  background: #16C47F;
+  color: white;
+  transform: scale(1.07);
+}
+
+/* 🔥 Responsive Design */
+@media (max-width: 1024px) {
+  .hero {
+      padding: 80px 30px;
+      min-height: 80vh;
+  }
+
+  .hero-content {
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 30px;
+      gap: 30px;
+  }
+  .herotitle {
+    color: white; /* Ensures the title remains visible */
+    font-size: 2.5rem;
+    font-weight: bold;
+    margin-bottom: 15px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.5);
+    animation: fadeInDown 1.2s ease-in-out;
+  }
+  
+  .hero-logo {
+      width: 150px;
+  }
+
+  .hero-text h2 {
+      font-size: 2.2rem;
+  }
+
+  .hero-text p {
+      font-size: 1.1rem;
+  }
+
+  .hero-buttons {
+      flex-direction: column;
+      gap: 15px;
+  }
+
+  .hero-buttons button {
+      width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .hero {
+      min-height: 70vh;
+  }
+
+  .hero-content {
+      padding: 25px;
+      width: 95%;
+      gap: 25px;
+  }
+
+  .hero-logo {
+      width: 120px;
+  }
+
+  .hero-text h2 {
+      font-size: 2rem;
+  }
+
+  .hero-text p {
+      font-size: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero {
+      min-height: 65vh;
+      padding: 40px 15px;
+  }
+
+  .hero-content {
+      width: 100%;
+      padding: 20px;
+      gap: 20px;
+  }
+
+  .hero-logo {
+      width: 100px;
+  }
+
+  .hero-text h2 {
+      font-size: 1.8rem;
+  }
+
+  .hero-text p {
+      font-size: 0.95rem;
+  }
+
+  .hero-buttons {
+      gap: 10px;
+  }
+
+  .hero-buttons button {
+      font-size: 15px;
+      padding: 12px 20px;
+  }
+}

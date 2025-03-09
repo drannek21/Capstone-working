@@ -1,0 +1,143 @@
+
+@import './shared.css';
+
+.ice-container {
+  position: relative;
+}
+
+.ice-form.step-form {
+  max-width: 700px;
+  margin: 20px auto;
+}
+
+.ice-header.step-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.ice-form-group {
+  margin-bottom: 20px;
+}
+
+.ice-form-input.step-input.error {
+  border-color: #f44336;
+  background-color: #fff8f8;
+}
+
+.ice-form-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  margin-top: 20px;
+}
+
+.ice-back-btn.step-button {
+  background: #6c757d;
+}
+
+.ice-back-btn.step-button:hover {
+  background: #5a6268;
+}
+
+.ice-next-btn.step-button:hover {
+  background: #14b374;
+}
+
+/* Popup Styles */
+.ice-popup-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s ease-in-out;
+}
+
+.ice-popup-overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.ice-popup-content {
+  background: white;
+  padding: 30px;
+  border-radius: 10px;
+  text-align: center;
+  transform: translateY(-20px);
+  transition: all 0.3s ease-in-out;
+  max-width: 400px;
+  width: 90%;
+}
+
+.ice-popup-overlay.active .ice-popup-content {
+  transform: translateY(0);
+}
+
+.ice-popup-header {
+  font-size: 20px;
+  color: #333;
+  margin-bottom: 20px;
+}
+
+.ice-popup-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.ice-confirm-btn.step-button {
+  background: #16C47F;
+}
+
+.ice-cancel-btn.step-button {
+  background: #dc3545;
+}
+
+.ice-cancel-btn.step-button:hover {
+  background: #c82333;
+}
+
+/* Success Popup */
+.ice-success-popup {
+  padding: 40px;
+}
+
+.ice-checkmark {
+  font-size: 48px;
+  color: #16C47F;
+  margin-bottom: 20px;
+  animation: scaleIn 0.5s ease-in-out;
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .ice-form.step-form {
+    padding: 20px;
+  }
+
+  .ice-popup-content {
+    padding: 20px;
+  }
+
+  .ice-form-buttons,
+  .ice-popup-buttons {
+    flex-direction: column;
+  }
+}

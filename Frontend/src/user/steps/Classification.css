@@ -1,0 +1,138 @@
+
+@import './shared.css';
+
+/* Form Styling */
+.classification-form.step-form {
+  max-width: 700px;
+  margin: 20px auto;
+  padding: 25px;
+  border-radius: 10px;
+  background: #ffffff; /* White background for clarity */
+  box-shadow: 0px 4px 15px rgba(0, 0, 0, 0.15); /* Box shadow for depth */
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Header Styling */
+.classification-header.step-header {
+  font-size: 24px;
+  text-align: center;
+  color: #333;
+  margin-bottom: 30px;
+}
+
+/* Subtitle Styling */
+.subtitle {
+  display: block;
+  font-size: 0.9em;
+  color: #666;
+  margin-top: 5px;
+}
+
+/* Input Container Styling */
+.classification-input-container {
+  margin-bottom: 20px;
+}
+
+/* Label Styling */
+.classification-label.step-label {
+  font-weight: bold;
+  font-size: 14px;
+  margin-bottom: 10px;
+  display: block;
+  color: #333;
+}
+
+/* Input Styling */
+.classification-input.step-input {
+  width: 100%;
+  min-height: 120px;
+  padding: 12px;
+  border: 2px solid #ccc;
+  border-radius: 5px;
+  font-size: 16px;
+  box-sizing: border-box;
+  transition: border-color 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+  resize: vertical;
+  font-family: inherit;
+}
+
+/* Input Focus Effect */
+.classification-input.step-input:focus {
+  border-color: #16C47F;
+  box-shadow: 0px 0px 5px #13a56c;
+  outline: none;
+}
+
+/* Input Error Effect */
+.classification-input.step-input.error {
+  border-color: #f44336;
+  background-color: #fff8f8;
+}
+
+/* Button Styling */
+.classification-next-btn.step-button,
+.classification-back-btn.step-button {
+  background: #16C47F;
+  color: white;
+  font-size: 16px;
+  padding: 12px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.3s ease-in-out;
+  margin-top: 10px;
+  width: 100%;
+  text-align: center;
+}
+
+.classification-back-btn.step-button {
+  background: #6c757d;
+}
+
+.classification-back-btn.step-button:hover {
+  background: #5a6268;
+}
+
+.classification-next-btn.step-button:hover {
+  background: #14b374;
+}
+
+/* Button Hover Effect */
+.classification-next-btn.step-button:hover,
+.classification-back-btn.step-button:hover {
+  background: #13a56c;
+}
+
+/* Error Message Styling */
+.classification-error.step-error {
+  color: #f44336;
+  font-size: 14px;
+  margin-top: 5px;
+}
+
+/* Button Container Styling */
+.classification-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  margin-top: 20px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .classification-form.step-form {
+    padding: 20px;
+  }
+
+  .classification-input.step-input {
+    font-size: 14px;
+    padding: 10px;
+  }
+
+  .classification-buttons {
+    flex-direction: column;
+    gap: 10px;
+  }
+}

@@ -1,0 +1,113 @@
+/* About Minimal */
+.about-minimal {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  min-height: auto;
+  padding: 80px 20px;
+  background: linear-gradient(135deg, #16C47F, #0E9B64);
+}
+
+/* 🔹 Gradient Background */
+.green-bg {
+  background: linear-gradient(135deg, #16C47F 0%, #0E9B64 100%);
+  color: white;
+}
+
+/* Header */
+.about-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.about-header h1 {
+  font-size: 2.5rem;
+  font-weight: bold;
+  margin: 0;
+  color: white; /* Match theme */
+}
+
+/* Cards Container */
+.about-cards-container {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 20px;
+  max-width: 1200px;
+}
+
+/* About Card Minimal */
+.about-card-minimal {
+  background: white;
+  width: 300px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 30px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  transition: all 0.3s ease-in-out;
+  border-top: 5px solid #16C47F; /* Accent color */
+}
+
+/* 🔹 New: Gradient Shadow on Hover */
+.about-card-minimal:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(14, 155, 100, 0.3);
+}
+
+/* Image */
+.about-image-minimal {
+  width: 150px;
+  height: auto;
+  border-radius: 8px;
+  object-fit: cover;
+  margin-bottom: 20px;
+}
+
+/* Text */
+.about-text-minimal {
+  flex: 1;
+}
+
+.about-text-minimal h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #0E9B64; /* Theme color */
+  margin-bottom: 10px;
+}
+
+.about-text-minimal p {
+  font-size: 1rem;
+  color: #4b5563;
+  line-height: 1.6;
+}
+
+/* 🔹 Buttons */
+.about-card-minimal button {
+  color: white;
+  border: none;
+  padding: 12px 25px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease-in-out;
+  margin-top: 15px;
+}
+
+/* 🔹 Button Hover */
+.about-card-minimal button:hover {
+  background: #0E9B64;
+  transform: scale(1.07);
+  box-shadow: 0 5px 15px rgba(14, 155, 100, 0.5);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .about-card-minimal {
+      width: 90%;
+  }
+}
