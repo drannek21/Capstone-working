@@ -9,12 +9,12 @@ import "./MultiStepForm.css";
 
 export default function MultiStepForm() {
   const { state } = useLocation();
-  const userId = state?.userId || localStorage.getItem("UserId"); // Get userId from state or localStorage
+  const userId = state?.userId || localStorage.getItem("UserId");
 
   const [step, setStep] = useState(1);
   const totalSteps = 5;
-
   const [formData, setFormData] = useState({
+    // Step 1: Personal Information
     firstName: "",
     middleName: "",
     lastName: "",
@@ -34,51 +34,100 @@ export default function MultiStepForm() {
     email: "",
     pantawidBeneficiary: "",
     indigenous: "",
+    
+    // Step 2: Children
+    children: [],
+    
+    // Step 3: Classification
+    Classification: "",
+    
+    // Step 4: Needs/Problems
+    needsProblems: "",
+    
+    // Step 5: Emergency Contact
+    emergencyContact: {
+      emergencyName: "",
+      emergencyRelationship: "",
+      emergencyAddress: "",
+      emergencyContact: ""
+    }
   });
-
-  const generateCodeId = () => {
-    const date = new Date();
-    const year = date.getFullYear();
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const randomString = Math.random().toString(36).substr(2, 6).toUpperCase(); // 6 random alphanumeric characters
-    return `${year}-${month}-${randomString}`;
-  };
 
   const updateFormData = (newData) => {
     setFormData((prev) => ({ ...prev, ...newData }));
   };
 
-  const saveData = async () => {
-    if (!userId) {
-      console.error("No user logged in.");
-      return;
-    }
-
-    try {
-      const response = await fetch("http://localhost:8081/userDetailsStep1", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ ...formData, userId }), // Send userId with form data
-      });
-      const result = await response.json();
-      if (response.status === 201) {
-        console.log("Data saved successfully:", result);
-      } else {
-        console.error("Failed to save data:", result);
-      }
-    } catch (error) {
-      console.error("Error saving data:", error);
-    }
-  };
-
   const nextStep = () => {
-    saveData();
     setStep(step + 1);
   };
 
   const prevStep = () => setStep(step - 1);
+
+  const handleFinalSubmit = async () => {
+    try {
+      const submissionData = {
+        userId,
+        formData: {
+          // Step 1: Personal Information
+          firstName: formData.firstName,
+          middleName: formData.middleName,
+          lastName: formData.lastName,
+          age: formData.age,
+          gender: formData.gender,
+          dateOfBirth: formData.dateOfBirth,
+          placeOfBirth: formData.placeOfBirth,
+          address: formData.address,
+          education: formData.education,
+          civilStatus: formData.civilStatus,
+          occupation: formData.occupation,
+          religion: formData.religion,
+          company: formData.company,
+          income: formData.income,
+          employmentStatus: formData.employmentStatus,
+          contactNumber: formData.contactNumber,
+          email: formData.email,
+          pantawidBeneficiary: formData.pantawidBeneficiary,
+          indigenous: formData.indigenous,
+
+          // Step 2: Children
+          children: formData.children.map(child => ({
+            firstName: child.firstName,
+            middleName: child.middleName,
+            lastName: child.lastName,
+            birthdate: child.birthdate,
+            age: child.age,
+            educationalAttainment: child.educationalAttainment
+          })),
+
+          // Step 3: Classification
+          Classification: formData.Classification,
+
+          // Step 4: Needs/Problems
+          needsProblems: formData.needsProblems,
+
+          // Step 5: Emergency Contact
+          emergencyContact: formData.emergencyContact
+        }
+      };
+
+      const response = await fetch("http://localhost:8081/submitAllSteps", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(submissionData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to submit form');
+      }
+
+      const result = await response.json();
+      alert(`Form submitted successfully! Your Code ID is: ${result.codeId}`);
+    } catch (error) {
+      console.error("Error submitting form:", error);
+      alert("An error occurred while submitting the form. Please try again.");
+    }
+  };
 
   return (
     <div>
@@ -91,10 +140,10 @@ export default function MultiStepForm() {
       )}
       {step === 2 && (
         <FamilyOccupation
-          nextStep={nextStep}
           prevStep={prevStep}
-          updateFormData={updateFormData}
+          nextStep={nextStep}
           formData={formData}
+          updateFormData={updateFormData}
         />
       )}
       {step === 3 && (
@@ -118,6 +167,7 @@ export default function MultiStepForm() {
           prevStep={prevStep}
           updateFormData={updateFormData}
           formData={formData}
+          onSubmit={handleFinalSubmit}
         />
       )}
       <div className="pagination">

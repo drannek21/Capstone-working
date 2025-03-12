@@ -1,10 +1,9 @@
-
 import { useForm } from "react-hook-form";
 import React, { useEffect } from "react";
 import "./FamilyOccupation.css";
 import "./shared.css";
 
-export default function FamilyOccupation({ prevStep, nextStep, formData, updateFormData }) { 
+export default function FamilyOccupation({ prevStep, nextStep, formData, updateFormData }) {
   const { register, handleSubmit, watch, setValue, formState: { errors }, trigger } = useForm({
     defaultValues: formData
   });
@@ -24,8 +23,7 @@ export default function FamilyOccupation({ prevStep, nextStep, formData, updateF
     return age;
   };
 
-  // Watch all birthdate fields
-  const birthdates = Array.from({ length: numberOfChildren }).map((_, index) => 
+  const birthdates = Array.from({ length: numberOfChildren }).map((_, index) =>
     watch(`children[${index}].Birthdate`)
   );
 
@@ -36,18 +34,29 @@ export default function FamilyOccupation({ prevStep, nextStep, formData, updateF
         setValue(`children[${index}].Age`, age);
       }
     });
-  }, [birthdates, setValue]); // Add birthdates to dependency array
+  }, [birthdates, setValue]);
 
   const onSubmit = async (data) => {
     const isValid = await trigger();
-    if (!isValid) {
-      return;
-    }
-
-    updateFormData({ ...formData, ...data });
+    if (!isValid) return;
+  
+    const childrenData = data.children.map((child, index) => ({
+      firstName: child["First name"] || "",
+      middleName: child["Middle name"] || "",
+      lastName: child["Last name"] || "",
+      birthdate: child["Birthdate"] || "",
+      age: child["Age"] || "",
+      educationalAttainment: watch(`children[${index}].Educational Attainment`) || ""
+    }));
+  
+    updateFormData({ 
+      ...formData, 
+      ...data,
+      children: childrenData 
+    });
     nextStep();
   };
-
+  
   return (
     <form className="family-form step-form" onSubmit={handleSubmit(onSubmit)}>
       <h2 className="family-header step-header">
@@ -61,13 +70,13 @@ export default function FamilyOccupation({ prevStep, nextStep, formData, updateF
           className={`form-input step-input ${errors["Number of children"] ? 'error' : ''}`}
           type="number"
           placeholder="Enter number of children"
-          {...register("Number of children", { 
-            required: "This field is required", 
+          {...register("Number of children", {
+            required: "This field is required",
             min: { value: 0, message: "Number of children cannot be negative" }
           })}
           onBlur={() => trigger("Number of children")}
         />
-        {errors["Number of children"] && 
+        {errors["Number of children"] &&
           <span className="error-message step-error">{errors["Number of children"].message}</span>
         }
       </div>
@@ -80,36 +89,36 @@ export default function FamilyOccupation({ prevStep, nextStep, formData, updateF
             <h5>Full Name</h5>
             <div className="name-row step-row">
               <div>
-                <input 
-                  className="form-input step-input" 
-                  type="text" 
-                  placeholder="First name" 
-                  {...register(`children[${index}].First name`, { required: "First name is required" })} 
+                <input
+                  className="form-input step-input"
+                  type="text"
+                  placeholder="First name"
+                  {...register(`children[${index}].First name`, { required: "First name is required" })}
                 />
-                {errors.children?.[index]?.["First name"] && 
-                  <span className="error-message step-error">{errors.children[index]["First name"].message}</span>
+                {errors.children?.[index]?.["Firstname"] &&
+                  <span className="error-message step-error">{errors.children[index]["Firstname"].message}</span>
                 }
               </div>
               <div>
-                <input 
-                  className="form-input step-input" 
-                  type="text" 
-                  placeholder="Middle name" 
-                  {...register(`children[${index}].Middle name`, { required: "Middle name is required" })} 
+                <input
+                  className="form-input step-input"
+                  type="text"
+                  placeholder="Middle name"
+                  {...register(`children[${index}].Middle name`, { required: "Middle name is required" })}
                 />
-                {errors.children?.[index]?.["Middle name"] && 
-                  <span className="error-message step-error">{errors.children[index]["Middle name"].message}</span>
+                {errors.children?.[index]?.["Middlename"] &&
+                  <span className="error-message step-error">{errors.children[index]["Middlename"].message}</span>
                 }
               </div>
               <div>
-                <input 
-                  className="form-input step-input" 
-                  type="text" 
-                  placeholder="Last name" 
-                  {...register(`children[${index}].Last name`, { required: "Last name is required" })} 
+                <input
+                  className="form-input step-input"
+                  type="text"
+                  placeholder="Last name"
+                  {...register(`children[${index}].Last name`, { required: "Last name is required" })}
                 />
-                {errors.children?.[index]?.["Last name"] && 
-                  <span className="error-message step-error">{errors.children[index]["Last name"].message}</span>
+                {errors.children?.[index]?.["Lastname"] &&
+                  <span className="error-message step-error">{errors.children[index]["Lastname"].message}</span>
                 }
               </div>
             </div>
@@ -119,16 +128,16 @@ export default function FamilyOccupation({ prevStep, nextStep, formData, updateF
             <div className="birth-info">
               <div>
                 <label className="form-label step-label">Birthdate</label>
-                <input 
-                  className="form-input step-input" 
-                  type="date" 
-                  {...register(`children[${index}].Birthdate`, { 
+                <input
+                  className="form-input step-input"
+                  type="date"
+                  {...register(`children[${index}].Birthdate`, {
                     required: "Birthdate is required",
                     validate: value => {
                       const age = calculateAge(value);
                       return age <= 21 || "Child must be 21 years old or younger";
                     }
-                  })} 
+                  })}
                   onChange={(e) => {
                     const birthdate = e.target.value;
                     if (birthdate) {
@@ -137,18 +146,18 @@ export default function FamilyOccupation({ prevStep, nextStep, formData, updateF
                     }
                   }}
                 />
-                {errors.children?.[index]?.Birthdate && 
+                {errors.children?.[index]?.Birthdate &&
                   <span className="error-message step-error">{errors.children[index].Birthdate.message}</span>
                 }
               </div>
-              
+
               <div>
                 <label className="form-label step-label">Age (Auto-Calculated)</label>
-                <input 
-                  className="form-input step-input" 
-                  type="number" 
-                  placeholder="Age" 
-                  {...register(`children[${index}].Age`)} 
+                <input
+                  className="form-input step-input"
+                  type="number"
+                  placeholder="Age"
+                  {...register(`children[${index}].Age`)}
                   readOnly
                 />
               </div>
@@ -157,15 +166,15 @@ export default function FamilyOccupation({ prevStep, nextStep, formData, updateF
 
           <div className="child-section">
             <h5>Educational Background</h5>
-            <input 
-              className="form-input step-input" 
-              type="text" 
-              placeholder="Educational Attainment (N/A if none)" 
-              {...register(`children[${index}].Educational Attainment`, { 
-                required: "Educational attainment is required" 
-              })} 
+            <input
+              className="form-input step-input"
+              type="text"
+              placeholder="Educational Attainment (N/A if none)"
+              {...register(`children[${index}].Educational Attainment`, {
+                required: "Educational Attainment is required"
+              })}
             />
-            {errors.children?.[index]?.["Educational Attainment"] && 
+            {errors.children?.[index]?.["Educational Attainment"] &&
               <span className="error-message step-error">
                 {errors.children[index]["Educational Attainment"].message}
               </span>
@@ -175,8 +184,12 @@ export default function FamilyOccupation({ prevStep, nextStep, formData, updateF
       ))}
 
       <div className="form-buttons">
-        <button type="button" className="back-btn step-button" onClick={prevStep}>Back</button>
-        <button type="submit" className="next-btn step-button">Next</button>
+        <button type="button" className="back-btn step-button" onClick={prevStep}>
+          Back
+        </button>
+        <button type="submit" className="next-btn step-button">
+          Next
+        </button>
       </div>
     </form>
   );

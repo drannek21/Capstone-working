@@ -3,6 +3,7 @@ import "./IdentifyingInformation.css";
 
 export default function IdentifyingInformation({ nextStep, updateFormData, formData }) {
   const [errors, setErrors] = useState({});
+  const [successMessage, setSuccessMessage] = useState("");
 
   // Update formData directly when inputs change
   const handleChange = (e) => {
@@ -152,11 +153,11 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
   
     if (Object.keys(formErrors).length === 0) {
       // Show success message briefly
-      setSuccessMessage("Form submitted successfully!");
+      setSuccessMessage("Form validated successfully!");
       setTimeout(() => {
         setSuccessMessage("");
-        nextStep();
-      }, 2000); 
+        nextStep(); // Move to the next step
+      }, 1000); 
     } else {
       // Auto-clear errors after a few seconds
       setTimeout(() => {
@@ -164,20 +165,12 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
       }, 3000); 
     }
   };
-
-  // State for success message
-  const [successMessage, setSuccessMessage] = useState("");
-
-  // Format Monthly Income to include Peso sign for display (not used in current implementation)
-  const formatIncome = (income) => {
-    return income ? `₱${income}` : '';
-  };
-
+  
   return (
     <form onSubmit={handleSubmit} className="identifying-form">
       <h2 className="identifying-header">Step 1: Identifying Information</h2>
       
-      {successMessage && <div className="success-message">{successMessage}</div>}
+      {successMessage && <div className="success-message">{successMessage}</div>} {/* Display success message */}
 
       {/* Names - Side by Side */}
       <div className="identifying-row">
@@ -442,7 +435,7 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
             onChange={handleChange}
             className="identifying-input"
           >
-             <option value="" disabled>Please choose</option>
+            <option value="" disabled>Please choose</option>
             <option value="Yes">Yes</option>
             <option value="No">No</option>
           </select>
