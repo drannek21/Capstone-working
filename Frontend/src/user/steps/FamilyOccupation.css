@@ -2,7 +2,9 @@
 
 .family-form.step-form {
   max-width: 800px;
-  margin: 20px auto;
+  margin: 0 auto;
+  padding: 20px;
+  
 }
 
 .family-header.step-header {

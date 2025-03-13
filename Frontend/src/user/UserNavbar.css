@@ -1,334 +1,371 @@
-/* 🔹 User Navbar */
+/* UserNavbar.css */
 .user-navbar {
-  background-color: #16C47F; /* Green Theme */
+  background-color: #16C47F;
+  box-shadow: 0 2px 10px rgba(22, 196, 127, 0.2);
   position: sticky;
   top: 0;
-  left: 0;
-  width: 100%;
   z-index: 1000;
-  padding: 15px 30px;
-  box-sizing: border-box;
-  box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+  width: 100%;
 }
 
-/* 🔹 Navbar Layout */
 .user-navbar-container {
+  max-width: 1200px;
+  margin: 0 auto;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  max-width: 1200px;
-  margin: 0 auto;
-  box-sizing: border-box;
+  padding: 0.8rem 1.5rem;
 }
 
-/* 🔹 Logo */
-.user-navbar .logo {
-  font-size: 1.8rem;
-  font-weight: 600;
+.logo {
   color: white;
+  font-size: 1.5rem;
+  font-weight: 700;
   text-decoration: none;
-  transition: color 0.3s ease-in-out;
+  transition: all 0.3s ease;
 }
 
-.user-navbar .logo:hover {
-  color: #E6FFF3; /* Lighter green hover effect */
+.logo:hover {
+  opacity: 0.9;
+  transform: scale(1.02);
 }
 
-/* 🔹 Navigation Links */
 .nav-links {
-  list-style: none;
   display: flex;
-  align-items: center; /* Ensures vertical alignment */
-  gap: 20px;
+  align-items: center;
+  list-style: none;
   margin: 0;
   padding: 0;
+  gap: 1.5rem;
 }
 
-.nav-links a,
-.nav-links button {
-  text-decoration: none;
-  color: white;
-  font-size: 1.1rem;
-  padding: 10px 15px;
-  font-weight: bold;
-  border-radius: 5px;
-  transition: background 0.3s ease-in-out, color 0.3s ease-in-out;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* 🔹 Hover Effect */
-.nav-links a:hover,
-.nav-links button:hover {
-  color: white;
-  background: #0E9B64; /* Darker green */
-}
-/* 🔹 Notification Bell */
-/* 🔹 Notification Bell */
-.nav-track {
-  display: flex;
-  align-items: center;
-  gap: 8px; /* Space between text & bell */
+.nav-links li {
   position: relative;
 }
 
+.nav-links a, 
+.nav-links button {
+  color: white;
+  text-decoration: none;
+  font-size: 1rem;
+  font-weight: 500;
+  padding: 0.5rem 0.8rem;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.nav-links a:hover, 
+.nav-links button:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
 .notif-bell {
+  position: relative;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: none;
   border: none;
   color: white;
-  font-size: 1.4rem;
   cursor: pointer;
-  transition: color 0.3s ease-in-out;
+  padding: 0.5rem;
+  transition: transform 0.2s ease;
 }
 
 .notif-bell:hover {
-  color: #e0f2fe;
+  transform: scale(1.1);
 }
-
-
-
-
-/* 🔹 Logout Button (Fixed) */
-.logout-item {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
 
 .logout-item button {
-  background: red;
+  background-color: #f63545;
+  border: 1px solid #f63545;
   color: white;
-  padding: 10px 15px;
-  border-radius: 6px;
-  font-size: 1rem;
-  font-weight: bold;
-  cursor: pointer;
-  transition: background 0.3s ease-in-out;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 40px;  /* Ensure fixed height */
-  width: 120px;  /* Ensure fixed width */
-  border: 2px solid red; /* Fix size issue */
-  box-sizing: border-box; /* Prevent shifting */
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
 }
-/* 🔹 Logout Popup Overlay */
+
+.logout-item button:hover {
+  background-color: #e13240;
+  border-color: #e13240;
+}
+
+/* Improved hamburger menu styling */
+.hamburger {
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem;
+  width: 30px;
+  height: 24px;
+  position: relative;
+  z-index: 1001;
+}
+
+.bar {
+  display: block;
+  position: absolute;
+  height: 3px;
+  width: 100%;
+  background-color: white;
+  border-radius: 3px;
+  opacity: 1;
+  left: 0;
+  transform: rotate(0deg);
+  transition: all 0.25s ease-in-out;
+}
+
+.bar:nth-child(1) {
+  top: 0;
+}
+
+.bar:nth-child(2) {
+  top: 10px;
+}
+
+.bar:nth-child(3) {
+  top: 20px;
+}
+
+.hamburger.open .bar:nth-child(1) {
+  top: 10px;
+  transform: rotate(135deg);
+}
+
+.hamburger.open .bar:nth-child(2) {
+  opacity: 0;
+  left: -60px;
+}
+
+.hamburger.open .bar:nth-child(3) {
+  top: 10px;
+  transform: rotate(-135deg);
+}
+
+/* Logout popup styling */
 .logout-popup {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.6);
+  background-color: rgba(0, 0, 0, 0.5);
   display: flex;
   justify-content: center;
   align-items: center;
+  z-index: 9999;
   opacity: 0;
   visibility: hidden;
-  transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+  transition: all 0.3s ease;
 }
 
-/* 🔹 Show Popup */
 .logout-popup.show {
   opacity: 1;
   visibility: visible;
 }
 
-/* 🔹 Popup Box */
 .popup-content {
-  background: white;
-  padding: 20px 30px;
+  background-color: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   text-align: center;
-  border-radius: 10px;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-  width: 320px;
-  position: relative;
-  transform: scale(0.8);
-  transition: transform 0.3s ease-in-out;
 }
 
-/* 🔹 Animate Popup */
-.logout-popup.show .popup-content {
-  transform: scale(1);
+.popup-content h3 {
+  margin-top: 0;
+  color: #333;
+  font-size: 1.3rem;
 }
 
-/* 🔹 Popup Buttons */
 .popup-buttons {
   display: flex;
-  justify-content: space-between;
-  margin-top: 20px;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1.5rem;
 }
 
-/* 🔹 Confirm & Cancel Buttons */
-.popup-buttons .confirm,
-.popup-buttons .cancel {
-  flex: 1;
-  padding: 10px;
-  border-radius: 6px;
-  border: none;
+.popup-buttons button {
+  padding: 0.8rem 1.5rem;
+  border-radius: 4px;
+  font-weight: 500;
   cursor: pointer;
-  font-size: 1rem;
-  font-weight: bold;
-  transition: background 0.3s ease-in-out;
+  transition: all 0.2s ease;
 }
 
-/* 🔹 Confirm (Logout) */
 .popup-buttons .confirm {
-  background: red;
+  background-color: #f63545;
+  align-content: center;
   color: white;
-  margin-right: 10px;
+  border: none;
 }
 
 .popup-buttons .confirm:hover {
-  background: darkred;
+  background-color: #f63545;
+  
 }
 
-/* 🔹 Cancel Button */
 .popup-buttons .cancel {
-  background: gray;
-  color: white;
+  background-color: #f5f5f5;
+  color: #333;
+  border: 1px solid #ddd;
 }
 
 .popup-buttons .cancel:hover {
-  background: darkgray;
+  background-color: #eaeaea;
+}
+.notification-container {
+  position: relative;
 }
 
-/* 🔹 Click Outside to Close */
-.logout-popup::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-}
-
-
-/* 🔹 Hover Fix */
-.logout-item button:hover {
-  background: darkred;
-  border: 2px solid darkred; /* Keep border width same to avoid shifting */
-  color: white;
-}
-
-
-/* 🔹 Hamburger Menu */
-.hamburger {
-  background: transparent;
+.notif-bell {
+  position: relative;
+  background: none;
   border: none;
+  font-size: 1.2rem;
+  color: #333;
   cursor: pointer;
-  display: none; /* Hidden by default */
-  flex-direction: column;
-  justify-content: space-between;
-  width: 35px;
-  height: 26px;
-  padding: 0;
-  transition: all 0.3s ease-in-out;
+  padding: 8px;
 }
 
-.hamburger .bar {
-  width: 100%;
-  height: 4px;
+.notification-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background-color: #ff4757;
+  color: white;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  font-size: 0.7rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.notification-panel {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  width: 300px;
+  max-height: 400px;
   background-color: white;
-  
-  transition: all 0.3s ease-in-out;
+  border-radius: 8px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  overflow: hidden;
+  margin-top: 10px;
 }
 
-/* 🔹 Fix X Alignment */
-.hamburger.open .bar:nth-child(1) {
-  transform: translateY(10px) rotate(45deg);
+.notification-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 15px;
+  border-bottom: 1px solid #eee;
 }
 
-.hamburger.open .bar:nth-child(2) {
-  opacity: 0;
+.notification-header h3 {
+  margin: 0;
+  font-size: 1rem;
 }
 
-.hamburger.open .bar:nth-child(3) {
-  transform: translateY(-10px) rotate(-45deg);
+.mark-all-read {
+  background: none;
+  border: none;
+  color: #4b7bec;
+  font-size: 0.8rem;
+  cursor: pointer;
 }
 
+.notification-list {
+  max-height: 350px;
+  overflow-y: auto;
+}
+
+.notification-item {
+  padding: 12px 15px;
+  border-bottom: 1px solid #f5f5f5;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.notification-item:hover {
+  background-color: #f9f9f9;
+}
+
+.notification-item.unread {
+  background-color: #f0f7ff;
+}
+
+.notification-message {
+  margin: 0 0 5px 0;
+  font-size: 0.9rem;
+}
+
+.notification-date {
+  display: block;
+  font-size: 0.75rem;
+  color: #888;
+}
+
+.no-notifications {
+  padding: 20px;
+  text-align: center;
+  color: #888;
+}
+
+/* Mobile responsiveness */
 @media (max-width: 768px) {
+  .nav-links.open .notification-panel {
+    position: fixed;
+    top: auto;
+    right: 50%;
+    transform: translateX(50%);
+    width: 90%;
+    max-width: 350px;
+    margin-top: 5px;
+  }
+  .hamburger {
+    display: block;
+  }
+  
   .nav-links {
-    display: none;
+    position: fixed;
+    top: 0;
+    right: -100%;
+    width: 70%;
+    max-width: 300px;
+    height: 100vh;
+    background-color: #16C47F;
     flex-direction: column;
-    align-items: center;
-    position: absolute;
-    top: 60px;
-    left: 0;
-    width: 100%;
-    background-color: #16C47F; /* ✅ Green Theme */
-    padding: 15px 0;
-    gap: 10px;
-    transition: all 0.3s ease-in-out;
-    opacity: 0;
-    visibility: hidden;
-    transform: translateY(-10px);
+    align-items: flex-start;
+    padding: 5rem 2rem 2rem;
+    gap: 1.5rem;
+    transition: all 0.3s ease;
+    box-shadow: -5px 0 15px rgba(0, 0, 0, 0.1);
   }
-
+  
   .nav-links.open {
-    display: flex;
-    opacity: 1;
-    visibility: visible;
-    transform: translateY(0);
+    right: 0;
   }
-
+  
   .nav-links li {
     width: 100%;
-    text-align: center;
   }
-
-  .nav-links a {
-    display: block;
+  
+  .nav-links a,
+  .nav-links button {
     width: 100%;
-    padding: 12px 0;
-    font-size: 1.1rem;
-    color: white; /* ✅ Ensure readability */
-    transition: background 0.3s ease-in-out, color 0.3s ease-in-out;
-  }
-
-  .nav-links a:hover {
-    background: #0E9B64; /* ✅ Darker Green Hover */
-  }
-
-  .hamburger {
-    display: flex;
-  }
-
-  .user-navbar-container {
-    flex-direction: row;
-  }
-
-  .user-navbar .logo {
-    margin-right: auto;
-  }
-
-  /* 🔹 Logout Inside Mobile Menu */
-  .logout-item {
-    width: 100%;
-    text-align: center;
-    margin-top: 10px;
-  }
-
-  .logout-item button {
-    display: block;
-    width: 90%;
-    margin: 0 auto;
-    padding: 12px 0;
-    background: red;
-    color: white;
-    border: 2px solid red;
-    transition: background 0.3s ease-in-out;
-  }
-
-  .logout-item button:hover {
-    background: darkred;
-    border: 2px solid darkred;
-  }
-
-  /* 🔹 Fix Hamburger Focus */
-  .hamburger:focus {
-    outline: 2px solid white;
+    padding: 0.8rem;
   }
 }

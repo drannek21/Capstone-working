@@ -1,13 +1,21 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faBell } from "@fortawesome/free-solid-svg-icons";
+import { faBell, faTimes } from "@fortawesome/free-solid-svg-icons";
 import "./UserNavbar.css";
 
 const UserNavbar = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showLogoutPopup, setShowLogoutPopup] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
   const navigate = useNavigate();
+
+  // Sample notifications - replace with your actual data fetching logic
+  const [notifications, setNotifications] = useState([
+    { id: 1, message: "Your application has been approved", read: false, date: "2025-03-12" },
+    { id: 2, message: "New event: Community meeting on Friday", read: false, date: "2025-03-10" },
+    { id: 3, message: "Document verification required", read: true, date: "2025-03-08" },
+  ]);
 
   useEffect(() => {
     if (showLogoutPopup) {
@@ -17,6 +25,18 @@ const UserNavbar = () => {
       };
     }
   }, [showLogoutPopup]);
+
+  useEffect(() => {
+    // Close notification panel when clicking outside
+    const handleClickOutside = (e) => {
+      if (showNotifications && !e.target.closest('.notification-panel') && !e.target.closest('.notif-bell')) {
+        setShowNotifications(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showNotifications]);
 
   const handleLogout = () => {
     localStorage.removeItem("userToken");
@@ -36,6 +56,24 @@ const UserNavbar = () => {
     }
   };
 
+  const toggleNotifications = () => {
+    setShowNotifications(!showNotifications);
+  };
+
+  const markAsRead = (id) => {
+    setNotifications(notifications.map(notif => 
+      notif.id === id ? { ...notif, read: true } : notif
+    ));
+  };
+
+  const markAllAsRead = () => {
+    setNotifications(notifications.map(notif => ({ ...notif, read: true })));
+  };
+
+  const getUnreadCount = () => {
+    return notifications.filter(notif => !notif.read).length;
+  };
+
   return (
     <nav className="user-navbar">
       <div className="user-navbar-container">
@@ -53,14 +91,46 @@ const UserNavbar = () => {
           <span className="bar"></span>
         </button>
 
-        <ul className={`nav-links ${menuOpen ? "open" : ""}`} onClick={() => setMenuOpen(false)}>
-          <li>
-            <button className="notif-bell">
+        <ul className={`nav-links ${menuOpen ? "open" : ""}`} onClick={(e) => {
+          // Prevent closing the menu when clicking notification bell
+          if (!e.target.closest('.notif-bell') && !e.target.closest('.notification-panel')) {
+            setMenuOpen(false);
+          }
+        }}>
+          <li className="notification-container">
+            <button className="notif-bell" onClick={toggleNotifications}>
               <FontAwesomeIcon icon={faBell} />
+              {getUnreadCount() > 0 && <span className="notification-badge">{getUnreadCount()}</span>}
             </button>
-          </li>
-          <li>
-            <Link to="/track">Track</Link>
+            
+            {showNotifications && (
+              <div className="notification-panel">
+                <div className="notification-header">
+                  <h3>Notifications</h3>
+                  {getUnreadCount() > 0 && (
+                    <button className="mark-all-read" onClick={markAllAsRead}>
+                      Mark all as read
+                    </button>
+                  )}
+                </div>
+                <div className="notification-list">
+                  {notifications.length > 0 ? (
+                    notifications.map((notification) => (
+                      <div 
+                        key={notification.id} 
+                        className={`notification-item ${notification.read ? 'read' : 'unread'}`}
+                        onClick={() => markAsRead(notification.id)}
+                      >
+                        <p className="notification-message">{notification.message}</p>
+                        <span className="notification-date">{notification.date}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="no-notifications">No notifications</p>
+                  )}
+                </div>
+              </div>
+            )}
           </li>
           <li className="logout-item">
             <button onClick={() => setShowLogoutPopup(true)}>Logout</button>

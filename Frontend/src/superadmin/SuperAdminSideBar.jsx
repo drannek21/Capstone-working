@@ -18,7 +18,6 @@ const SuperAdminSideBar = () => {
   }, []);
 
   useEffect(() => {
-    // Fetch notifications from backend
     const fetchNotifications = async () => {
       try {
         const response = await fetch('http://localhost:8081/notifications');
@@ -38,27 +37,25 @@ const SuperAdminSideBar = () => {
     setIsOpen(!isOpen);
   };
 
-  const handleLogout = async () => {
-    try {
-      const response = await fetch('http://localhost:8081/auth/logout', {
-        method: 'POST',
-        credentials: 'include',
-      });
+  const handleLogout = () => {
+    // Clear user session
+    localStorage.removeItem("userToken");
 
-      if (response.ok) {
-        // Clear tokens or session data
-        localStorage.removeItem('authToken');
-        sessionStorage.clear();
+    // Navigate to login page
+    navigate("/", { replace: true });
 
-        // Redirect to main content or entry page
-        navigate('/'); // Assuming '/' routes to App.js or your main content
-      } else {
-        console.error('Logout failed');
-      }
-    } catch (error) {
-      console.error('Error during logout:', error);
-    }
+    // Prevent back navigation
+    setTimeout(() => {
+        window.history.pushState(null, "", window.location.href);
+        window.onpopstate = () => {
+            window.history.pushState(null, "", window.location.href);
+        };
+    }, 0);
+
+    // Reload to clear cached session data
+    window.location.reload();
 };
+  
 
   return (
     <>
@@ -92,21 +89,17 @@ const SuperAdminSideBar = () => {
             <FiFileText className="nav-icon" />
             <span>Applications</span>
           </NavLink>
-          
-          {/* Logout link styled like other nav links */}
+                    
           <div 
             className="nav-link"
-            onClick={() => {
-              handleLogout();
-              if (window.innerWidth < 768) setIsOpen(false);
-            }}
+            onClick={handleLogout}
             style={{ cursor: 'pointer' }}
           >
             <FiLogOut className="nav-icon" />
             <span>Log Out</span>
           </div>
-        </nav>
 
+        </nav>
       </div>
 
       {isOpen && window.innerWidth < 768 && (

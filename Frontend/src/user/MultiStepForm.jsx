@@ -130,54 +130,58 @@ export default function MultiStepForm() {
   };
 
   return (
-    <div>
-      {step === 1 && (
-        <IdentifyingInformation
-          nextStep={nextStep}
-          updateFormData={updateFormData}
-          formData={formData}
-        />
-      )}
-      {step === 2 && (
-        <FamilyOccupation
-          prevStep={prevStep}
-          nextStep={nextStep}
-          formData={formData}
-          updateFormData={updateFormData}
-        />
-      )}
-      {step === 3 && (
-        <Classification
-          prevStep={prevStep}
-          nextStep={nextStep}
-          updateFormData={updateFormData}
-          formData={formData}
-        />
-      )}
-      {step === 4 && (
-        <NeedsProblems
-          prevStep={prevStep}
-          nextStep={nextStep}
-          updateFormData={updateFormData}
-          formData={formData}
-        />
-      )}
-      {step === 5 && (
-        <InCaseOfEmergency
-          prevStep={prevStep}
-          updateFormData={updateFormData}
-          formData={formData}
-          onSubmit={handleFinalSubmit}
-        />
-      )}
-      <div className="pagination">
-        {Array.from({ length: totalSteps }, (_, index) => (
-          <div
-            key={index}
-            className={`pagination-dot ${step === index + 1 ? "active" : ""}`}
-          ></div>
-        ))}
-        <p>Step {step} of {totalSteps}</p>
+    <div className="multi-step-form-wrapper">
+      <div className="multi-step-form-body">
+        <div>
+          {step === 1 && (
+            <IdentifyingInformation
+              nextStep={nextStep}
+              updateFormData={updateFormData}
+              formData={formData}
+            />
+          )}
+          {step === 2 && (
+            <FamilyOccupation
+              prevStep={prevStep}
+              nextStep={nextStep}
+              formData={formData}
+              updateFormData={updateFormData}
+            />
+          )}
+          {step === 3 && (
+            <Classification
+              prevStep={prevStep}
+              nextStep={nextStep}
+              updateFormData={updateFormData}
+              formData={formData}
+            />
+          )}
+          {step === 4 && (
+            <NeedsProblems
+              prevStep={prevStep}
+              nextStep={nextStep}
+              updateFormData={updateFormData}
+              formData={formData}
+            />
+          )}
+          {step === 5 && (
+            <InCaseOfEmergency
+              prevStep={prevStep}
+              updateFormData={updateFormData}
+              formData={formData}
+              onSubmit={handleFinalSubmit}
+            />
+          )}
+          <div className="pagination">
+            {Array.from({ length: totalSteps }, (_, index) => (
+              <div
+                key={index}
+                className={`pagination-dot ${step === index + 1 ? "active" : ""}`}
+              ></div>
+            ))}
+            <p>Step {step} of {totalSteps}</p>
+          </div>
+        </div>
       </div>
     </div>
   );

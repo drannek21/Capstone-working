@@ -60,7 +60,7 @@ export default function FamilyOccupation({ prevStep, nextStep, formData, updateF
   return (
     <form className="family-form step-form" onSubmit={handleSubmit(onSubmit)}>
       <h2 className="family-header step-header">
-        Family Occupation and Composition
+        Step 2: Family Occupation and Composition
         <span className="subtitle">(Hanapbuhay at Komposisyon ng Pamilya)</span>
       </h2>
 

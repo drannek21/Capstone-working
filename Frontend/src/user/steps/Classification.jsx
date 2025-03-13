@@ -21,7 +21,7 @@ export default function Classification({
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="classification-form step-form">
       <h2 className="classification-header step-header">
-        Classification/Circumstances of Being a Solo Parent
+        Step 3: Classification/Circumstances of Being a Solo Parent
         <span className="subtitle">(Dahilan bakit Naging Solo Parent)</span>
       </h2>
 

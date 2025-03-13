@@ -133,7 +133,7 @@ const ProfilePage = () => {
 
       <div className="profile-content">
         <div className="tab-navigation">
-          {["Details", "Benefits", "ID"].map((tab) => (
+          {["Details", "ID"].map((tab) => (
             <button
               key={tab}
               className={`tab-button ${activeTab === tab ? "active" : ""}`}
@@ -169,36 +169,6 @@ const ProfilePage = () => {
                     </ul>
                   ) : (
                     <p className="no-documents">No documents submitted yet</p>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === "Benefits" && (
-            <div className="benefits-tab">
-              {status === "Unverified" ? (
-                <div className="verification-prompt">
-                  <h3>Benefits Locked</h3>
-                  <p>Verify your account to view available benefits.</p>
-                  <button className="verify-button" onClick={handleSendApplication}>
-                    Start Verification
-                  </button>
-                </div>
-              ) : (
-                <div className="benefits-list">
-                  <h3>Your Benefits</h3>
-                  {user.benefits && user.benefits.length > 0 ? (
-                    <ul>
-                      {user.benefits.map((benefit, index) => (
-                        <li key={index} className="benefit-item">
-                          <FaCheckCircle className="benefit-icon" />
-                          {benefit}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="no-benefits">No benefits available</p>
                   )}
                 </div>
               )}

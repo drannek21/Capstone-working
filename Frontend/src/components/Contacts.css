@@ -1,23 +1,24 @@
 .contacts-section {
-  padding: 2rem;
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 20vh;
-  background: #f9f9f9;
-}
+  position: relative; /* ✅ Ensures proper centering */
+  width: 100%;
+  max-width: 1200px;   /* ✅ Controls layout width */
+  margin: 0 auto;      /* ✅ Centers horizontally */
+  padding-top: 2rem;
+  padding-bottom: 2rem;
 
-/* Contact Info Container */
+  }
+
 .contact-info {
   display: flex;
   gap: 2rem;
   flex-wrap: wrap;
-  justify-content: center; /* ✅ Ensures center alignment */
+  justify-content: center;
   width: 100%;
-  max-width: 1200px;
 }
 
-/* Contact Card */
 .contact-card {
   display: flex;
   flex-direction: column;
@@ -30,32 +31,28 @@
   box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
   transition: all 0.3s ease-in-out;
   border-top: 4px solid #16C47F;
-  
-  width: 100%; /* ✅ Ensures full width inside container */
-  max-width: 300px; /* ✅ Prevents them from being too wide */
+
+  width: 100%;
+  max-width: 300px;
   text-align: center;
 }
 
-/* 🔹 Hover Effect */
 .contact-card:hover {
   transform: translateY(-5px);
   cursor: pointer;
   box-shadow: 0px 8px 20px rgba(14, 155, 100, 0.3);
 }
 
-/* Contact Icon */
 .contact-icon {
   font-size: 2rem;
   color: #16C47F;
   transition: color 0.3s ease-in-out;
 }
 
-/* Icon Hover Effect */
 .contact-card:hover .contact-icon {
   color: #0E9B64;
 }
 
-/* Contact Text */
 .contact-card h3 {
   font-size: 1.1rem;
   font-weight: 600;
@@ -70,29 +67,18 @@
   white-space: nowrap;
 }
 
-/* 🔹 Responsive Fixes */
-@media (min-width: 768px) {
-  .contact-info {
-    display: flex;
-    justify-content: center;
-  }
-
-  .contact-card {
-    flex: 1 1 calc(50% - 2rem); /* 2 cards per row */
-    max-width: 300px;
-  }
-}
-
-@media (max-width: 767px) {
+/* 🔹 Mobile Responsiveness */
+@media (max-width: 768px) {
   .contact-info {
     flex-direction: column;
-    align-items: center; /* ✅ Ensures cards are centered */
+    align-items: center;
+    
     gap: 1.5rem;
   }
 
   .contact-card {
-    width: 90%; /* ✅ Cards take up most of the width */
-    max-width: 350px; /* ✅ Prevents excessive stretching */
+    width: 90%;
+    max-width: 350px;
   }
 }
 
@@ -100,8 +86,8 @@
   .contact-card {
     width: 100%;
     padding: 1rem;
+    align-content: center;
   }
-
   .contact-icon {
     font-size: 1.8rem;
   }

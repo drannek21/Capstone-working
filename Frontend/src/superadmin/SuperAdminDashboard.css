@@ -1,16 +1,62 @@
-/* SuperAdminDashboard.css */
 .super-admin-dashboard {
   display: flex;
   width: 100%;
   min-height: 100vh;
 }
 
-.super-admin-content {
+.super-admin-sidebar {
+  width: 250px;
+  height: 100vh;
+  background: white;
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 100; /* Ensures it's above other elements */
+  display: flex;
+  flex-direction: column;
+  box-shadow: 2px 0 12px rgba(22, 196, 127, 0.1);
+}
+
+.super-admin-container {
   flex: 1;
+  margin-left: 250px; /* Creates space for the fixed sidebar */
+  display: flex;
+  flex-direction: column;
+}
+
+.super-admin-content {
   padding: 20px;
-  margin-left: 80px; /* Add margin to create space between sidebar and content */
+  flex: 1;
   overflow-y: auto;
 }
 
+/* Overlay for Sidebar on Smaller Screens */
+.sidebar-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 90;
+  display: none;
+}
 
+.sidebar-overlay.active {
+  display: block; /* Only show when sidebar is open */
+}
 
+@media (max-width: 768px) {
+  .super-admin-sidebar {
+    transform: translateX(-100%);
+    width: 220px;
+  }
+
+  .super-admin-sidebar.open {
+    transform: translateX(0);
+  }
+
+  .super-admin-container {
+    margin-left: 0; /* Remove extra spacing on mobile */
+  }
+}
