@@ -33,7 +33,8 @@ app.post('/users', async (req, res) => {
 
 app.get('/pendingUsers', async (req, res) => {
   try {
-    const results = await queryDatabase(`
+    // First, get all pending users with their basic information
+    const users = await queryDatabase(`
       SELECT u.id AS userId, u.email, u.name, u.status, 
              
              -- Step 1: Personal Information
@@ -42,11 +43,6 @@ app.get('/pendingUsers', async (req, res) => {
              s1.civil_status, s1.occupation, s1.religion, s1.company, 
              s1.income, s1.employment_status, s1.contact_number, s1.email, 
              s1.pantawid_beneficiary, s1.indigenous, s1.code_id,
-
-             -- Step 2: Family Information (Children)
-             s2.first_name AS child_first_name, s2.middle_name AS child_middle_name, 
-             s2.last_name AS child_last_name, s2.birthdate AS child_birthdate, 
-             s2.age AS child_age, s2.educational_attainment AS child_education,
 
              -- Step 3: Classification
              s3.classification,
@@ -60,14 +56,27 @@ app.get('/pendingUsers', async (req, res) => {
 
       FROM users u
       JOIN user_details_step1 s1 ON u.id = s1.user_id
-      LEFT JOIN user_details_step2 s2 ON u.id = s2.user_id
       LEFT JOIN user_details_step3 s3 ON u.id = s3.user_id
       LEFT JOIN user_details_step4 s4 ON u.id = s4.user_id
       LEFT JOIN user_details_step5 s5 ON u.id = s5.user_id
       WHERE u.status = 'pending'
     `);
 
-    res.status(200).json(results);
+    // For each user, get their children
+    const usersWithChildren = await Promise.all(users.map(async (user) => {
+      const children = await queryDatabase(`
+        SELECT first_name, middle_name, last_name, birthdate, age, educational_attainment
+        FROM user_details_step2
+        WHERE user_id = ?
+      `, [user.userId]);
+
+      return {
+        ...user,
+        children: children
+      };
+    }));
+
+    res.status(200).json(usersWithChildren);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error fetching pending users' });

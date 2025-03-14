@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import './Applications.css';
 
@@ -11,26 +11,56 @@ const Applications = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [applicationsPerPage] = useState(10); // Show 10 entries per page
   const [stepPage, setStepPage] = useState(1); // Pagination for steps
+  const [isTableScrollable, setIsTableScrollable] = useState(false);
+  const [touchStart, setTouchStart] = useState(null);
+  const tableContainerRef = useRef(null);
 
   useEffect(() => {
     fetchApplications();
+    checkTableScroll();
+    window.addEventListener('resize', checkTableScroll);
+    return () => window.removeEventListener('resize', checkTableScroll);
   }, []);
+
+  const checkTableScroll = () => {
+    if (tableContainerRef.current) {
+      const { scrollWidth, clientWidth } = tableContainerRef.current;
+      setIsTableScrollable(scrollWidth > clientWidth);
+    }
+  };
 
   const fetchApplications = async () => {
     try {
       const response = await axios.get('http://localhost:8081/pendingUsers');
-      setApplications(response.data);
+      
+      // Log the response to check data structure
+      console.log('Fetched Applications:', response.data);
+      
+      // Ensure each application has the correct userId field
+      const formattedData = response.data.map(app => {
+        // Make sure we keep the userId from the database response
+        return {
+          ...app,
+          userId: app.userId, // Keep the original userId from the database
+        };
+      });
+      
+      setApplications(formattedData);
     } catch (error) {
       console.error('Error fetching applications:', error);
+      alert('Error fetching applications. Please refresh the page.');
     }
   };
 
   const openModal = (application, type) => {
     setSelectedApplication(application);
-    setStepPage(1); // Reset step pagination
+    setStepPage(1);
     setRemarks("");
     setModalType(type);
-    document.body.style.overflow = 'hidden';
+    // Don't prevent scroll on mobile as it might cause issues
+    if (window.innerWidth > 768) {
+      document.body.style.overflow = 'hidden';
+    }
   };
 
   const closeModal = () => {
@@ -42,22 +72,46 @@ const Applications = () => {
 
   const handleAction = async (action) => {
     if (!selectedApplication) return;
-    if (action === "Decline" && !remarks) {
-      alert("Please provide remarks for declining.");
-      return;
-    }
-  
+    
     try {
-      await axios.post('http://localhost:8081/updateUserStatus', {
+      // For decline action, check if remarks are provided
+      if (action === "Decline" && !remarks.trim()) {
+        alert("Please provide remarks for declining.");
+        return;
+      }
+
+      // Log the selected application and action details
+      console.log('Processing action:', {
+        action,
+        selectedApplication,
+        remarks: remarks.trim()
+      });
+
+      const response = await axios.post('http://localhost:8081/updateUserStatus', {
         userId: selectedApplication.userId,
         status: action === "Accept" ? "Verified" : "Declined",
-        remarks: remarks,
+        remarks: remarks.trim() || "No remarks provided" // Ensure remarks are sent even for Accept action
       });
-  
-      await fetchApplications(); // Refresh the list from backend
-      closeModal();
+
+      if (response.status === 200) {
+        // Show success message
+        const message = action === "Accept" 
+          ? "Application accepted successfully!" 
+          : "Application declined successfully!";
+        alert(message);
+        
+        // Refresh the applications list
+        await fetchApplications();
+        
+        // Close modal and reset state
+        closeModal();
+        setRemarks("");
+      }
     } catch (error) {
       console.error('Error updating status:', error);
+      // More detailed error message
+      const errorMessage = error.response?.data?.error || error.message || "Unknown error occurred";
+      alert(`Error updating application status: ${errorMessage}. Please try again.`);
     }
   };
   
@@ -80,25 +134,69 @@ const Applications = () => {
   // Calculate total number of pages
   const totalPages = Math.ceil(filteredApplications.length / applicationsPerPage);
 
+  const formatDate = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return '';
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  // Add touch event handlers for mobile swipe
+  const handleTouchStart = (e) => {
+    const touch = e.touches[0];
+    setTouchStart({ x: touch.clientX, y: touch.clientY });
+  };
+
+  const handleTouchMove = (e) => {
+    if (!touchStart) return;
+    
+    const touch = e.touches[0];
+    const deltaX = touchStart.x - touch.clientX;
+    const deltaY = touchStart.y - touch.clientY;
+
+    // If horizontal swipe is greater than vertical and more than 50px
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
+      if (deltaX > 0 && stepPage < 5) {
+        setStepPage(prev => prev + 1);
+      } else if (deltaX < 0 && stepPage > 1) {
+        setStepPage(prev => prev - 1);
+      }
+      setTouchStart(null);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setTouchStart(null);
+  };
+
   return (
     <div className="applications-container">
       <div className="applications-header">
         <h2>Applications Details</h2>
-        <input
-          type="text"
-          placeholder="Search applications..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="search-input"
-        />
+        <div className="search-container">
+          <input
+            type="text"
+            placeholder="Search applications..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="search-input"
+          />
+        </div>
       </div>
 
-      <div className="table-container">
+      <div 
+        ref={tableContainerRef}
+        className={`table-container ${isTableScrollable ? 'has-scroll' : ''}`}
+      >
         <table>
           <thead>
             <tr>
-              <th>id</th>
-              <th>code_id</th>
+              <th>ID</th>
+              <th>Code ID</th>
               <th>Name</th>
               <th>Email</th>
               <th>Age</th>
@@ -110,13 +208,21 @@ const Applications = () => {
               <tr key={index}>
                 <td>{indexOfFirstApplication + index + 1}</td>
                 <td>{app.code_id}</td>
-                <td>{app.first_name} {app.middle_name} {app.last_name}</td>
+                <td>{`${app.first_name} ${app.middle_name || ''} ${app.last_name}`}</td>
                 <td>{app.email}</td>
                 <td>{app.age}</td>
                 <td>
-                  <button className="btn view-btn" onClick={() => openModal(app, "view")}>View</button>
-                  <button className="btn accept-btn" onClick={() => openModal(app, "confirmAccept")}>Accept</button>
-                  <button className="btn decline-btn" onClick={() => openModal(app, "decline")}>Decline</button>
+                  <div className="action-buttons">
+                    <button className="btn view-btn" onClick={() => openModal(app, "view")}>
+                      <i className="fas fa-eye"></i> View
+                    </button>
+                    <button className="btn accept-btn" onClick={() => openModal(app, "confirmAccept")}>
+                      <i className="fas fa-check"></i> Accept
+                    </button>
+                    <button className="btn decline-btn" onClick={() => openModal(app, "decline")}>
+                      <i className="fas fa-times"></i> Decline
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -124,100 +230,269 @@ const Applications = () => {
         </table>
       </div>
 
-      {/* Pagination Controls */}
-      <div className="pagination-controls">
+      <div className="pagination">
         <button 
-          className="btn" 
+          className="page-btn" 
           onClick={() => setCurrentPage(currentPage - 1)} 
           disabled={currentPage === 1}
         >
-          Previous
+          <i className="fas fa-chevron-left"></i>
         </button>
-        <span>Page {currentPage} of {totalPages}</span>
+        {[...Array(totalPages)].map((_, index) => (
+          <button
+            key={index}
+            className={`page-btn ${currentPage === index + 1 ? 'active' : ''}`}
+            onClick={() => setCurrentPage(index + 1)}
+          >
+            {index + 1}
+          </button>
+        ))}
         <button 
-          className="btn" 
+          className="page-btn" 
           onClick={() => setCurrentPage(currentPage + 1)} 
           disabled={currentPage === totalPages}
         >
-          Next
+          <i className="fas fa-chevron-right"></i>
         </button>
       </div>
 
       {/* PAGINATED VIEW DETAILS MODAL */}
       {modalType === "view" && selectedApplication && (
-        <div className="modal-overlay" onClick={closeModal}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div 
+          className="modal-overlay" 
+          onClick={closeModal}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
+          <div 
+            className="modal" 
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="modal-header">
               <h3>Application Details (Step {stepPage}/5)</h3>
-              <button className="close-btn" onClick={closeModal}>×</button>
             </div>
             <div className="modal-content">
+              {/* Add step indicators for mobile */}
+              <div className="step-indicators">
+                {[1, 2, 3, 4, 5].map(step => (
+                  <div
+                    key={step}
+                    className={`step-dot ${stepPage === step ? 'active' : ''}`}
+                    onClick={() => setStepPage(step)}
+                  />
+                ))}
+              </div>
+              
               {stepPage === 1 && (
-                <>
+                <div className="detail-section">
                   <h4>Personal Information</h4>
-                  <p><strong>Name:</strong> {selectedApplication.first_name} {selectedApplication.middle_name} {selectedApplication.last_name}</p>
-                  <p><strong>Age:</strong> {selectedApplication.age}</p>
-                  <p><strong>Gender:</strong> {selectedApplication.gender}</p>
-                  <p><strong>Date of Birth:</strong> {selectedApplication.date_of_birth}</p>
-                  <p><strong>Place of Birth:</strong> {selectedApplication.place_of_birth}</p>
-                  <p><strong>Address:</strong> {selectedApplication.address}</p>
-                  <p><strong>Email:</strong> {selectedApplication.email}</p>
-                  <p><strong>Contact Number:</strong> {selectedApplication.contact_number}</p>
-                  <p><strong>Education:</strong> {selectedApplication.education}</p>
-                  <p><strong>Occupation:</strong> {selectedApplication.occupation}</p>
-                  <p><strong>Company:</strong> {selectedApplication.company}</p>
-                  <p><strong>Income:</strong> {selectedApplication.income}</p>
-                  <p><strong>Employment Status:</strong> {selectedApplication.employment_status}</p>
-                  <p><strong>Civil Status:</strong> {selectedApplication.civil_status}</p>
-                  <p><strong>Religion:</strong> {selectedApplication.religion}</p>
-                  <p><strong>Pantawid Beneficiary:</strong> {selectedApplication.pantawid_beneficiary}</p>
-                  <p><strong>Indigenous:</strong> {selectedApplication.indigenous}</p>
-                  <p><strong>Code ID:</strong> {selectedApplication.code_id}</p>
-               </>
+                  <div className="details-grid">
+                    <div className="detail-item">
+                      <span className="label">Name</span>
+                      <span className="value">
+                        {`${selectedApplication.first_name || ''} ${selectedApplication.middle_name || ''} ${selectedApplication.last_name || ''}`}
+                      </span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="label">Age</span>
+                      <span className="value">{selectedApplication.age || ''}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="label">Gender</span>
+                      <span className="value">{selectedApplication.gender || ''}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="label">Date of Birth</span>
+                      <span className="value">{formatDate(selectedApplication.date_of_birth)}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="label">Place of Birth</span>
+                      <span className="value">{selectedApplication.place_of_birth}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="label">Address</span>
+                      <span className="value">{selectedApplication.address}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="label">Email</span>
+                      <span className="value">{selectedApplication.email}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="label">Contact Number</span>
+                      <span className="value">{selectedApplication.contact_number}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="label">Education</span>
+                      <span className="value">{selectedApplication.education}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="label">Occupation</span>
+                      <span className="value">{selectedApplication.occupation}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="label">Company</span>
+                      <span className="value">{selectedApplication.company}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="label">Income</span>
+                      <span className="value">{selectedApplication.income}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="label">Employment Status</span>
+                      <span className="value">{selectedApplication.employment_status}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="label">Civil Status</span>
+                      <span className="value">{selectedApplication.civil_status}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="label">Religion</span>
+                      <span className="value">{selectedApplication.religion}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="label">Pantawid Beneficiary</span>
+                      <span className="value">{selectedApplication.pantawid_beneficiary}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="label">Indigenous</span>
+                      <span className="value">{selectedApplication.indigenous}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="label">Code ID</span>
+                      <span className="value">{selectedApplication.code_id}</span>
+                    </div>
+                  </div>
+                </div>
               )}
 
               {stepPage === 2 && (
-                <>
+                <div className="detail-section">
                   <h4>Family Information (Children)</h4>
-                  <p><strong>Child Name:</strong> {selectedApplication.child_first_name} {selectedApplication.child_middle_name} {selectedApplication.child_last_name}</p>
-                  <p><strong>Birthdate:</strong> {selectedApplication.child_birthdate}</p>
-                  <p><strong>Age:</strong> {selectedApplication.child_age}</p>
-                  <p><strong>Education:</strong> {selectedApplication.child_education}</p>
-                </>
+                  {selectedApplication.children && selectedApplication.children.length > 0 ? (
+                    <div className="children-list">
+                      {selectedApplication.children.map((child, index) => (
+                        <div key={index} className="child-details">
+                          <h5>Child {index + 1}</h5>
+                          <div className="details-grid">
+                            <div className="detail-item">
+                              <span className="label">Name</span>
+                              <span className="value">
+                                {`${child.first_name || ''} ${child.middle_name || ''} ${child.last_name || ''}`}
+                              </span>
+                            </div>
+                            <div className="detail-item">
+                              <span className="label">Birthdate</span>
+                              <span className="value">{formatDate(child.birthdate)}</span>
+                            </div>
+                            <div className="detail-item">
+                              <span className="label">Age</span>
+                              <span className="value">{child.age}</span>
+                            </div>
+                            <div className="detail-item">
+                              <span className="label">Education</span>
+                              <span className="value">{child.educational_attainment}</span>
+                            </div>
+                          </div>
+                          {index < selectedApplication.children.length - 1 && <hr />}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p>No children information available.</p>
+                  )}
+                </div>
               )}
 
               {stepPage === 3 && (
-                <>
+                <div className="detail-section">
                   <h4>Classification</h4>
-                  <p><strong>Type:</strong> {selectedApplication.classification}</p>
-                </>
+                  <div className="details-grid">
+                    <div className="detail-item">
+                      <span className="label">Type</span>
+                      <span className="value">{selectedApplication.classification}</span>
+                    </div>
+                  </div>
+                </div>
               )}
 
               {stepPage === 4 && (
-                <>
+                <div className="detail-section">
                   <h4>Needs/Problems</h4>
-                  <p><strong>Details:</strong> {selectedApplication.needs_problems}</p>
-                </>
+                  <div className="details-grid">
+                    <div className="detail-item">
+                      <span className="label">Details</span>
+                      <span className="value">{selectedApplication.needs_problems}</span>
+                    </div>
+                  </div>
+                </div>
               )}
 
               {stepPage === 5 && (
-                <>
+                <div className="detail-section">
                   <h4>Emergency Contact</h4>
-                  <p><strong>Name:</strong> {selectedApplication.emergency_name}</p>
-                  <p><strong>Relationship:</strong> {selectedApplication.emergency_relationship}</p>
-                  <p><strong>Address:</strong> {selectedApplication.emergency_address}</p>
-                  <p><strong>Contact Number:</strong> {selectedApplication.emergency_contact}</p>
-                </>
+                  <div className="details-grid">
+                    <div className="detail-item">
+                      <span className="label">Name</span>
+                      <span className="value">{selectedApplication.emergency_name}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="label">Relationship</span>
+                      <span className="value">{selectedApplication.emergency_relationship}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="label">Address</span>
+                      <span className="value">{selectedApplication.emergency_address}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="label">Contact Number</span>
+                      <span className="value">{selectedApplication.emergency_contact}</span>
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
 
-            {/* STEP PAGINATION BUTTONS */}
+            {/* Mobile-friendly footer */}
             <div className="modal-footer">
-              {stepPage > 1 && <button className="btn prev-btn" onClick={() => setStepPage(stepPage - 1)}>Previous</button>}
-              {stepPage < 5 && <button className="btn next-btn" onClick={() => setStepPage(stepPage + 1)}>Next</button>}
-              {stepPage === 5 && <button className="btn accept-btn" onClick={() => handleAction("Accept")}>Accept</button>}
-              {stepPage === 5 && <button className="btn decline-btn" onClick={() => handleAction("Decline")}>Decline</button>}
-              <button className="btn close-btn" onClick={closeModal}>Close</button>
+              <div className="modal-footer-left">
+                {stepPage > 1 && (
+                  <button 
+                    className="btn view-btn mobile-nav-btn"
+                    onClick={() => setStepPage(stepPage - 1)}
+                  >
+                    <i className="fas fa-arrow-left"></i> Previous
+                  </button>
+                )}
+              </div>
+              <div className="modal-footer-right">
+                {stepPage < 5 ? (
+                  <button 
+                    className="btn accept-btn mobile-nav-btn"
+                    onClick={() => setStepPage(stepPage + 1)}
+                  >
+                    Next <i className="fas fa-arrow-right"></i>
+                  </button>
+                ) : (
+                  <>
+                    <button 
+                      className="btn accept-btn"
+                      onClick={() => handleAction("Accept")}
+                    >
+                      <i className="fas fa-check"></i> Accept
+                    </button>
+                    <button 
+                      className="btn decline-btn"
+                      onClick={() => handleAction("Decline")}
+                    >
+                      <i className="fas fa-times"></i> Decline
+                    </button>
+                  </>
+                )}
+                <button className="btn view-btn" onClick={closeModal}>
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -228,14 +503,17 @@ const Applications = () => {
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Confirm Acceptance</h3>
-              <button className="close-btn" onClick={closeModal}>×</button>
             </div>
             <div className="modal-content">
-              <p>Are you sure you want to accept this application?</p>
+              <p className="confirmation-message">Are you sure you want to accept this application?</p>
             </div>
             <div className="modal-footer">
-              <button className="btn accept-btn" onClick={() => handleAction("Accept")}>Yes, Accept</button>
-              <button className="btn close-btn" onClick={closeModal}>Cancel</button>
+              <button className="btn accept-btn" onClick={() => handleAction("Accept")}>
+                <i className="fas fa-check"></i> Yes, Accept
+              </button>
+              <button className="btn view-btn" onClick={closeModal}>
+                Cancel
+              </button>
             </div>
           </div>
         </div>
@@ -245,22 +523,25 @@ const Applications = () => {
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Decline Application</h3>
-              <button className="close-btn" onClick={closeModal}>×</button>
             </div>
             <div className="modal-content">
-              <h4>Please provide remarks for declining:</h4>
-              <textarea
-                value={remarks}
-                onChange={(e) => setRemarks(e.target.value)}
-                placeholder="Enter remarks here"
-                rows="4"
-                className="remarks-input"
-              />
+              <div className="remarks-section">
+                <label>Please provide remarks for declining:</label>
+                <textarea
+                  value={remarks}
+                  onChange={(e) => setRemarks(e.target.value)}
+                  placeholder="Enter remarks here"
+                  rows="4"
+                />
+              </div>
             </div>
-
             <div className="modal-footer">
-              <button className="btn decline-btn" onClick={handleAction}>Confirm Decline</button>
-              <button className="btn close-btn" onClick={closeModal}>Close</button>
+              <button className="btn decline-btn" onClick={() => handleAction("Decline")}>
+                <i className="fas fa-times"></i> Confirm Decline
+              </button>
+              <button className="btn view-btn" onClick={closeModal}>
+                Cancel
+              </button>
             </div>
           </div>
         </div>

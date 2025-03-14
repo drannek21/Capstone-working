@@ -34,7 +34,7 @@
     border-radius: 12px;
     box-shadow: 0px 8px 24px rgba(0, 0, 0, 0.3);
     width: 400px;
-    max-width: 95%;
+    max-width: 90%;
     text-align: center;
     position: relative;
     z-index: 2; /* Position above the overlay */
@@ -64,6 +64,7 @@
     margin-bottom: 1.5rem;
     text-align: left;
     animation: fadeIn 1s ease-out calc(0.4s + var(--input-delay, 0s)) both;
+    position: relative;
 }
 
 /* Apply different delays to each input group */
@@ -78,6 +79,10 @@
 .inputGroup:nth-child(4) {
     --input-delay: 0.3s;
 }
+
+.inputGroup:nth-child(5) {
+    --input-delay: 0.4s;
+}
   
 .inputGroup label {
     display: block;
@@ -87,12 +92,13 @@
 }
   
 .inputGroup input {
-    width: 100%;
+    width: 92%;
     padding: 14px;
     border: 1px solid #ccc;
     border-radius: 8px;
     font-size: 16px;
-    transition: border 0.3s, box-shadow 0.3s, transform 0.2s;
+    transition: all 0.3s ease;
+    background-color: #fff;
 }
   
 .inputGroup input:focus {
@@ -100,6 +106,42 @@
     outline: none;
     box-shadow: 0px 0px 6px rgba(22, 196, 127, 0.5);
     transform: scale(1.02);
+}
+  
+/* Password field styles */
+.passwordField {
+    position: relative;
+    width: 100%;
+}
+
+.passwordField input {
+    width: 100%;
+    padding-right: 45px;
+}
+
+.eyeIcon {
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: #666;
+    cursor: pointer;
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.eyeIcon:hover {
+    color: #16C47F;
+}
+
+.eyeIcon:focus {
+    outline: none;
+    color: #16C47F;
 }
   
 .errorMessage {
@@ -130,13 +172,13 @@
     font-size: 16px;
     cursor: pointer;
     font-weight: 600;
-    transition: transform 0.2s, box-shadow 0.3s, background 0.3s;
+    transition: all 0.3s ease;
     animation: fadeIn 1s ease-out 0.8s both;
     position: relative;
     overflow: hidden;
 }
   
-.signupBtn:hover {
+.signupBtn:not(:disabled):hover {
     transform: translateY(-3px);
     box-shadow: 0px 4px 12px rgba(14, 155, 100, 0.5);
 }
@@ -150,7 +192,6 @@
     cursor: not-allowed;
     transform: none;
     box-shadow: none;
-    animation: none;
 }
 
 /* Button ripple effect */
@@ -197,27 +238,42 @@
     color: #16C47F;
     text-decoration: none;
     font-weight: 600;
-    transition: color 0.3s, transform 0.2s;
+    transition: all 0.3s ease;
     display: inline-block;
 }
   
 .loginText a:hover {
-    text-decoration: underline;
     color: #0E9B64;
     transform: translateY(-1px);
+    text-decoration: underline;
+}
+
+/* Loading spinner */
+.spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: white;
+    animation: spin 0.8s linear infinite;
+    margin-right: 8px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
 }
 
 /* Success animation for form submission */
 @keyframes successPulse {
     0% { transform: scale(1); }
-    50% { transform: scale(1.05); }
+    50% { transform: scale(1.02); }
     100% { transform: scale(1); }
 }
 
 .formSuccess {
     color: #16C47F;
     font-weight: 600;
-    padding: 10px;
+    padding: 12px;
     margin-bottom: 20px;
     border-radius: 8px;
     background-color: rgba(22, 196, 127, 0.1);
@@ -248,5 +304,9 @@
   
     .loginText {
         font-size: 13px;
+    }
+
+    .eyeIcon {
+        padding: 6px;
     }
 }

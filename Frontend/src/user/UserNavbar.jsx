@@ -1,21 +1,35 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faBell, faTimes } from "@fortawesome/free-solid-svg-icons";
+import { faBell, faTimes, faCheck, faExclamationCircle } from "@fortawesome/free-solid-svg-icons";
+import axios from "axios";
 import "./UserNavbar.css";
 
 const UserNavbar = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showLogoutPopup, setShowLogoutPopup] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState([]);
   const navigate = useNavigate();
 
-  // Sample notifications - replace with your actual data fetching logic
-  const [notifications, setNotifications] = useState([
-    { id: 1, message: "Your application has been approved", read: false, date: "2025-03-12" },
-    { id: 2, message: "New event: Community meeting on Friday", read: false, date: "2025-03-10" },
-    { id: 3, message: "Document verification required", read: true, date: "2025-03-08" },
-  ]);
+  const fetchNotifications = async () => {
+    try {
+      const userId = localStorage.getItem("userId");
+      if (!userId) return;
+
+      const response = await axios.get(`http://localhost:8081/notifications/${userId}`);
+      setNotifications(response.data);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+    // Fetch notifications every 30 seconds
+    const interval = setInterval(fetchNotifications, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     if (showLogoutPopup) {
@@ -40,6 +54,7 @@ const UserNavbar = () => {
 
   const handleLogout = () => {
     localStorage.removeItem("userToken");
+    localStorage.removeItem("userId");
     navigate("/", { replace: true });
     setTimeout(() => {
       window.history.pushState(null, "", window.location.href);
@@ -60,18 +75,47 @@ const UserNavbar = () => {
     setShowNotifications(!showNotifications);
   };
 
-  const markAsRead = (id) => {
-    setNotifications(notifications.map(notif => 
-      notif.id === id ? { ...notif, read: true } : notif
-    ));
+  const markAsRead = async (notificationId) => {
+    try {
+      await axios.post(`http://localhost:8081/notifications/read/${notificationId}`);
+      fetchNotifications(); // Refresh notifications
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+    }
   };
 
-  const markAllAsRead = () => {
-    setNotifications(notifications.map(notif => ({ ...notif, read: true })));
+  const markAllAsRead = async () => {
+    try {
+      const userId = localStorage.getItem("userId");
+      await axios.post(`http://localhost:8081/notifications/readAll/${userId}`);
+      fetchNotifications(); // Refresh notifications
+    } catch (error) {
+      console.error("Error marking all notifications as read:", error);
+    }
   };
 
   const getUnreadCount = () => {
     return notifications.filter(notif => !notif.read).length;
+  };
+
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  const getNotificationIcon = (type) => {
+    switch (type) {
+      case 'verified':
+        return <FontAwesomeIcon icon={faCheck} className="notification-icon success" />;
+      case 'declined':
+        return <FontAwesomeIcon icon={faExclamationCircle} className="notification-icon danger" />;
+      default:
+        return <FontAwesomeIcon icon={faBell} className="notification-icon" />;
+    }
   };
 
   return (
@@ -121,8 +165,13 @@ const UserNavbar = () => {
                         className={`notification-item ${notification.read ? 'read' : 'unread'}`}
                         onClick={() => markAsRead(notification.id)}
                       >
-                        <p className="notification-message">{notification.message}</p>
-                        <span className="notification-date">{notification.date}</span>
+                        <div className="notification-icon-wrapper">
+                          {getNotificationIcon(notification.type)}
+                        </div>
+                        <div className="notification-content">
+                          <p className="notification-message">{notification.message}</p>
+                          <span className="notification-date">{formatDate(notification.created_at)}</span>
+                        </div>
                       </div>
                     ))
                   ) : (

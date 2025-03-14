@@ -1,13 +1,32 @@
 import React, { useState, useEffect, useRef } from "react";
 import ReactECharts from "echarts-for-react";
+import * as XLSX from 'xlsx';
 import "./SDashboard.css";
 
 const SDashboard = () => {
   const [selectedBrgy, setSelectedBrgy] = useState("All");
+  const [selectedYear, setSelectedYear] = useState("2024");
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const chartsRef = useRef([]);
   
   const barangays = ["All", "Brgy 1", "Brgy 2", "Brgy 3", "Brgy 4"];
+  const years = ["2024", "2023", "2022"];
+
+  // Mock data structure
+  const dashboardData = {
+    "All": {
+      population: [43, 44, 46, 46, 48, 50, 51, 53, 54, 56, 57, 62],
+      growth: [10, 12, 8, 15],
+      distribution: [150, 80, 10],
+      ageGroups: [25, 45, 30, 15, 10],
+      employmentStatus: [120, 80, 40],
+      educationLevel: [30, 45, 55, 35],
+      incomeDistribution: [20, 35, 45, 30, 10],
+      applicationStatus: [150, 50, 30],
+      assistanceTypes: [40, 35, 45, 30, 20]
+    },
+    // ... similar data structure for other barangays
+  };
 
   // Resize handler with debounce
   useEffect(() => {
@@ -15,21 +34,17 @@ const SDashboard = () => {
     
     const handleResize = () => {
       clearTimeout(resizeTimeout);
-      
       resizeTimeout = setTimeout(() => {
         setWindowWidth(window.innerWidth);
-        
         chartsRef.current.forEach(chart => {
           if (chart) {
             chart.getEchartsInstance().resize();
           }
         });
-      }, 250); // Debounce resize events
+      }, 250);
     };
 
     window.addEventListener('resize', handleResize);
-    
-    // Initial render
     handleResize();
     
     return () => {
@@ -38,59 +53,15 @@ const SDashboard = () => {
     };
   }, []);
 
-  // Update charts when data changes
-  useEffect(() => {
-    // Small timeout to ensure state has updated
-    const updateTimeout = setTimeout(() => {
-      chartsRef.current.forEach(chart => {
-        if (chart) {
-          chart.getEchartsInstance().resize();
-        }
-      });
-    }, 100);
-    
-    return () => clearTimeout(updateTimeout);
-  }, [selectedBrgy]);
-
-  const brgyData = {
-    "All": { population: [43, 44, 46, 46, 48, 50, 51, 53, 54, 56, 57, 62], growth: [10, 12, 8, 15], distribution: [150, 80, 10] },
-    "Brgy 1": { population: [20, 22, 23, 25, 26, 28, 30, 31, 33, 35, 37, 40], growth: [5, 6, 4, 7], distribution: [50, 30, 5] },
-    "Brgy 2": { population: [15, 17, 18, 19, 21, 23, 24, 26, 28, 29, 31, 34], growth: [3, 4, 2, 5], distribution: [40, 25, 3] },
-    "Brgy 3": { population: [10, 11, 12, 14, 15, 17, 18, 20, 21, 22, 23, 25], growth: [2, 3, 2, 4], distribution: [30, 20, 2] },
-    "Brgy 4": { population: [8, 9, 10, 11, 13, 14, 15, 16, 17, 18, 19, 21], growth: [1, 2, 2, 3], distribution: [20, 15, 1] },
-  };
-
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const quarters = ["Q1", "Q2", "Q3", "Q4"];
-
-  // Dynamic font size calculation based on screen width
+  // Dynamic font size calculation
   const getFontSize = (baseSize) => {
     if (windowWidth < 480) return baseSize - 2;
     if (windowWidth < 768) return baseSize - 1;
     return baseSize;
   };
 
-  const populationOption = {
-    title: {
-      text: 'Population Growth',
-      left: 'center',
-      top: 5,
-      textStyle: {
-        color: '#333',
-        fontSize: getFontSize(14),
-        fontWeight: 'normal'
-      }
-    },
-    tooltip: {
-      trigger: 'axis',
-      axisPointer: {
-        type: 'line'
-      },
-      formatter: (params) => {
-        const data = params[0];
-        return `${data.name}: <strong>${data.value}</strong> residents`;
-      }
-    },
+  // Common chart configurations
+  const commonConfig = {
     grid: {
       top: 40,
       left: '8%',
@@ -98,40 +69,39 @@ const SDashboard = () => {
       bottom: '12%',
       containLabel: true
     },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'shadow' }
+    }
+  };
+
+  // Chart options
+  const populationOption = {
+    title: {
+      text: 'Monthly Population Trend',
+      left: 'center',
+      top: 5,
+      textStyle: { fontSize: getFontSize(14) }
+    },
+    ...commonConfig,
     xAxis: {
       type: 'category',
-      data: months,
-      axisLabel: {
-        fontSize: getFontSize(10),
-        interval: windowWidth < 480 ? 2 : 0,
-        rotate: windowWidth < 480 ? 30 : 0
-      }
+      data: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+      axisLabel: { fontSize: getFontSize(10) }
     },
     yAxis: {
       type: 'value',
-      axisLabel: {
-        fontSize: getFontSize(10)
-      },
-      splitLine: {
-        lineStyle: {
-          color: 'rgba(0,0,0,0.05)'
-        }
-      }
+      axisLabel: { fontSize: getFontSize(10) }
     },
     series: [{
-      name: `Population (${selectedBrgy})`,
+      name: 'Population',
       type: 'line',
       smooth: true,
-      symbol: 'circle',
-      symbolSize: 6,
-      data: brgyData[selectedBrgy].population,
+      data: dashboardData[selectedBrgy].population,
       areaStyle: {
         color: {
           type: 'linear',
-          x: 0,
-          y: 0,
-          x2: 0,
-          y2: 1,
+          x: 0, y: 0, x2: 0, y2: 1,
           colorStops: [{
             offset: 0,
             color: 'rgba(22, 196, 127, 0.3)'
@@ -141,73 +111,120 @@ const SDashboard = () => {
           }]
         }
       },
-      lineStyle: {
-        width: 2,
-        color: '#16C47F'
-      },
+      itemStyle: { color: '#16C47F' }
+    }]
+  };
+
+  const ageDistributionOption = {
+    title: {
+      text: 'Age Distribution',
+      left: 'center',
+      top: 5,
+      textStyle: { fontSize: getFontSize(14) }
+    },
+    ...commonConfig,
+    xAxis: {
+      type: 'category',
+      data: ['18-25', '26-35', '36-45', '46-55', '55+'],
+      axisLabel: { fontSize: getFontSize(10) }
+    },
+    yAxis: {
+      type: 'value',
+      axisLabel: { fontSize: getFontSize(10) }
+    },
+    series: [{
+      type: 'bar',
+      data: dashboardData[selectedBrgy].ageGroups,
       itemStyle: {
         color: '#16C47F',
-        borderWidth: 2
+        borderRadius: [3, 3, 0, 0]
       }
     }]
   };
 
-  const growthOption = {
+  const employmentOption = {
     title: {
-      text: 'Quarterly Growth',
+      text: 'Employment Status',
       left: 'center',
       top: 5,
-      textStyle: {
-        color: '#333',
-        fontSize: getFontSize(14),
-        fontWeight: 'normal'
-      }
+      textStyle: { fontSize: getFontSize(14) }
     },
     tooltip: {
-      trigger: 'axis',
-      formatter: (params) => {
-        const data = params[0];
-        return `${data.name}: <strong>${data.value}%</strong> growth`;
-      }
+      trigger: 'item',
+      formatter: '{b}: {c} ({d}%)'
     },
-    grid: {
-      top: 40,
-      left: '12%',
-      right: '5%',
-      bottom: '12%',
-      containLabel: true
+    legend: {
+      orient: 'horizontal',
+      bottom: 0,
+      left: 'center',
+      itemWidth: 8,
+      itemHeight: 8,
+      textStyle: { fontSize: getFontSize(10) }
     },
+    series: [{
+      type: 'pie',
+      radius: ['40%', '70%'],
+      avoidLabelOverlap: true,
+      label: { show: false },
+      data: [
+        { value: dashboardData[selectedBrgy].employmentStatus[0], name: 'Employed', itemStyle: { color: '#16C47F' } },
+        { value: dashboardData[selectedBrgy].employmentStatus[1], name: 'Unemployed', itemStyle: { color: '#FF6B6B' } },
+        { value: dashboardData[selectedBrgy].employmentStatus[2], name: 'Self-employed', itemStyle: { color: '#4ECDC4' } }
+      ]
+    }]
+  };
+
+  const educationOption = {
+    title: {
+      text: 'Education Level',
+      left: 'center',
+      top: 5,
+      textStyle: { fontSize: getFontSize(14) }
+    },
+    ...commonConfig,
     xAxis: {
       type: 'category',
-      data: quarters,
-      axisLabel: {
-        fontSize: getFontSize(10)
-      }
+      data: ['Elementary', 'High School', 'College', 'Vocational'],
+      axisLabel: { fontSize: getFontSize(10), interval: 0, rotate: windowWidth < 480 ? 30 : 0 }
     },
     yAxis: {
       type: 'value',
-      axisLabel: {
-        fontSize: getFontSize(10),
-        formatter: '{value}%'
-      },
-      splitLine: {
-        lineStyle: {
-          color: 'rgba(0,0,0,0.05)'
-        }
-      }
+      axisLabel: { fontSize: getFontSize(10) }
     },
     series: [{
-      name: `Growth (${selectedBrgy})`,
       type: 'bar',
-      barWidth: '40%',
-      data: brgyData[selectedBrgy].growth,
+      data: dashboardData[selectedBrgy].educationLevel,
+      itemStyle: {
+        color: '#16C47F',
+        borderRadius: [3, 3, 0, 0]
+      }
+    }]
+  };
+
+  const incomeOption = {
+    title: {
+      text: 'Monthly Income Distribution',
+      left: 'center',
+      top: 5,
+      textStyle: { fontSize: getFontSize(14) }
+    },
+    ...commonConfig,
+    xAxis: {
+      type: 'category',
+      data: ['<10k', '10k-20k', '20k-30k', '30k-40k', '>40k'],
+      axisLabel: { fontSize: getFontSize(10) }
+    },
+    yAxis: {
+      type: 'value',
+      axisLabel: { fontSize: getFontSize(10) }
+    },
+    series: [{
+      type: 'bar',
+      data: dashboardData[selectedBrgy].incomeDistribution,
       itemStyle: {
         color: {
           type: 'linear',
-          x: 0,
-          y: 0,
-          x2: 0,
-          y2: 1,
+          x: 0, y: 0, x2: 0, y2: 1,
           colorStops: [{
             offset: 0,
             color: '#16C47F'
@@ -217,30 +234,20 @@ const SDashboard = () => {
           }]
         },
         borderRadius: [3, 3, 0, 0]
-      },
-      label: {
-        show: windowWidth > 768,
-        position: 'top',
-        formatter: '{c}%',
-        fontSize: getFontSize(10)
       }
     }]
   };
 
-  const distributionOption = {
+  const applicationStatusOption = {
     title: {
-      text: 'Population by Gender',
+      text: 'Application Status',
       left: 'center',
       top: 5,
-      textStyle: {
-        color: '#333',
-        fontSize: getFontSize(14),
-        fontWeight: 'normal'
-      }
+      textStyle: { fontSize: getFontSize(14) }
     },
     tooltip: {
       trigger: 'item',
-      formatter: '{b}: <strong>{c}</strong> ({d}%)'
+      formatter: '{b}: {c} ({d}%)'
     },
     legend: {
       orient: 'horizontal',
@@ -248,97 +255,225 @@ const SDashboard = () => {
       left: 'center',
       itemWidth: 8,
       itemHeight: 8,
-      data: ['Female', 'Male', 'LGBTQ+'],
-      textStyle: {
-        fontSize: getFontSize(10),
-        padding: [0, 0, 0, 2]
-      }
+      textStyle: { fontSize: getFontSize(10) }
     },
     series: [{
-      name: 'Gender Distribution',
       type: 'pie',
-      radius: windowWidth < 480 ? ['30%', '60%'] : ['35%', '65%'],
-      center: ['50%', '45%'],
+      radius: ['40%', '70%'],
       avoidLabelOverlap: true,
-      itemStyle: {
-        borderColor: '#fff',
-        borderWidth: 1
-      },
-      label: {
-        show: false
-      },
-      emphasis: {
-        label: {
-          show: true,
-          fontSize: getFontSize(12),
-          fontWeight: 'bold'
-        }
-      },
-      labelLine: {
-        show: false
-      },
+      label: { show: false },
       data: [
-        { value: brgyData[selectedBrgy].distribution[0], name: 'Female', itemStyle: { color: '#FF69B4' } },
-        { value: brgyData[selectedBrgy].distribution[1], name: 'Male', itemStyle: { color: '#16C47F' } },
-        { value: brgyData[selectedBrgy].distribution[2], name: 'LGBTQ+', itemStyle: { color: '#9B59B6' } }
+        { value: dashboardData[selectedBrgy].applicationStatus[0], name: 'Approved', itemStyle: { color: '#16C47F' } },
+        { value: dashboardData[selectedBrgy].applicationStatus[1], name: 'Pending', itemStyle: { color: '#FFD93D' } },
+        { value: dashboardData[selectedBrgy].applicationStatus[2], name: 'Declined', itemStyle: { color: '#FF6B6B' } }
       ]
     }]
+  };
+
+  const assistanceTypesOption = {
+    title: {
+      text: 'Types of Assistance',
+      left: 'center',
+      top: 5,
+      textStyle: { fontSize: getFontSize(14) }
+    },
+    ...commonConfig,
+    xAxis: {
+      type: 'category',
+      data: ['Financial', 'Medical', 'Educational', 'Housing', 'Others'],
+      axisLabel: { fontSize: getFontSize(10), interval: 0, rotate: windowWidth < 480 ? 30 : 0 }
+    },
+    yAxis: {
+      type: 'value',
+      axisLabel: { fontSize: getFontSize(10) }
+    },
+    series: [{
+      type: 'bar',
+      data: dashboardData[selectedBrgy].assistanceTypes,
+      itemStyle: {
+        color: '#16C47F',
+        borderRadius: [3, 3, 0, 0]
+      }
+    }]
+  };
+
+  const generateExcelReport = () => {
+    try {
+      // Create workbook
+      const wb = XLSX.utils.book_new();
+      
+      // Generate sheets for each dataset
+      const sheets = {
+        'Population Trend': {
+          headers: ['Month', 'Population'],
+          data: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].map((month, idx) => [
+            month,
+            dashboardData[selectedBrgy].population[idx]
+          ])
+        },
+        'Age Distribution': {
+          headers: ['Age Group', 'Count'],
+          data: ['18-25', '26-35', '36-45', '46-55', '55+'].map((group, idx) => [
+            group,
+            dashboardData[selectedBrgy].ageGroups[idx]
+          ])
+        },
+        'Employment Status': {
+          headers: ['Status', 'Count'],
+          data: [
+            ['Employed', dashboardData[selectedBrgy].employmentStatus[0]],
+            ['Unemployed', dashboardData[selectedBrgy].employmentStatus[1]],
+            ['Self-employed', dashboardData[selectedBrgy].employmentStatus[2]]
+          ]
+        },
+        'Education Level': {
+          headers: ['Level', 'Count'],
+          data: ['Elementary', 'High School', 'College', 'Vocational'].map((level, idx) => [
+            level,
+            dashboardData[selectedBrgy].educationLevel[idx]
+          ])
+        },
+        'Income Distribution': {
+          headers: ['Range', 'Count'],
+          data: ['<10k', '10k-20k', '20k-30k', '30k-40k', '>40k'].map((range, idx) => [
+            range,
+            dashboardData[selectedBrgy].incomeDistribution[idx]
+          ])
+        },
+        'Application Status': {
+          headers: ['Status', 'Count'],
+          data: [
+            ['Approved', dashboardData[selectedBrgy].applicationStatus[0]],
+            ['Pending', dashboardData[selectedBrgy].applicationStatus[1]],
+            ['Declined', dashboardData[selectedBrgy].applicationStatus[2]]
+          ]
+        },
+        'Assistance Types': {
+          headers: ['Type', 'Count'],
+          data: ['Financial', 'Medical', 'Educational', 'Housing', 'Others'].map((type, idx) => [
+            type,
+            dashboardData[selectedBrgy].assistanceTypes[idx]
+          ])
+        }
+      };
+
+      // Add each sheet to workbook
+      Object.entries(sheets).forEach(([sheetName, { headers, data }]) => {
+        const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
+        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+      });
+
+      // Generate filename with date
+      const date = new Date().toISOString().split('T')[0];
+      const filename = `Solo_Parent_Report_${selectedBrgy}_${date}.xlsx`;
+
+      // Save the file
+      XLSX.writeFile(wb, filename);
+    } catch (error) {
+      console.error('Error generating report:', error);
+      alert('Error generating report. Please try again.');
+    }
   };
 
   return (
     <div className="dashboard">
       <div className="dashboard-header">
         <h2 className="dashboard-title">Analytics Dashboard</h2>
-        <div className="dropdown-container">
-          <label htmlFor="barangay-select" className="select-label">Select Barangay:</label>
-          <select 
-            id="barangay-select"
-            value={selectedBrgy} 
-            onChange={(e) => setSelectedBrgy(e.target.value)}
-            className="brgy-select"
-            aria-label="Select Barangay"
+        <div className="header-controls">
+          <div className="filters-container">
+            <div className="filter-item">
+              <label htmlFor="barangay-select">Barangay:</label>
+              <select 
+                id="barangay-select"
+                value={selectedBrgy} 
+                onChange={(e) => setSelectedBrgy(e.target.value)}
+                className="filter-select"
+              >
+                {barangays.map((brgy) => (
+                  <option key={brgy} value={brgy}>{brgy}</option>
+                ))}
+              </select>
+            </div>
+            <div className="filter-item">
+              <label htmlFor="year-select">Year:</label>
+              <select 
+                id="year-select"
+                value={selectedYear} 
+                onChange={(e) => setSelectedYear(e.target.value)}
+                className="filter-select"
+              >
+                {years.map((year) => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <button 
+            className="generate-btn" 
+            onClick={generateExcelReport}
+            title="Generate Excel Report"
           >
-            {barangays.map((brgy) => (
-              <option key={brgy} value={brgy}>{brgy}</option>
-            ))}
-          </select>
+            <i className="fas fa-file-excel"></i>
+            Generate Report
+          </button>
         </div>
       </div>
 
-      <div className="charts-container">
-        <div className="chart-wrapper population-chart">
+      <div className="charts-grid">
+        <div className="chart-card population-trend">
           <ReactECharts 
             ref={(e) => { chartsRef.current[0] = e; }}
             option={populationOption}
-            style={{ width: '100%', height: '100%' }}
-            opts={{ renderer: 'svg' }}
-            notMerge={true}
-            lazyUpdate={true}
+            style={{ height: '100%', minHeight: '300px' }}
           />
         </div>
 
-        <div className="charts-row">
-          <div className="chart-wrapper growth-chart">
-            <ReactECharts 
-              ref={(e) => { chartsRef.current[1] = e; }}
-              option={growthOption}
-              style={{ width: '100%', height: '100%' }}
-              opts={{ renderer: 'svg' }}
-              notMerge={true}
-              lazyUpdate={true}
-            />
-          </div>
+        <div className="chart-card age-distribution">
+          <ReactECharts 
+            ref={(e) => { chartsRef.current[1] = e; }}
+            option={ageDistributionOption}
+            style={{ height: '100%', minHeight: '300px' }}
+          />
+        </div>
 
-          <div className="chart-wrapper distribution-chart">
-            <ReactECharts 
-              ref={(e) => { chartsRef.current[2] = e; }}
-              option={distributionOption}
-              style={{ width: '100%', height: '100%' }}
-              opts={{ renderer: 'svg' }}
-              notMerge={true}
-              lazyUpdate={true}
-            />
-          </div>
+        <div className="chart-card employment-status">
+          <ReactECharts 
+            ref={(e) => { chartsRef.current[2] = e; }}
+            option={employmentOption}
+            style={{ height: '100%', minHeight: '300px' }}
+          />
+        </div>
+
+        <div className="chart-card education-level">
+          <ReactECharts 
+            ref={(e) => { chartsRef.current[3] = e; }}
+            option={educationOption}
+            style={{ height: '100%', minHeight: '300px' }}
+          />
+        </div>
+
+        <div className="chart-card income-distribution">
+          <ReactECharts 
+            ref={(e) => { chartsRef.current[4] = e; }}
+            option={incomeOption}
+            style={{ height: '100%', minHeight: '300px' }}
+          />
+        </div>
+
+        <div className="chart-card application-status">
+          <ReactECharts 
+            ref={(e) => { chartsRef.current[5] = e; }}
+            option={applicationStatusOption}
+            style={{ height: '100%', minHeight: '300px' }}
+          />
+        </div>
+
+        <div className="chart-card assistance-types">
+          <ReactECharts 
+            ref={(e) => { chartsRef.current[6] = e; }}
+            option={assistanceTypesOption}
+            style={{ height: '100%', minHeight: '300px' }}
+          />
         </div>
       </div>
     </div>
