@@ -532,3 +532,45 @@ tr:hover {
     font-size: 1rem;
   }
 }
+
+@media (max-width: 480px) {
+  .applications-container {
+    padding: 1rem;
+  }
+  
+  .applications-header h2 {
+    font-size: 1.35rem;
+  }
+  
+  .btn {
+    padding: 0.6rem 0.75rem;
+    font-size: 0.9rem;
+  }
+  
+  .modal-header h3 {
+    font-size: 1.2rem;
+  }
+  
+  .modal {
+    border-radius: 12px;
+    margin: 0;
+  }
+  
+  .modal-content {
+    padding: 1rem;
+  }
+  
+  .pagination {
+    gap: 0.35rem;
+  }
+  
+  .page-btn {
+    min-width: 34px;
+    height: 34px;
+    font-size: 0.9rem;
+  }
+  
+  .detail-section h4 {
+    font-size: 1rem;
+  }
+}

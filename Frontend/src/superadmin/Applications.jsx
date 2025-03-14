@@ -1,111 +1,33 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import './Applications.css';
 
 const Applications = () => {
-  const [applications, setApplications] = useState([
-    {
-      firstName: "John",
-      middleName: "A.",
-      lastName: "Doe",
-      age: "30",
-      gender: "Male",
-      dateOfBirth: "1991-01-01",
-      placeOfBirth: "New York",
-      address: "1234 Elm Street",
-      education: "Bachelor's Degree",
-      civilStatus: "Single",
-      occupation: "Software Engineer",
-      religion: "Christian",
-      company: "Tech Corp",
-      income: "$60,000",
-      employmentStatus: "Full-time",
-      contactNumber: "1234567890",
-      email: "john@example.com",
-      pantawidBeneficiary: "Yes",
-      indigenous: "No",
-    },
-    {
-      firstName: "Jane",
-      middleName: "B.",
-      lastName: "Smith",
-      age: "28",
-      gender: "Female",
-      dateOfBirth: "1993-05-15",
-      placeOfBirth: "Los Angeles",
-      address: "5678 Oak Avenue",
-      education: "Master's Degree",
-      civilStatus: "Married",
-      occupation: "Product Manager",
-      religion: "Hindu",
-      company: "Design Inc.",
-      income: "$75,000",
-      employmentStatus: "Part-time",
-      contactNumber: "9876543210",
-      email: "jane@example.com",
-      pantawidBeneficiary: "No",
-      indigenous: "Yes",
-    },
-  ]);
-
+  const [applications, setApplications] = useState([]);
   const [selectedApplication, setSelectedApplication] = useState(null);
   const [remarks, setRemarks] = useState("");
   const [modalType, setModalType] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [applicationsPerPage] = useState(5);
-  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'ascending' });
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [applicationsPerPage] = useState(10); // Show 10 entries per page
+  const [stepPage, setStepPage] = useState(1); // Pagination for steps
 
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    fetchApplications();
   }, []);
 
-  // Filter applications
-  const filteredApplications = applications.filter(app => {
-    const searchLower = searchTerm.toLowerCase();
-    return (
-      app.firstName.toLowerCase().includes(searchLower) ||
-      app.lastName.toLowerCase().includes(searchLower) ||
-      app.email.toLowerCase().includes(searchLower)
-    );
-  });
-
-  // Sort applications
-  const sortedApplications = React.useMemo(() => {
-    let sortable = [...filteredApplications];
-    if (sortConfig.key) {
-      sortable.sort((a, b) => {
-        if (a[sortConfig.key] < b[sortConfig.key]) {
-          return sortConfig.direction === 'ascending' ? -1 : 1;
-        }
-        if (a[sortConfig.key] > b[sortConfig.key]) {
-          return sortConfig.direction === 'ascending' ? 1 : -1;
-        }
-        return 0;
-      });
+  const fetchApplications = async () => {
+    try {
+      const response = await axios.get('http://localhost:8081/pendingUsers');
+      setApplications(response.data);
+    } catch (error) {
+      console.error('Error fetching applications:', error);
     }
-    return sortable;
-  }, [filteredApplications, sortConfig]);
-
-  // Get current page applications
-  const indexOfLastApp = currentPage * applicationsPerPage;
-  const indexOfFirstApp = indexOfLastApp - applicationsPerPage;
-  const currentApplications = sortedApplications.slice(indexOfFirstApp, indexOfLastApp);
-
-  const paginate = (pageNumber) => setCurrentPage(pageNumber);
-
-  const requestSort = (key) => {
-    let direction = 'ascending';
-    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
-      direction = 'descending';
-    }
-    setSortConfig({ key, direction });
   };
 
   const openModal = (application, type) => {
     setSelectedApplication(application);
+    setStepPage(1); // Reset step pagination
     setRemarks("");
     setModalType(type);
     document.body.style.overflow = 'hidden';
@@ -118,224 +40,227 @@ const Applications = () => {
     document.body.style.overflow = 'auto';
   };
 
-  const handleAction = (action, application = null) => {
-    const target = application || selectedApplication;
-    if (!target) return;
-
-    if (action === "Decline" && !remarks && modalType === "decline") {
+  const handleAction = async (action) => {
+    if (!selectedApplication) return;
+    if (action === "Decline" && !remarks) {
       alert("Please provide remarks for declining.");
       return;
     }
-
-    // Here you would typically make an API call
-    setApplications(apps => apps.filter(app => app.email !== target.email));
-    closeModal();
-  };
-
-  const userDetailSections = [
-    {
-      title: "Personal Information",
-      fields: [
-        { label: "First Name", key: "firstName" },
-        { label: "Middle Name", key: "middleName" },
-        { label: "Last Name", key: "lastName" },
-        { label: "Age", key: "age" },
-        { label: "Gender", key: "gender" },
-        { label: "Date of Birth", key: "dateOfBirth" },
-        { label: "Place of Birth", key: "placeOfBirth" },
-      ]
-    },
-    {
-      title: "Contact Information",
-      fields: [
-        { label: "Address", key: "address" },
-        { label: "Contact Number", key: "contactNumber" },
-        { label: "Email", key: "email" },
-      ]
-    },
-    {
-      title: "Professional Information",
-      fields: [
-        { label: "Education", key: "education" },
-        { label: "Occupation", key: "occupation" },
-        { label: "Company", key: "company" },
-        { label: "Income", key: "income" },
-        { label: "Employment Status", key: "employmentStatus" },
-      ]
-    },
-    {
-      title: "Other Information",
-      fields: [
-        { label: "Civil Status", key: "civilStatus" },
-        { label: "Religion", key: "religion" },
-        { label: "Pantawid Beneficiary", key: "pantawidBeneficiary" },
-        { label: "Indigenous", key: "indigenous" },
-      ]
+  
+    try {
+      await axios.post('http://localhost:8081/updateUserStatus', {
+        userId: selectedApplication.userId,
+        status: action === "Accept" ? "Verified" : "Declined",
+        remarks: remarks,
+      });
+  
+      await fetchApplications(); // Refresh the list from backend
+      closeModal();
+    } catch (error) {
+      console.error('Error updating status:', error);
     }
-  ];
+  };
+  
+  const filteredApplications = applications.filter(app => {
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      (app.id && app.id.toString().includes(searchLower)) ||
+      (app.code_id && app.code_id.toLowerCase().includes(searchLower)) ||
+      (app.first_name && app.first_name.toLowerCase().includes(searchLower)) ||
+      (app.email && app.email.toLowerCase().includes(searchLower)) ||
+      (app.age && app.age.toString().includes(searchLower))
+    );
+  });
 
-  const MobileApplicationCard = ({ application }) => (
-    <div className="application-card">
-      <div className="application-info">
-        <h3>{application.firstName} {application.lastName}</h3>
-        <p className="email">{application.email}</p>
-        <p className="details">
-          <span>{application.age} years old</span> • 
-          <span>{application.occupation}</span>
-        </p>
-      </div>
-      <div className="application-actions">
-        <button className="btn view-btn" onClick={() => openModal(application, "view")}>
-          <i className="fas fa-eye"></i> View
-        </button>
-        <button className="btn accept-btn" onClick={() => handleAction("Accept", application)}>
-          <i className="fas fa-check"></i> Accept
-        </button>
-        <button className="btn decline-btn" onClick={() => openModal(application, "decline")}>
-          <i className="fas fa-times"></i> Decline
-        </button>
-      </div>
-    </div>
-  );
+  // Calculate the index of the first and last application to show based on pagination
+  const indexOfLastApplication = currentPage * applicationsPerPage;
+  const indexOfFirstApplication = indexOfLastApplication - applicationsPerPage;
+  const currentApplications = filteredApplications.slice(indexOfFirstApplication, indexOfLastApplication);
+
+  // Calculate total number of pages
+  const totalPages = Math.ceil(filteredApplications.length / applicationsPerPage);
 
   return (
     <div className="applications-container">
       <div className="applications-header">
-        <h2>Application Management</h2>
-        <div className="search-container">
-          <input
-            type="text"
-            placeholder="Search applications..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="search-input"
-          />
-        </div>
+        <h2>Applications Details</h2>
+        <input
+          type="text"
+          placeholder="Search applications..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="search-input"
+        />
       </div>
 
-      {isMobile ? (
-        <div className="mobile-applications">
-          {currentApplications.map((app, index) => (
-            <MobileApplicationCard key={index} application={app} />
-          ))}
-        </div>
-      ) : (
-        <div className="table-container">
-          <table>
-            <thead>
-              <tr>
-                <th onClick={() => requestSort('firstName')}>
-                  Name {sortConfig.key === 'firstName' && (sortConfig.direction === 'ascending' ? '↑' : '↓')}
-                </th>
-                <th onClick={() => requestSort('email')}>
-                  Email {sortConfig.key === 'email' && (sortConfig.direction === 'ascending' ? '↑' : '↓')}
-                </th>
-                <th onClick={() => requestSort('age')}>
-                  Age {sortConfig.key === 'age' && (sortConfig.direction === 'ascending' ? '↑' : '↓')}
-                </th>
-                <th>Actions</th>
+      <div className="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>id</th>
+              <th>code_id</th>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Age</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {currentApplications.map((app, index) => (
+              <tr key={index}>
+                <td>{indexOfFirstApplication + index + 1}</td>
+                <td>{app.code_id}</td>
+                <td>{app.first_name} {app.middle_name} {app.last_name}</td>
+                <td>{app.email}</td>
+                <td>{app.age}</td>
+                <td>
+                  <button className="btn view-btn" onClick={() => openModal(app, "view")}>View</button>
+                  <button className="btn accept-btn" onClick={() => openModal(app, "confirmAccept")}>Accept</button>
+                  <button className="btn decline-btn" onClick={() => openModal(app, "decline")}>Decline</button>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {currentApplications.map((app, index) => (
-                <tr key={index}>
-                  <td>{app.firstName} {app.lastName}</td>
-                  <td>{app.email}</td>
-                  <td>{app.age}</td>
-                  <td>
-                    <div className="action-buttons">
-                      <button className="btn view-btn" onClick={() => openModal(app, "view")}>
-                        <i className="fas fa-eye"></i> View
-                      </button>
-                      <button className="btn accept-btn" onClick={() => handleAction("Accept", app)}>
-                        <i className="fas fa-check"></i> Accept
-                      </button>
-                      <button className="btn decline-btn" onClick={() => openModal(app, "decline")}>
-                        <i className="fas fa-times"></i> Decline
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+            ))}
+          </tbody>
+        </table>
+      </div>
 
-      {sortedApplications.length > applicationsPerPage && (
-        <div className="pagination">
-          {Array.from({ length: Math.ceil(sortedApplications.length / applicationsPerPage) }).map((_, index) => (
-            <button
-              key={index}
-              onClick={() => paginate(index + 1)}
-              className={`page-btn ${currentPage === index + 1 ? 'active' : ''}`}
-            >
-              {index + 1}
-            </button>
-          ))}
-        </div>
-      )}
+      {/* Pagination Controls */}
+      <div className="pagination-controls">
+        <button 
+          className="btn" 
+          onClick={() => setCurrentPage(currentPage - 1)} 
+          disabled={currentPage === 1}
+        >
+          Previous
+        </button>
+        <span>Page {currentPage} of {totalPages}</span>
+        <button 
+          className="btn" 
+          onClick={() => setCurrentPage(currentPage + 1)} 
+          disabled={currentPage === totalPages}
+        >
+          Next
+        </button>
+      </div>
 
+      {/* PAGINATED VIEW DETAILS MODAL */}
       {modalType === "view" && selectedApplication && (
         <div className="modal-overlay" onClick={closeModal}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>Application Details</h3>
+              <h3>Application Details (Step {stepPage}/5)</h3>
               <button className="close-btn" onClick={closeModal}>×</button>
             </div>
             <div className="modal-content">
-              {userDetailSections.map((section, idx) => (
-                <div key={idx} className="detail-section">
-                  <h4>{section.title}</h4>
-                  <div className="details-grid">
-                    {section.fields.map((field, fieldIdx) => (
-                      <div key={fieldIdx} className="detail-item">
-                        <span className="label">{field.label}:</span>
-                        <span className="value">{selectedApplication[field.key]}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
+              {stepPage === 1 && (
+                <>
+                  <h4>Personal Information</h4>
+                  <p><strong>Name:</strong> {selectedApplication.first_name} {selectedApplication.middle_name} {selectedApplication.last_name}</p>
+                  <p><strong>Age:</strong> {selectedApplication.age}</p>
+                  <p><strong>Gender:</strong> {selectedApplication.gender}</p>
+                  <p><strong>Date of Birth:</strong> {selectedApplication.date_of_birth}</p>
+                  <p><strong>Place of Birth:</strong> {selectedApplication.place_of_birth}</p>
+                  <p><strong>Address:</strong> {selectedApplication.address}</p>
+                  <p><strong>Email:</strong> {selectedApplication.email}</p>
+                  <p><strong>Contact Number:</strong> {selectedApplication.contact_number}</p>
+                  <p><strong>Education:</strong> {selectedApplication.education}</p>
+                  <p><strong>Occupation:</strong> {selectedApplication.occupation}</p>
+                  <p><strong>Company:</strong> {selectedApplication.company}</p>
+                  <p><strong>Income:</strong> {selectedApplication.income}</p>
+                  <p><strong>Employment Status:</strong> {selectedApplication.employment_status}</p>
+                  <p><strong>Civil Status:</strong> {selectedApplication.civil_status}</p>
+                  <p><strong>Religion:</strong> {selectedApplication.religion}</p>
+                  <p><strong>Pantawid Beneficiary:</strong> {selectedApplication.pantawid_beneficiary}</p>
+                  <p><strong>Indigenous:</strong> {selectedApplication.indigenous}</p>
+                  <p><strong>Code ID:</strong> {selectedApplication.code_id}</p>
+               </>
+              )}
+
+              {stepPage === 2 && (
+                <>
+                  <h4>Family Information (Children)</h4>
+                  <p><strong>Child Name:</strong> {selectedApplication.child_first_name} {selectedApplication.child_middle_name} {selectedApplication.child_last_name}</p>
+                  <p><strong>Birthdate:</strong> {selectedApplication.child_birthdate}</p>
+                  <p><strong>Age:</strong> {selectedApplication.child_age}</p>
+                  <p><strong>Education:</strong> {selectedApplication.child_education}</p>
+                </>
+              )}
+
+              {stepPage === 3 && (
+                <>
+                  <h4>Classification</h4>
+                  <p><strong>Type:</strong> {selectedApplication.classification}</p>
+                </>
+              )}
+
+              {stepPage === 4 && (
+                <>
+                  <h4>Needs/Problems</h4>
+                  <p><strong>Details:</strong> {selectedApplication.needs_problems}</p>
+                </>
+              )}
+
+              {stepPage === 5 && (
+                <>
+                  <h4>Emergency Contact</h4>
+                  <p><strong>Name:</strong> {selectedApplication.emergency_name}</p>
+                  <p><strong>Relationship:</strong> {selectedApplication.emergency_relationship}</p>
+                  <p><strong>Address:</strong> {selectedApplication.emergency_address}</p>
+                  <p><strong>Contact Number:</strong> {selectedApplication.emergency_contact}</p>
+                </>
+              )}
             </div>
+
+            {/* STEP PAGINATION BUTTONS */}
             <div className="modal-footer">
-              <button className="btn accept-btn" onClick={() => handleAction("Accept")}>
-                <i className="fas fa-check"></i> Accept
-              </button>
-              <button className="btn decline-btn" onClick={() => openModal(selectedApplication, "decline")}>
-                <i className="fas fa-times"></i> Decline
-              </button>
+              {stepPage > 1 && <button className="btn prev-btn" onClick={() => setStepPage(stepPage - 1)}>Previous</button>}
+              {stepPage < 5 && <button className="btn next-btn" onClick={() => setStepPage(stepPage + 1)}>Next</button>}
+              {stepPage === 5 && <button className="btn accept-btn" onClick={() => handleAction("Accept")}>Accept</button>}
+              {stepPage === 5 && <button className="btn decline-btn" onClick={() => handleAction("Decline")}>Decline</button>}
               <button className="btn close-btn" onClick={closeModal}>Close</button>
             </div>
           </div>
         </div>
       )}
 
+      {modalType === "confirmAccept" && selectedApplication && (
+        <div className="modal-overlay" onClick={closeModal}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Confirm Acceptance</h3>
+              <button className="close-btn" onClick={closeModal}>×</button>
+            </div>
+            <div className="modal-content">
+              <p>Are you sure you want to accept this application?</p>
+            </div>
+            <div className="modal-footer">
+              <button className="btn accept-btn" onClick={() => handleAction("Accept")}>Yes, Accept</button>
+              <button className="btn close-btn" onClick={closeModal}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
       {modalType === "decline" && selectedApplication && (
         <div className="modal-overlay" onClick={closeModal}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Decline Application</h3>
               <button className="close-btn" onClick={closeModal}>×</button>
             </div>
             <div className="modal-content">
-              <div className="remarks-section">
-                <label>
-                  Reason for declining:
-                  <textarea
-                    value={remarks}
-                    onChange={(e) => setRemarks(e.target.value)}
-                    placeholder="Enter your remarks here..."
-                    required
-                  />
-                </label>
-              </div>
+              <h4>Please provide remarks for declining:</h4>
+              <textarea
+                value={remarks}
+                onChange={(e) => setRemarks(e.target.value)}
+                placeholder="Enter remarks here"
+                rows="4"
+                className="remarks-input"
+              />
             </div>
+
             <div className="modal-footer">
-              <button className="btn decline-btn" onClick={() => handleAction("Decline")}>
-                <i className="fas fa-times"></i> Confirm Decline
-              </button>
-              <button className="btn cancel-btn" onClick={closeModal}>Cancel</button>
+              <button className="btn decline-btn" onClick={handleAction}>Confirm Decline</button>
+              <button className="btn close-btn" onClick={closeModal}>Close</button>
             </div>
           </div>
         </div>

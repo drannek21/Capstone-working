@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import styles from "./Login.module.css";
 
@@ -9,43 +9,7 @@ const Login = () => {
     password: ""
   });
   const [error, setError] = useState("");
-  const [userData, setUserData] = useState({
-    users: [],
-    admins: [],
-    superadmins: []
-  });
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchAllUserData = async () => {
-      try {
-        const [usersRes, adminsRes, superadminsRes] = await Promise.all([
-          fetch("http://localhost:8081/users"),
-          fetch("http://localhost:8081/admin"),
-          fetch("http://localhost:8081/superadmin"),
-        ]);
-
-        const [users, admins, superadmins] = await Promise.all([
-          usersRes.json(),
-          adminsRes.json(),
-          superadminsRes.json(),
-        ]);
-
-        setUserData({
-          users,
-          admins,
-          superadmins
-        });
-      } catch (error) {
-        console.error("Error fetching user data:", error);
-        setError("Failed to connect to the server. Please try again later.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchAllUserData();
-  }, []);
+  const [loading, setLoading] = useState(false);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -55,54 +19,53 @@ const Login = () => {
     }));
   };
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
+    setLoading(true);
     
-    const { email, password } = formData;
-    const { users, admins, superadmins } = userData;
+    try {
+      const response = await fetch("http://localhost:8081/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
 
-    // Check all user types for matching credentials
-    const foundUser = [
-      ...users,
-      ...admins,
-      ...superadmins
-    ].find(user => user.email === email && user.password === password);
-    
-    if (foundUser) {
-      // Store user data in localStorage
-      localStorage.setItem("loggedInUser", JSON.stringify(foundUser));
-      localStorage.setItem("UserId", foundUser.id);
-      
-      // Navigate based on user role
-      switch (foundUser.role) {
-        case "admin":
-          navigate("/admin-dashboard");
-          break;
-        case "superadmin":
-          navigate("/superadmin/sdashboard");
-          break;
-        default:
-          navigate("/userui");
+      const data = await response.json();
+
+      if (response.ok) {
+        const { user } = data;
+        // Store user data in localStorage
+        localStorage.setItem("loggedInUser", JSON.stringify(user));
+        localStorage.setItem("UserId", user.id);
+        
+        // Navigate based on user role
+        switch (user.role) {
+          case "admin":
+            navigate("/admin-dashboard");
+            break;
+          case "superadmin":
+            navigate("/superadmin/sdashboard");
+            break;
+          default:
+            navigate("/userui");
+        }
+      } else {
+        setError(data.error || "Login failed. Please try again.");
       }
-    } else {
-      setError("Invalid email or password. Please try again.");
+    } catch (err) {
+      console.error("Login error:", err);
+      setError("Failed to connect to the server. Please try again later.");
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleForgotPassword = () => {
-    // Implement forgot password functionality
     navigate("/forgot-password");
   };
-
-  if (loading) {
-    return (
-      <div className={styles.loadingContainer}>
-        <div className={styles.loadingSpinner}></div>
-        <p>Loading, please wait...</p>
-      </div>
-    );
-  }
 
   return (
     <div className={styles.loginContainer}>
@@ -147,8 +110,12 @@ const Login = () => {
             </button>
           </div>
           
-          <button type="submit" className={styles.loginBtn}>
-            Login
+          <button 
+            type="submit" 
+            className={styles.loginBtn}
+            disabled={loading}
+          >
+            {loading ? "Logging in..." : "Login"}
           </button>
         </form>
         

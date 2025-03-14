@@ -31,16 +31,81 @@ app.post('/users', async (req, res) => {
   }
 });
 
+app.get('/pendingUsers', async (req, res) => {
+  try {
+    const results = await queryDatabase(`
+      SELECT u.id AS userId, u.email, u.name, u.status, 
+             
+             -- Step 1: Personal Information
+             s1.first_name, s1.middle_name, s1.last_name, s1.age, s1.gender, 
+             s1.date_of_birth, s1.place_of_birth, s1.address, s1.education, 
+             s1.civil_status, s1.occupation, s1.religion, s1.company, 
+             s1.income, s1.employment_status, s1.contact_number, s1.email, 
+             s1.pantawid_beneficiary, s1.indigenous, s1.code_id,
+
+             -- Step 2: Family Information (Children)
+             s2.first_name AS child_first_name, s2.middle_name AS child_middle_name, 
+             s2.last_name AS child_last_name, s2.birthdate AS child_birthdate, 
+             s2.age AS child_age, s2.educational_attainment AS child_education,
+
+             -- Step 3: Classification
+             s3.classification,
+
+             -- Step 4: Needs/Problems
+             s4.needs_problems,
+
+             -- Step 5: Emergency Contact
+             s5.emergency_name, s5.emergency_relationship, 
+             s5.emergency_address, s5.emergency_contact
+
+      FROM users u
+      JOIN user_details_step1 s1 ON u.id = s1.user_id
+      LEFT JOIN user_details_step2 s2 ON u.id = s2.user_id
+      LEFT JOIN user_details_step3 s3 ON u.id = s3.user_id
+      LEFT JOIN user_details_step4 s4 ON u.id = s4.user_id
+      LEFT JOIN user_details_step5 s5 ON u.id = s5.user_id
+      WHERE u.status = 'pending'
+    `);
+
+    res.status(200).json(results);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error fetching pending users' });
+  }
+});
+
 app.post('/login', async (req, res) => {
   const { email, password } = req.body;
   try {
-    const results = await queryDatabase('SELECT * FROM users WHERE email = ? AND password = ?', [email, password]);
+    // First check users table
+    let results = await queryDatabase('SELECT *, "user" as role FROM users WHERE email = ? AND password = ?', [email, password]);
+    
+    // If not found in users, check admin table
+    if (results.length === 0) {
+      results = await queryDatabase('SELECT *, "admin" as role FROM admin WHERE email = ? AND password = ?', [email, password]);
+    }
+    
+    // If not found in admin, check superadmin table
+    if (results.length === 0) {
+      results = await queryDatabase('SELECT *, "superadmin" as role FROM superadmin WHERE email = ? AND password = ?', [email, password]);
+    }
+
     if (results.length > 0) {
-      res.status(200).json({ user: results[0] }); 
+      const user = results[0];
+      res.status(200).json({ 
+        user: {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          name: user.name || null,
+          status: user.status || 'active'
+        }
+      });
     } else {
       res.status(401).json({ error: 'Invalid email or password' });
     }
   } catch (err) {
+    console.error('Login error:', err);
     res.status(500).json({ error: 'Database error' });
   }
 });
@@ -232,6 +297,30 @@ app.post('/userDetailsStep5', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error saving emergency contact data', details: err.message });
+  }
+});
+
+app.post('/updateUserStatus', async (req, res) => {
+  const { userId, status, remarks } = req.body;
+
+  try {
+    // Update the status in the users table
+    await queryDatabase('UPDATE users SET status = ? WHERE id = ?', [status, userId]);
+
+    // If the user is Declined, store remarks in declined_users
+    if (status === "Declined" && remarks) {
+      await queryDatabase('INSERT INTO declined_users (user_id, remarks) VALUES (?, ?)', [userId, remarks]);
+    }
+
+    // If the user is Verified (Accepted), store in accepted_users
+    if (status === "Verified") {
+      await queryDatabase('INSERT INTO accepted_users (user_id) VALUES (?)', [userId]);
+    }
+
+    res.status(200).json({ message: 'User status updated successfully' });
+  } catch (err) {
+    console.error('Error updating user status:', err);
+    res.status(500).json({ error: 'Database error while updating user status' });
   }
 });
 
