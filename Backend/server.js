@@ -82,6 +82,20 @@ app.get('/pendingUsers', async (req, res) => {
     res.status(500).json({ error: 'Error fetching pending users' });
   }
 });
+app.get('/verified-users', async (req, res) => {
+  try {
+    const query = `
+      SELECT * FROM users 
+      WHERE status = 'Verified' 
+      ORDER BY created_at DESC
+    `;
+    const users = await queryDatabase(query);
+    res.json({ success: true, users });
+  } catch (error) {
+    console.error('Error fetching verified users:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch users' });
+  }
+});
 
 app.post('/login', async (req, res) => {
   const { email, password } = req.body;

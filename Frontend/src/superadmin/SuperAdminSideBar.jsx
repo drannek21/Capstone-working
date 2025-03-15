@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { FiMenu, FiX, FiHome, FiFileText, FiBell, FiLogOut } from 'react-icons/fi';
+import { FiMenu, FiX, FiHome, FiFileText, FiBell, FiLogOut, FiUsers } from 'react-icons/fi';
 import './SuperAdminSideBar.css';
 
 const SuperAdminSideBar = () => {
@@ -89,6 +89,17 @@ const SuperAdminSideBar = () => {
             <FiFileText className="nav-icon" />
             <span>Applications</span>
           </NavLink>
+
+          <NavLink 
+            to="/superadmin/user-management"
+            className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}
+            onClick={() => window.innerWidth < 768 && setIsOpen(false)}
+          >
+            <FiUsers className="nav-icon" />
+            <span>User Management</span>
+          </NavLink>
+
+
                     
           <div 
             className="nav-link"

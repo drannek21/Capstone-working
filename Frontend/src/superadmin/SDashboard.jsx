@@ -144,7 +144,7 @@ const SDashboard = () => {
 
   const employmentOption = {
     title: {
-      text: 'Employment Status',
+      text: 'User Status',
       left: 'center',
       top: 5,
       textStyle: { fontSize: getFontSize(14) }
@@ -167,9 +167,9 @@ const SDashboard = () => {
       avoidLabelOverlap: true,
       label: { show: false },
       data: [
-        { value: dashboardData[selectedBrgy].employmentStatus[0], name: 'Employed', itemStyle: { color: '#16C47F' } },
-        { value: dashboardData[selectedBrgy].employmentStatus[1], name: 'Unemployed', itemStyle: { color: '#FF6B6B' } },
-        { value: dashboardData[selectedBrgy].employmentStatus[2], name: 'Self-employed', itemStyle: { color: '#4ECDC4' } }
+        { value: dashboardData[selectedBrgy].employmentStatus[0], name: 'Verified', itemStyle: { color: '#16C47F' } },
+        { value: dashboardData[selectedBrgy].employmentStatus[1], name: 'Unverified', itemStyle: { color: '#FF6B6B' } },
+        { value: dashboardData[selectedBrgy].employmentStatus[2], name: 'Pending', itemStyle: { color: '#4ECDC4' } }
       ]
     }]
   };
