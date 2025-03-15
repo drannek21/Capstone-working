@@ -198,6 +198,7 @@ const Applications = () => {
               <th>ID</th>
               <th>Code ID</th>
               <th>Name</th>
+              <th>Barangay</th>
               <th>Email</th>
               <th>Age</th>
               <th>Actions</th>
@@ -209,6 +210,7 @@ const Applications = () => {
                 <td>{indexOfFirstApplication + index + 1}</td>
                 <td>{app.code_id}</td>
                 <td>{`${app.first_name} ${app.middle_name || ''} ${app.last_name}`}</td>
+                <td>{app.barangay || 'N/A'}</td>
                 <td>{app.email}</td>
                 <td>{app.age}</td>
                 <td>

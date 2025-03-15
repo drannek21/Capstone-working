@@ -11,11 +11,12 @@ const ProfilePage = () => {
   const [showUploadModal, setShowUploadModal] = useState(false); // Modal visibility for upload
   const [selectedFile, setSelectedFile] = useState(null); // File to be uploaded
   const [previewUrl, setPreviewUrl] = useState(null); // Preview image URL
+  const [previousStatus, setPreviousStatus] = useState(null);
   const navigate = useNavigate(); // Use navigate for navigation
 
   const loggedInUserId = localStorage.getItem("UserId"); // Get the logged-in user ID
 
-  // Fetch user details from the backend API
+  // Fetch user details and check for status changes
   useEffect(() => {
     const fetchUserDetails = async () => {
       if (!loggedInUserId) {
@@ -35,6 +36,16 @@ const ProfilePage = () => {
         const data = await response.json();
 
         if (response.ok) {
+          // Check if status has changed
+          if (previousStatus && previousStatus !== data.status) {
+            // Show notification based on new status
+            if (data.status === "Verified") {
+              alert("Congratulations! Your application has been approved!");
+            } else if (data.status === "Unverified" && previousStatus === "Pending") {
+              alert("Your application has been declined. Please check with the admin for more details.");
+            }
+          }
+          setPreviousStatus(data.status);
           setUser(data); // Set the user data
         } else {
           console.error("Error fetching user data:", data.message);
@@ -45,7 +56,73 @@ const ProfilePage = () => {
     };
 
     fetchUserDetails();
-  }, [loggedInUserId]);
+    // Check for updates every 30 seconds
+    const interval = setInterval(fetchUserDetails, 30000);
+    return () => clearInterval(interval);
+  }, [loggedInUserId, previousStatus]);
+
+  const renderUserDetails = () => {
+    if (user.status === "Verified") {
+      return (
+        <div className="user-details">
+          <h3>Personal Information</h3>
+          <ul>
+            <li>Gender: {user.gender}</li>
+            <li>Birthdate: {user.date_of_birth ? new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(new Date(user.date_of_birth)) : ''}</li>
+            <li>Place of Birth: {user.place_of_birth}</li>
+            <li>Address: {user.address}</li>
+            <li>Religion: {user.religion}</li>
+            <li>Civil Status: {user.civil_status}</li>
+            <li>Company: {user.company}</li>
+            <li>Monthly Income: ₱ {user.income}</li>
+            <li>Contact Number: {user.contact_number}</li>
+            <li>
+              Family Composition:
+              {user.children && user.children.length > 0 ? (
+                <ul className="children-list">
+                  {user.children.map((child, index) => (
+                    <li key={index}>
+                      <strong>Child {index + 1}:</strong>{' '}
+                      {child.first_name} {child.middle_name} {child.last_name}
+                      {child.birthdate && (
+                        <span> - Born: {new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(new Date(child.birthdate))}</span>
+                      )}
+                      {child.age && <span> - Age: {child.age}</span>}
+                      {child.educational_attainment && <span> - Education: {child.educational_attainment}</span>}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <span> No children registered</span>
+              )}
+            </li>
+          </ul>
+        </div>
+      );
+    } else if (user.status === "pending") {
+      return (
+        <div className="verification-prompt">
+          <h3>Application Under Review</h3>
+          <p>Your verification application is currently being reviewed. Please wait for the admin's response.</p>
+        </div>
+      );
+    } else {
+      return (
+        <div className="verification-prompt">
+          <h3>Verify Your Account</h3>
+          <p>Complete your verification to access all features and benefits.</p>
+          <button className="verify-button" onClick={handleSendApplication}>
+            Start Verification
+          </button>
+        </div>
+      );
+    }
+  };
+
+  const handleBirthdateChange = (e) => {
+    const birthdate = e.target.value;
+    setUser(prev => ({...prev, date_of_birth: birthdate}));
+  };
 
   // Handle file change when a user selects a file to upload
   const handleFileChange = (e) => {
@@ -145,35 +222,7 @@ const ProfilePage = () => {
         </div>
 
         <div className="tab-content">
-          {activeTab === "Details" && (
-            <div className="details-tab">
-              {status === "Unverified" ? (
-                <div className="verification-prompt">
-                  <h3>Verify Your Account</h3>
-                  <p>Complete your verification to access all features and benefits.</p>
-                  <button className="verify-button" onClick={handleSendApplication}>
-                    Start Verification
-                  </button>
-                </div>
-              ) : (
-                <div className="details-list">
-                  <h3>Submitted Documents</h3>
-                  {Array.isArray(user.documents) && user.documents.length > 0 ? (
-                    <ul>
-                      {user.documents.map((doc, index) => (
-                        <li key={index} className="document-item">
-                          <FaCheckCircle className="document-icon" />
-                          {doc}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="no-documents">No documents submitted yet</p>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
+          {activeTab === "Details" && renderUserDetails()}
 
           {activeTab === "ID" && (
             <div className="id-tab">
@@ -247,5 +296,4 @@ const ProfilePage = () => {
     </div>
   );
 };
-
 export default ProfilePage;

@@ -1,3 +1,4 @@
+/* ✅ Main Container */
 .signupContainer {
     display: flex;
     justify-content: center;
@@ -9,8 +10,8 @@
     position: relative;
     padding: 20px;
 }
-  
-/* Green overlay with animation */
+
+/* ✅ Green Overlay Animation */
 .signupContainer::before {
     content: '';
     position: absolute;
@@ -18,7 +19,7 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: rgba(0, 128, 64, 0.6); /* Green hue overlay */
+    background-color: rgba(0, 128, 64, 0.6);
     z-index: 1;
     animation: pulseOverlay 8s infinite alternate;
 }
@@ -27,7 +28,8 @@
     0% { background-color: rgba(0, 128, 64, 0.6); }
     100% { background-color: rgba(0, 128, 64, 0.7); }
 }
-  
+
+/* ✅ Signup Box */
 .signupBox {
     background: white;
     padding: 3rem;
@@ -37,7 +39,7 @@
     max-width: 90%;
     text-align: center;
     position: relative;
-    z-index: 2; /* Position above the overlay */
+    z-index: 2;
     overflow: hidden;
     animation: fadeIn 0.8s ease-out, slideUp 0.8s ease-out;
 }
@@ -51,99 +53,68 @@
     from { transform: translateY(30px); }
     to { transform: translateY(0); }
 }
-  
+
+/* ✅ Heading */
 .signupBox h2 {
     margin-bottom: 1.5rem;
     color: #333;
     font-size: 2rem;
     font-weight: 700;
-    animation: fadeIn 1s ease-out 0.3s both;
 }
-  
+
+/* ✅ Input Group */
 .inputGroup {
     margin-bottom: 1.5rem;
     text-align: left;
-    animation: fadeIn 1s ease-out calc(0.4s + var(--input-delay, 0s)) both;
     position: relative;
 }
 
-/* Apply different delays to each input group */
-.inputGroup:nth-child(2) {
-    --input-delay: 0.1s;
-}
-
-.inputGroup:nth-child(3) {
-    --input-delay: 0.2s;
-}
-
-.inputGroup:nth-child(4) {
-    --input-delay: 0.3s;
-}
-
-.inputGroup:nth-child(5) {
-    --input-delay: 0.4s;
-}
-  
 .inputGroup label {
     display: block;
     margin-bottom: 8px;
     color: #555;
     font-weight: 600;
 }
-  
-.inputGroup input {
-    width: 92%;
-    padding: 14px;
+
+.inputGroup input,
+.dropdown {
+    width: 100%;
+    padding: 12px;
     border: 1px solid #ccc;
     border-radius: 8px;
     font-size: 16px;
-    transition: all 0.3s ease;
     background-color: #fff;
+    transition: all 0.3s ease;
 }
-  
-.inputGroup input:focus {
+
+.inputGroup input:focus,
+.dropdown:focus {
     border-color: #16C47F;
     outline: none;
     box-shadow: 0px 0px 6px rgba(22, 196, 127, 0.5);
     transform: scale(1.02);
 }
-  
-/* Password field styles */
-.passwordField {
-    position: relative;
-    width: 100%;
-}
 
-.passwordField input {
-    width: 100%;
-    padding-right: 45px;
-}
-
-.eyeIcon {
-    position: absolute;
-    right: 15px;
-    top: 50%;
-    transform: translateY(-50%);
-    background: none;
-    border: none;
-    color: #666;
+/* ✅ Barangay Dropdown */
+.dropdown {
     cursor: pointer;
-    padding: 8px;
+    appearance: none; /* Removes default styles in some browsers */
+    background-color: #fff;
+    transition: border-color 0.3s ease;
+}
+
+.passwordContainer {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.3s ease;
+    justify-content: space-between;
+    gap: 50px; /* Added gap between password and confirm password */
 }
 
-.eyeIcon:hover {
-    color: #16C47F;
+.passwordContainer .inputGroup {
+    width: 48%;
 }
 
-.eyeIcon:focus {
-    outline: none;
-    color: #16C47F;
-}
-  
+
+/* ✅ Error Message */
 .errorMessage {
     color: #e74c3c;
     font-size: 14px;
@@ -161,7 +132,8 @@
     10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
     20%, 40%, 60%, 80% { transform: translateX(5px); }
 }
-  
+
+/* ✅ Signup Button */
 .signupBtn {
     width: 100%;
     padding: 12px;
@@ -173,18 +145,13 @@
     cursor: pointer;
     font-weight: 600;
     transition: all 0.3s ease;
-    animation: fadeIn 1s ease-out 0.8s both;
     position: relative;
     overflow: hidden;
 }
-  
+
 .signupBtn:not(:disabled):hover {
     transform: translateY(-3px);
     box-shadow: 0px 4px 12px rgba(14, 155, 100, 0.5);
-}
-
-.signupBtn:active {
-    transform: translateY(0);
 }
 
 .signupBtn:disabled {
@@ -194,7 +161,7 @@
     box-shadow: none;
 }
 
-/* Button ripple effect */
+/* ✅ Ripple Effect */
 .signupBtn::after {
     content: '';
     position: absolute;
@@ -227,13 +194,13 @@
         transform: scale(40, 40);
     }
 }
-  
+
+/* ✅ Login Text */
 .loginText {
     margin-top: 1.5rem;
     font-size: 15px;
-    animation: fadeIn 1s ease-out 0.9s both;
 }
-  
+
 .loginText a {
     color: #16C47F;
     text-decoration: none;
@@ -241,72 +208,46 @@
     transition: all 0.3s ease;
     display: inline-block;
 }
-  
+
 .loginText a:hover {
     color: #0E9B64;
     transform: translateY(-1px);
     text-decoration: underline;
 }
 
-/* Loading spinner */
-.spinner {
-    width: 20px;
-    height: 20px;
-    border: 2px solid rgba(255, 255, 255, 0.3);
-    border-radius: 50%;
-    border-top-color: white;
-    animation: spin 0.8s linear infinite;
-    margin-right: 8px;
-}
+/* ✅ Responsive Design */
+@media (max-width: 600px) {
+    .passwordContainer {
+        flex-direction: column;
+        gap: 0px;
+    }
 
-@keyframes spin {
-    to { transform: rotate(360deg); }
-}
+    .passwordContainer .inputGroup {
+        width: 100%;
+    }
 
-/* Success animation for form submission */
-@keyframes successPulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.02); }
-    100% { transform: scale(1); }
-}
-
-.formSuccess {
-    color: #16C47F;
-    font-weight: 600;
-    padding: 12px;
-    margin-bottom: 20px;
-    border-radius: 8px;
-    background-color: rgba(22, 196, 127, 0.1);
-    border-left: 3px solid #16C47F;
-    animation: fadeIn 0.5s ease-out, successPulse 1s ease-in-out;
-}
-  
-@media (max-width: 480px) {
     .signupBox {
         padding: 2rem;
         width: 100%;
         max-width: 90%;
     }
-  
+
     .signupBox h2 {
         font-size: 1.7rem;
     }
-  
-    .inputGroup input {
+
+    .inputGroup input,
+    .dropdown {
         padding: 12px;
         font-size: 14px;
     }
-  
+
     .signupBtn {
         padding: 12px;
         font-size: 14px;
     }
-  
+
     .loginText {
         font-size: 13px;
-    }
-
-    .eyeIcon {
-        padding: 6px;
     }
 }

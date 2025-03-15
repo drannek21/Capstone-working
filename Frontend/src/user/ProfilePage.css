@@ -1,6 +1,6 @@
 /* 🔹 Profile Container */
 .profile-container {
-  max-width: 1200px;
+  max-width: 700px;
   margin: 2rem auto;
   padding: 0 1.5rem;
 }
@@ -214,6 +214,30 @@
   padding: 3rem;
   background: #f8f9fa;
   border-radius: 12px;
+  color: #666;
+}
+
+.children-list {
+  margin-top: 10px;
+  margin-left: 20px;
+  list-style-type: none;
+}
+
+.children-list li {
+  padding: 8px;
+  margin-bottom: 8px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  font-size: 0.95em;
+}
+
+.children-list li strong {
+  color: #0056b3;
+  margin-right: 5px;
+}
+
+.children-list li span {
+  margin-right: 10px;
   color: #666;
 }
 
