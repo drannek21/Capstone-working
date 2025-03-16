@@ -62,7 +62,6 @@
     font-weight: 700;
 }
 
-/* ✅ Input Group */
 .inputGroup {
     margin-bottom: 1.5rem;
     text-align: left;
@@ -78,13 +77,14 @@
 
 .inputGroup input,
 .dropdown {
-    width: 100%;
+    width: 100%; /* Changed from 90% to 100% to fill the container */
     padding: 12px;
     border: 1px solid #ccc;
     border-radius: 8px;
     font-size: 16px;
     background-color: #fff;
     transition: all 0.3s ease;
+    box-sizing: border-box; /* Added to ensure padding doesn't expand width */
 }
 
 .inputGroup input:focus,
@@ -106,11 +106,13 @@
 .passwordContainer {
     display: flex;
     justify-content: space-between;
-    gap: 50px; /* Added gap between password and confirm password */
+    gap: 20px; /* Reduced from 50px to better match the layout */
 }
 
+
 .passwordContainer .inputGroup {
-    width: 48%;
+    flex: 1; /* Use flex: 1 instead of fixed width to divide space evenly */
+    min-width: 0; /* Allows shrinking below content size if needed */
 }
 
 
@@ -219,7 +221,7 @@
 @media (max-width: 600px) {
     .passwordContainer {
         flex-direction: column;
-        gap: 0px;
+        gap: 0; /* No need for gap in column layout */
     }
 
     .passwordContainer .inputGroup {

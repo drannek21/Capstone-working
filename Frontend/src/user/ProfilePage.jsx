@@ -67,33 +67,61 @@ const ProfilePage = () => {
         <div className="user-details">
           <h3>Personal Information</h3>
           <ul>
-            <li>Gender: {user.gender}</li>
-            <li>Birthdate: {user.date_of_birth ? new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(new Date(user.date_of_birth)) : ''}</li>
-            <li>Place of Birth: {user.place_of_birth}</li>
-            <li>Address: {user.address}</li>
-            <li>Religion: {user.religion}</li>
-            <li>Civil Status: {user.civil_status}</li>
-            <li>Company: {user.company}</li>
-            <li>Monthly Income: ₱ {user.income}</li>
-            <li>Contact Number: {user.contact_number}</li>
             <li>
-              Family Composition:
+              <span className="label">Gender</span>
+              <span className="value">{user.gender}</span>
+            </li>
+            <li>
+              <span className="label">Birthdate</span>
+              <span className="value">{user.date_of_birth ? new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(new Date(user.date_of_birth)) : ''}</span>
+            </li>
+            <li>
+              <span className="label">Place of Birth</span>
+              <span className="value">{user.place_of_birth}</span>
+            </li>
+            <li>
+              <span className="label">Address</span>
+              <span className="value">{user.address}</span>
+            </li>
+            <li>
+              <span className="label">Religion</span>
+              <span className="value">{user.religion}</span>
+            </li>
+            <li>
+              <span className="label">Civil Status</span>
+              <span className="value">{user.civil_status}</span>
+            </li>
+            <li>
+              <span className="label">Company</span>
+              <span className="value">{user.company}</span>
+            </li>
+            <li>
+              <span className="label">Monthly Income</span>
+              <span className="value">₱ {user.income}</span>
+            </li>
+            <li>
+              <span className="label">Contact Number</span>
+              <span className="value">{user.contact_number}</span>
+            </li>
+            <li>
+              <span className="label family">Family Composition</span>
               {user.children && user.children.length > 0 ? (
                 <ul className="children-list">
                   {user.children.map((child, index) => (
                     <li key={index}>
-                      <strong>Child {index + 1}:</strong>{' '}
-                      {child.first_name} {child.middle_name} {child.last_name}
-                      {child.birthdate && (
-                        <span> - Born: {new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(new Date(child.birthdate))}</span>
-                      )}
-                      {child.age && <span> - Age: {child.age}</span>}
-                      {child.educational_attainment && <span> - Education: {child.educational_attainment}</span>}
+                      <strong>Child {index + 1}: {child.first_name} {child.middle_name} {child.last_name}</strong>
+                      <div className="child-details">
+                        {child.birthdate && (
+                          <span>Born: {new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(new Date(child.birthdate))}</span>
+                        )}
+                        {child.age && <span>Age: {child.age}</span>}
+                        {child.educational_attainment && <span>Education: {child.educational_attainment}</span>}
+                      </div>
                     </li>
                   ))}
                 </ul>
               ) : (
-                <span> No children registered</span>
+                <span className="no-children">No children registered</span>
               )}
             </li>
           </ul>
