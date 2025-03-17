@@ -10,6 +10,25 @@ export default function FamilyOccupation({ prevStep, nextStep, formData, updateF
 
   const numberOfChildren = watch("Number of children") || 0;
 
+  // Clear children data when number of children changes
+  useEffect(() => {
+    // Clear existing children data when number changes
+    const currentChildren = formData.children || [];
+    if (currentChildren.length !== numberOfChildren) {
+      updateFormData({ 
+        ...formData,
+        children: Array(parseInt(numberOfChildren)).fill({
+          firstName: "",
+          middleName: "",
+          lastName: "",
+          birthdate: "",
+          age: "",
+          educationalAttainment: ""
+        })
+      });
+    }
+  }, [numberOfChildren]);
+
   const calculateAge = (birthdate) => {
     if (!birthdate) return "";
     const birthDateObj = new Date(birthdate);
@@ -40,18 +59,18 @@ export default function FamilyOccupation({ prevStep, nextStep, formData, updateF
     const isValid = await trigger();
     if (!isValid) return;
   
-    const childrenData = data.children.map((child, index) => ({
-      firstName: child["First name"] || "",
-      middleName: child["Middle name"] || "",
-      lastName: child["Last name"] || "",
-      birthdate: child["Birthdate"] || "",
-      age: child["Age"] || "",
-      educationalAttainment: watch(`children[${index}].Educational Attainment`) || ""
+    const childrenData = Array.from({ length: numberOfChildren }).map((_, index) => ({
+      firstName: data.children?.[index]?.["First name"] || "",
+      middleName: data.children?.[index]?.["Middle name"] || "",
+      lastName: data.children?.[index]?.["Last name"] || "",
+      birthdate: data.children?.[index]?.["Birthdate"] || "",
+      age: data.children?.[index]?.["Age"] || "",
+      educationalAttainment: data.children?.[index]?.["Educational Attainment"] || ""
     }));
   
     updateFormData({ 
-      ...formData, 
-      ...data,
+      ...formData,
+      "Number of children": numberOfChildren,
       children: childrenData 
     });
     nextStep();

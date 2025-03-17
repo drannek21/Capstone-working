@@ -96,7 +96,7 @@ const SuperAdminSideBar = () => {
             onClick={() => window.innerWidth < 768 && setIsOpen(false)}
           >
             <FiUsers className="nav-icon" />
-            <span>User Management</span>
+            <span>Admin Management</span>
           </NavLink>
 
 

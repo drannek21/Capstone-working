@@ -31,6 +31,102 @@ app.post('/users', async (req, res) => {
   }
 });
 
+
+app.get("/admins", (req, res) => {
+  const sql = "SELECT id, email, barangay FROM admin";
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error('Error fetching admins:', err);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+    res.json({ success: true, users: results });
+  });
+});
+
+app.post("/admins", (req, res) => {
+  const { email, password, barangay } = req.body;
+  
+  if (!email || !password || !barangay) {
+    return res.status(400).json({ success: false, message: "All fields are required" });
+  }
+
+  // Check if email or barangay already exists
+  db.query("SELECT * FROM admin WHERE email = ? OR barangay = ?", [email, barangay], (err, results) => {
+    if (err) {
+      console.error('Error checking admin:', err);
+      return res.status(500).json({ success: false, message: "Error checking admin", error: err.message });
+    }
+
+    if (results.length > 0) {
+      const existingAdmin = results[0];
+      if (existingAdmin.email === email) {
+        return res.status(400).json({ success: false, message: "Email already exists" });
+      }
+      if (existingAdmin.barangay === barangay) {
+        return res.status(400).json({ success: false, message: "Barangay already has an admin" });
+      }
+    }
+
+    // If validation passes, insert new admin
+    const sql = "INSERT INTO admin (email, password, barangay) VALUES (?, ?, ?)";
+    db.query(sql, [email, password, barangay], (err, result) => {
+      if (err) {
+        console.error('Error adding admin:', err);
+        return res.status(500).json({ success: false, message: "Error adding admin", error: err.message });
+      }
+      res.json({ success: true, message: "Admin created successfully" });
+    });
+  });
+});
+
+app.put("/admins/:id", (req, res) => {
+  const { id } = req.params;
+  const { email, password, barangay } = req.body;
+  
+  if (!email || !barangay) {
+    return res.status(400).json({ success: false, message: "Email and barangay are required" });
+  }
+
+  // Check if email or barangay already exists for other admins
+  db.query("SELECT * FROM admin WHERE (email = ? OR barangay = ?) AND id != ?", 
+    [email, barangay, id], (err, results) => {
+    if (err) {
+      console.error('Error checking admin:', err);
+      return res.status(500).json({ success: false, message: "Error checking admin", error: err.message });
+    }
+
+    if (results.length > 0) {
+      const existingAdmin = results[0];
+      if (existingAdmin.email === email) {
+        return res.status(400).json({ success: false, message: "Email already exists" });
+      }
+      if (existingAdmin.barangay === barangay) {
+        return res.status(400).json({ success: false, message: "Barangay already has an admin" });
+      }
+    }
+
+    // If validation passes, update admin
+    const updateFields = password 
+      ? [email, password, barangay, id]
+      : [email, barangay, id];
+
+    const sql = password
+      ? "UPDATE admin SET email = ?, password = ?, barangay = ? WHERE id = ?"
+      : "UPDATE admin SET email = ?, barangay = ? WHERE id = ?";
+
+    db.query(sql, updateFields, (err, result) => {
+      if (err) {
+        console.error('Error updating admin:', err);
+        return res.status(500).json({ success: false, message: "Error updating admin", error: err.message });
+      }
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ success: false, message: "Admin not found" });
+      }
+      res.json({ success: true, message: "Admin updated successfully" });
+    });
+  });
+});
+
 app.get('/pendingUsers', async (req, res) => {
   try {
     // First, get all pending users with their basic information
@@ -243,10 +339,27 @@ app.post('/userDetailsStep1', async (req, res) => {
         indigenous, codeId
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
-      userId, firstName, middleName, lastName, age, gender, dateOfBirth,
-      placeOfBirth, address, education, civilStatus, occupation, religion,
-      company, income, employmentStatus, contactNumber, email, pantawidBeneficiary,
-      indigenous, codeId
+      userId, 
+      firstName, 
+      middleName, 
+      lastName, 
+      age, 
+      gender, 
+      dateOfBirth,
+      placeOfBirth, 
+      address, 
+      education, 
+      civilStatus, 
+      occupation, 
+      religion,
+      company, 
+      income, 
+      employmentStatus, 
+      contactNumber, 
+      email, 
+      pantawidBeneficiary,
+      indigenous, 
+      codeId
     ]);
 
     res.status(201).json({ message: 'Data inserted successfully with random codeId value' });

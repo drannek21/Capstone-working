@@ -23,7 +23,7 @@ const Login = () => {
     e.preventDefault();
     setError("");
     setLoading(true);
-    
+
     try {
       const response = await fetch("http://localhost:8081/login", {
         method: "POST",
@@ -37,11 +37,9 @@ const Login = () => {
 
       if (response.ok) {
         const { user } = data;
-        // Store user data in localStorage
         localStorage.setItem("loggedInUser", JSON.stringify(user));
         localStorage.setItem("UserId", user.id);
-        
-        // Navigate based on user role
+
         switch (user.role) {
           case "admin":
             navigate("/admin-dashboard");
