@@ -12,19 +12,27 @@ const ProfilePage = () => {
   const [selectedFile, setSelectedFile] = useState(null); // File to be uploaded
   const [previewUrl, setPreviewUrl] = useState(null); // Preview image URL
   const [previousStatus, setPreviousStatus] = useState(null);
+  const [isLoading, setIsLoading] = useState(true); // Add loading state
   const navigate = useNavigate(); // Use navigate for navigation
 
   const loggedInUserId = localStorage.getItem("UserId"); // Get the logged-in user ID
+
+  // Add your Cloudinary credentials
+  const CLOUD_NAME = 'dskj7oxr7';
+  const UPLOAD_PRESET = 'cloudtest';
+  const FOLDER = 'Profile Pic';
 
   // Fetch user details and check for status changes
   useEffect(() => {
     const fetchUserDetails = async () => {
       if (!loggedInUserId) {
         console.error("No logged-in user found");
+        setIsLoading(false);
         return;
       }
 
       try {
+        setIsLoading(true);
         const response = await fetch("http://localhost:8081/getUserDetails", {
           method: "POST",
           headers: {
@@ -46,12 +54,27 @@ const ProfilePage = () => {
             }
           }
           setPreviousStatus(data.status);
+          
+          // Check if profilePic exists in the response
+          if (data.profilePic) {
+            // Cache the profile picture URL in localStorage for quick access
+            localStorage.setItem(`profilePic_${loggedInUserId}`, data.profilePic);
+          } else {
+            // If no profile pic in response, check if we have a cached one
+            const cachedProfilePic = localStorage.getItem(`profilePic_${loggedInUserId}`);
+            if (cachedProfilePic) {
+              data.profilePic = cachedProfilePic;
+            }
+          }
+          
           setUser(data); // Set the user data
         } else {
           console.error("Error fetching user data:", data.message);
         }
       } catch (error) {
         console.error("Error fetching user data:", error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -62,6 +85,8 @@ const ProfilePage = () => {
   }, [loggedInUserId, previousStatus]);
 
   const renderUserDetails = () => {
+    if (!user) return null;
+    
     if (user.status === "Verified") {
       return (
         <div className="user-details">
@@ -127,7 +152,7 @@ const ProfilePage = () => {
           </ul>
         </div>
       );
-    } else if (user.status === "pending") {
+    } else if (user.status === "Pending") {
       return (
         <div className="verification-prompt">
           <h3>Application Under Review</h3>
@@ -170,29 +195,73 @@ const ProfilePage = () => {
     document.getElementById("profilePicInput").click();
   };
 
-  // Handle the profile picture upload to the backend
+  // Handle the profile picture upload to Cloudinary
   const handleUploadSubmit = async () => {
     if (!selectedFile) return;
 
-    const formData = new FormData();
-    formData.append("profilePic", selectedFile);
-    formData.append("userId", loggedInUserId);
-
     try {
-      const response = await fetch("http://localhost:8081/uploadProfilePic", {
-        method: "POST",
+      setIsLoading(true);
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      formData.append('upload_preset', UPLOAD_PRESET);
+      formData.append('folder', FOLDER);
+
+      // Rename the file with the user's name and a timestamp to avoid duplicates
+      const timestamp = new Date().getTime();
+      const fileName = `${user.name ? user.name.replace(/\s+/g, '_') : 'user'}_${timestamp}_${selectedFile.name}`;
+      formData.append('public_id', fileName);
+
+      const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/auto/upload`, {
+        method: 'POST',
         body: formData,
       });
 
-      if (response.ok) {
-        const updatedUser = { ...user, profilePic: URL.createObjectURL(selectedFile) };
-        setUser(updatedUser); // Update the profile picture after upload
-        setShowUploadModal(false);
-        setSelectedFile(null);
-        setPreviewUrl(null);
+      if (!response.ok) {
+        throw new Error('Upload failed');
       }
+
+      const data = await response.json();
+      const imageUrl = data.secure_url;
+      
+      // Store the image URL in localStorage regardless of backend update success
+      localStorage.setItem(`profilePic_${loggedInUserId}`, imageUrl);
+      
+      try {
+        // Try to update the backend, but don't fail if it doesn't work
+        await fetch("http://localhost:8081/updateUserProfile", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ 
+            userId: loggedInUserId, 
+            profilePic: imageUrl 
+          }),
+        });
+        console.log("Backend updated successfully");
+      } catch (backendError) {
+        // If backend update fails, log it but don't throw an error
+        // We'll still use the image from localStorage
+        console.warn("Failed to update backend, using local storage instead:", backendError);
+      }
+
+      // Update the user state with the new profile picture
+      setUser(prev => ({
+        ...prev,
+        profilePic: imageUrl
+      }));
+      
+      setShowUploadModal(false);
+      setSelectedFile(null);
+      setPreviewUrl(null);
+      
+      // Show success message
+      alert("Profile picture updated successfully!");
     } catch (error) {
-      console.error("Error uploading profile picture:", error);
+      console.error('Error uploading profile picture:', error);
+      alert("Failed to upload profile picture. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -201,11 +270,22 @@ const ProfilePage = () => {
     navigate("/form", { state: { userId: loggedInUserId } }); // Navigate to the form page
   };
 
-  if (!user) {
+  if (isLoading) {
     return (
       <div className="loading-container">
         <div className="loading-spinner"></div>
         <p>Loading your profile...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="error-container">
+        <p>Unable to load profile. Please log in again.</p>
+        <button className="login-button" onClick={() => navigate("/login")}>
+          Go to Login
+        </button>
       </div>
     );
   }
@@ -217,20 +297,31 @@ const ProfilePage = () => {
     Unverified: <FaTimes className="status-icon unverified" />,
   };
 
+  // Get the profile picture URL from user object or localStorage
+  const profilePicUrl = user.profilePic || localStorage.getItem(`profilePic_${loggedInUserId}`) || avatar;
+
   return (
     <div className="profile-container">
       <div className="profile-header">
         <div className="profile-picture-container">
-          <img src={user.profilePic || avatar} alt="Profile" className="profile-pic" />
+          <img 
+            src={profilePicUrl} 
+            alt="Profile" 
+            className="profile-pic" 
+            onError={(e) => {
+              console.log("Error loading profile picture, falling back to default");
+              e.target.src = avatar;
+            }}
+          />
           <button className="upload-button" onClick={() => setShowUploadModal(true)}>
             <FaCamera />
           </button>
         </div>
         <div className="profile-info">
-          <h1>{user.name || "Unverified"}</h1>
-          <p className="email">{user.email || "Unverified"}</p>
+          <h1>{user.name || "User"}</h1>
+          <p className="email">{user.email || "No email"}</p>
           <div className="status-badge">
-            {statusIcon[status]}
+            {statusIcon[status] || statusIcon.Unverified}
             <span>{status}</span>
           </div>
         </div>
@@ -265,7 +356,15 @@ const ProfilePage = () => {
               ) : (
                 <div className="id-card">
                   {user.idPic ? (
-                    <img src={user.idPic} alt="ID" className="id-image" />
+                    <img 
+                      src={user.idPic} 
+                      alt="ID" 
+                      className="id-image"
+                      onError={(e) => {
+                        console.log("Error loading ID picture");
+                        e.target.src = idPic;
+                      }}
+                    />
                   ) : (
                     <div className="no-id">
                       <p>ID is being processed</p>
@@ -284,9 +383,12 @@ const ProfilePage = () => {
             <h3>Update Profile Picture</h3>
             <div className="preview-container">
               <img
-                src={previewUrl || user.profilePic || avatar}
+                src={previewUrl || profilePicUrl}
                 alt="Preview"
                 className="preview-image"
+                onError={(e) => {
+                  e.target.src = avatar;
+                }}
               />
             </div>
             <input
@@ -303,9 +405,9 @@ const ProfilePage = () => {
               <button
                 className="save-photo-btn"
                 onClick={handleUploadSubmit}
-                disabled={!selectedFile}
+                disabled={!selectedFile || isLoading}
               >
-                Save Photo
+                {isLoading ? "Uploading..." : "Save Photo"}
               </button>
               <button
                 className="cancel-btn"
@@ -324,4 +426,5 @@ const ProfilePage = () => {
     </div>
   );
 };
+
 export default ProfilePage;

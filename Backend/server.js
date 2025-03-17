@@ -496,6 +496,24 @@ app.post('/updateUserStatus', async (req, res) => {
     res.status(500).json({ error: 'Database error while updating user status' });
   }
 });
+app.post('/updateUserProfile', async (req, res) => {
+  const { userId, profilePic } = req.body;
+  
+  try {
+    // Validate inputs
+    if (!userId || !profilePic) {
+      return res.status(400).json({ error: 'Missing required fields: userId or profilePic' });
+    }
+    
+    // Update the user's profile picture in the database
+    await queryDatabase('UPDATE users SET profilePic = ? WHERE id = ?', [profilePic, userId]);
+    
+    res.status(200).json({ success: true, message: 'Profile picture updated successfully' });
+  } catch (err) {
+    console.error('Error updating profile picture:', err);
+    res.status(500).json({ error: 'Database error while updating profile picture' });
+  }
+});
 
 app.post('/submitAllSteps', async (req, res) => {
   const { userId, formData } = req.body;
