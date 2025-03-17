@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import "./ProfilePage.css"; // Import CSS file
 import { FaCamera, FaCheckCircle, FaClock, FaTimes } from "react-icons/fa"; // Import icons
 import avatar from "../assets/avatar.jpg";
-import idPic from "../assets/idpic.png";
+import html2canvas from 'html2canvas';
+import dswdLogo from '../assets/dswd-logo.png';
 
 const ProfilePage = () => {
   const [activeTab, setActiveTab] = useState("Details"); // Track active tab
@@ -172,10 +173,11 @@ const ProfilePage = () => {
     }
   };
 
-  const handleBirthdateChange = (e) => {
-    const birthdate = e.target.value;
-    setUser(prev => ({...prev, date_of_birth: birthdate}));
-  };
+  // Remove this unused function
+  // const handleBirthdateChange = (e) => {
+  //   const birthdate = e.target.value;
+  //   setUser(prev => ({...prev, date_of_birth: birthdate}));
+  // };
 
   // Handle file change when a user selects a file to upload
   const handleFileChange = (e) => {
@@ -270,6 +272,40 @@ const ProfilePage = () => {
     navigate("/form", { state: { userId: loggedInUserId } }); // Navigate to the form page
   };
 
+  // Add this function after the other handler functions and before the render checks
+  const downloadID = async () => {
+    const idCard = document.getElementById('idCard');
+    if (!idCard) return;
+  
+    try {
+      // Wait for images to load
+      const images = idCard.getElementsByTagName('img');
+      await Promise.all([...images].map(img => {
+        if (img.complete) return Promise.resolve();
+        return new Promise(resolve => {
+          img.onload = resolve;
+          img.onerror = resolve;
+        });
+      }));
+  
+      const canvas = await html2canvas(idCard, {
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: null,
+        scale: 2, // Higher quality
+      });
+      
+      const image = canvas.toDataURL('image/png', 1.0);
+      const link = document.createElement('a');
+      link.href = image;
+      link.download = `${user.name}_SoloParent_ID.png`;
+      link.click();
+    } catch (error) {
+      console.error('Error generating ID:', error);
+      alert('Failed to download ID. Please try again.');
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="loading-container">
@@ -342,34 +378,106 @@ const ProfilePage = () => {
 
         <div className="tab-content">
           {activeTab === "Details" && renderUserDetails()}
-
+          
           {activeTab === "ID" && (
             <div className="id-tab">
-              {status === "Unverified" ? (
+              {status === "Verified" ? (
+                <div className="id-container">
+                  <div id="idCard" className="digital-id">
+                    {/* Front of ID */}
+                    <div className="id-front">
+                      <div className="id-header">
+                        <img src={dswdLogo} alt="DSWD Logo" className="id-logo" />
+                        <div className="id-title">
+                          <h2>SOLO PARENT IDENTIFICATION CARD</h2>
+                          <p>Republic of the Philippines</p>
+                          <p className="id-subtitle">DSWD Region III</p>
+                        </div>
+                      </div>
+                      <div className="id-body">
+                        <div className="id-photo-container">
+                          <div className="id-photo">
+                            <img src={profilePicUrl} alt="User" crossOrigin="anonymous" />
+                          </div>
+                          <div className="id-validity">Valid Until: {new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toLocaleDateString()}</div>
+                        </div>
+                        <div className="id-details">
+                          <div className="detail-row">
+                            <strong>ID No:</strong>
+                            <span>SP-{String(user.id).padStart(6, '0')}</span>
+                          </div>
+                          <div className="detail-row">
+                            <strong>Name:</strong>
+                            <span>{user.name}</span>
+                          </div>
+                          <div className="detail-row">
+                            <strong>Address:</strong>
+                            <span>{user.address}</span>
+                          </div>
+                          <div className="detail-row">
+                            <strong>Birthdate:</strong>
+                            <span>{user.date_of_birth ? 
+                              new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' })
+                              .format(new Date(user.date_of_birth)) : ''}</span>
+                          </div>
+                          <div className="detail-row">
+                            <strong>Civil Status:</strong>
+                            <span>{user.civil_status}</span>
+                          </div>
+                          <div className="detail-row">
+                            <strong>Contact:</strong>
+                            <span>{user.contact_number}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Back of ID */}
+                    <div className="id-back">
+                      <h3>Children Information</h3>
+                      {user.children && user.children.length > 0 ? (
+                        <table className="children-table">
+                          <thead>
+                            <tr>
+                              <th>Name</th>
+                              <th>Age</th>
+                              <th>Education</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {user.children.map((child, index) => (
+                              <tr key={index}>
+                                <td>{`${child.first_name} ${child.middle_name} ${child.last_name}`}</td>
+                                <td>{child.age}</td>
+                                <td>{child.educational_attainment}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      ) : (
+                        <p className="no-children-text">No registered children</p>
+                      )}
+                      <div className="id-footer">
+                        <p>Valid Until: {new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toLocaleDateString()}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <button className="download-id-btn" onClick={downloadID}>
+                    Download ID Card
+                  </button>
+                </div>
+              ) : status === "Pending" ? (
+                <div className="verification-prompt">
+                  <h3>ID is being processed</h3>
+                  <p>Please wait while your application is under review.</p>
+                </div>
+              ) : (
                 <div className="verification-prompt">
                   <h3>ID Not Available</h3>
                   <p>Complete verification to get your digital ID.</p>
                   <button className="verify-button" onClick={handleSendApplication}>
                     Start Verification
                   </button>
-                </div>
-              ) : (
-                <div className="id-card">
-                  {user.idPic ? (
-                    <img 
-                      src={user.idPic} 
-                      alt="ID" 
-                      className="id-image"
-                      onError={(e) => {
-                        console.log("Error loading ID picture");
-                        e.target.src = idPic;
-                      }}
-                    />
-                  ) : (
-                    <div className="no-id">
-                      <p>ID is being processed</p>
-                    </div>
-                  )}
                 </div>
               )}
             </div>
@@ -410,7 +518,7 @@ const ProfilePage = () => {
                 {isLoading ? "Uploading..." : "Save Photo"}
               </button>
               <button
-                className="cancel-btn"
+                className="cancel-btn-user"
                 onClick={() => {
                   setShowUploadModal(false);
                   setSelectedFile(null);

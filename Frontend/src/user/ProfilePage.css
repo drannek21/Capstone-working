@@ -376,18 +376,20 @@
   cursor: not-allowed;
 }
 
-.cancel-btn {
+.cancel-btn-user {
   width: 100%;
   padding: 0.8rem;
   border: none;
-  background: none;
-  color: #666;
+  background:#e43434 ;
+  color: #ffffff;
+  border-radius: 5px;
   font-weight: 600;
   cursor: pointer;
 }
 
-.cancel-btn:hover {
-  color: #333;
+.cancel-btn-user:hover {
+  background: #d33232;
+  color: #ffffff;
 }
 
 /* Loading Animation */
@@ -608,5 +610,194 @@
   .preview-container {
     width: 200px;
     height: 200px;
+  }
+}
+
+
+/* Digital ID Styles */
+.id-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+  padding: 2rem;
+}
+
+.digital-id {
+  width: 750px;
+  background: white;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  margin: 0 auto;
+}
+
+.id-front, .id-back {
+  padding: 2rem;
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  border: 1px solid #e2e8f0;
+}
+
+.id-header {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #16C47F;
+}
+
+.id-logo {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+}
+
+/* Add a text alternative for the logo */
+.id-logo::after {
+  content: 'DSWD';
+  color: white;
+  font-weight: bold;
+  font-size: 1.2rem;
+}
+
+.id-title {
+  flex: 1;
+  text-align: center;
+}
+
+.id-title h2 {
+  color: #16C47F;
+  font-size: 1.75rem;
+  margin-bottom: 0.5rem;
+  font-weight: 700;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+}
+
+.id-subtitle {
+  color: #2d3748;
+  font-size: 1.1rem;
+  margin-top: 0.25rem;
+}
+
+.id-body {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2rem;
+  padding: 1rem;
+}
+
+.id-photo-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.id-photo {
+  width: 180px;
+  height: 200px;
+  border: 5px solid #16C47F;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.id-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.id-validity {
+  font-size: 0.9rem;
+  color: #2d3748;
+  text-align: center;
+  padding: 0.5rem;
+  background: rgba(22, 196, 127, 0.1);
+  border-radius: 5px;
+  width: 100%;
+}
+
+.detail-row {
+  display: flex;
+  margin-bottom: 1rem;
+  padding: 0.5rem;
+  border-bottom: 1px solid rgba(0,0,0,0.1);
+}
+
+.detail-row strong {
+  width: 100px;
+  color: #16C47F;
+  font-weight: 600;
+}
+
+.detail-row span {
+  flex: 1;
+  color: #2d3748;
+}
+
+.children-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 1rem 0;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+.children-table th {
+  background: #16C47F;
+  color: white;
+  padding: 1rem;
+  font-weight: 600;
+}
+
+.children-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.children-table tr:nth-child(even) {
+  background: rgba(22, 196, 127, 0.05);
+}
+
+.download-id-btn {
+  margin-top: 2rem;
+  padding: 1rem 2rem;
+  background: #16C47F;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(22, 196, 127, 0.2);
+}
+
+.download-id-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(22, 196, 127, 0.3);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .digital-id {
+    width: 100%;
+  }
+
+  .id-body {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .id-photo {
+    width: 120px;
+    height: 120px;
+  }
+
+  .id-details {
+    text-align: center;
   }
 }
