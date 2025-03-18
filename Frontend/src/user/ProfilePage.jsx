@@ -7,21 +7,22 @@ import html2canvas from 'html2canvas';
 import dswdLogo from '../assets/dswd-logo.png';
 
 const ProfilePage = () => {
-  const [activeTab, setActiveTab] = useState("Details"); // Track active tab
-  const [user, setUser] = useState(null); // Store user details
-  const [showUploadModal, setShowUploadModal] = useState(false); // Modal visibility for upload
-  const [selectedFile, setSelectedFile] = useState(null); // File to be uploaded
-  const [previewUrl, setPreviewUrl] = useState(null); // Preview image URL
+  const [activeTab, setActiveTab] = useState("Details");
+  const [user, setUser] = useState(null);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
   const [previousStatus, setPreviousStatus] = useState(null);
-  const [isLoading, setIsLoading] = useState(true); // Add loading state
-  const navigate = useNavigate(); // Use navigate for navigation
+  const [isLoading, setIsLoading] = useState(true);
+  const navigate = useNavigate();
 
-  const loggedInUserId = localStorage.getItem("UserId"); // Get the logged-in user ID
+  const loggedInUserId = localStorage.getItem("UserId");
 
-  // Add your Cloudinary credentials
+  // Update these constants at the top of your component
   const CLOUD_NAME = 'dskj7oxr7';
-  const UPLOAD_PRESET = 'cloudtest';
-  const FOLDER = 'Profile Pic';
+  const UPLOAD_PRESET = 'soloparent';  // Make sure this matches your Cloudinary upload preset
+  const CLOUDINARY_FOLDER = 'Profile_Pics';
+
 
   // Fetch user details and check for status changes
   useEffect(() => {
@@ -206,62 +207,53 @@ const ProfilePage = () => {
       const formData = new FormData();
       formData.append('file', selectedFile);
       formData.append('upload_preset', UPLOAD_PRESET);
-      formData.append('folder', FOLDER);
+      formData.append('folder', CLOUDINARY_FOLDER);
 
-      // Rename the file with the user's name and a timestamp to avoid duplicates
-      const timestamp = new Date().getTime();
-      const fileName = `${user.name ? user.name.replace(/\s+/g, '_') : 'user'}_${timestamp}_${selectedFile.name}`;
-      formData.append('public_id', fileName);
-
-      const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/auto/upload`, {
+      // First, upload to Cloudinary
+      const cloudinaryResponse = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
         method: 'POST',
         body: formData,
       });
 
-      if (!response.ok) {
-        throw new Error('Upload failed');
+      if (!cloudinaryResponse.ok) {
+        const errorData = await cloudinaryResponse.json();
+        throw new Error(`Cloudinary upload failed: ${errorData.error?.message || 'Unknown error'}`);
       }
 
-      const data = await response.json();
-      const imageUrl = data.secure_url;
-      
-      // Store the image URL in localStorage regardless of backend update success
+      const cloudinaryData = await cloudinaryResponse.json();
+      const imageUrl = cloudinaryData.secure_url;
+
+      // Then, update the backend
+      const backendResponse = await fetch("http://localhost:8081/updateUserProfile", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ 
+          userId: loggedInUserId, 
+          profilePic: imageUrl 
+        }),
+      });
+
+      if (!backendResponse.ok) {
+        throw new Error('Failed to update profile in backend');
+      }
+
+      // Update local state and storage
       localStorage.setItem(`profilePic_${loggedInUserId}`, imageUrl);
-      
-      try {
-        // Try to update the backend, but don't fail if it doesn't work
-        await fetch("http://localhost:8081/updateUserProfile", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ 
-            userId: loggedInUserId, 
-            profilePic: imageUrl 
-          }),
-        });
-        console.log("Backend updated successfully");
-      } catch (backendError) {
-        // If backend update fails, log it but don't throw an error
-        // We'll still use the image from localStorage
-        console.warn("Failed to update backend, using local storage instead:", backendError);
-      }
-
-      // Update the user state with the new profile picture
       setUser(prev => ({
         ...prev,
         profilePic: imageUrl
       }));
-      
+
       setShowUploadModal(false);
       setSelectedFile(null);
       setPreviewUrl(null);
-      
-      // Show success message
+
       alert("Profile picture updated successfully!");
     } catch (error) {
       console.error('Error uploading profile picture:', error);
-      alert("Failed to upload profile picture. Please try again.");
+      alert(`Failed to upload profile picture: ${error.message}`);
     } finally {
       setIsLoading(false);
     }
@@ -334,18 +326,25 @@ const ProfilePage = () => {
   };
 
   // Get the profile picture URL from user object or localStorage
-  const profilePicUrl = user.profilePic || localStorage.getItem(`profilePic_${loggedInUserId}`) || avatar;
+  // Update the profile picture URL determination
+  const profilePicUrl = user?.profilePic || avatar;
+  
+  // Add this function to force image refresh
+  const getImageUrl = (url) => {
+    return url === avatar ? url : `${url}?${new Date().getTime()}`;
+  };
 
   return (
     <div className="profile-container">
       <div className="profile-header">
         <div className="profile-picture-container">
           <img 
-            src={profilePicUrl} 
+            src={getImageUrl(profilePicUrl)} 
             alt="Profile" 
             className="profile-pic" 
             onError={(e) => {
-              console.log("Error loading profile picture, falling back to default");
+              console.log("Image failed to load, using avatar");
+              e.target.onerror = null;
               e.target.src = avatar;
             }}
           />
@@ -397,7 +396,15 @@ const ProfilePage = () => {
                       <div className="id-body">
                         <div className="id-photo-container">
                           <div className="id-photo">
-                            <img src={profilePicUrl} alt="User" crossOrigin="anonymous" />
+                            <img 
+                              src={getImageUrl(profilePicUrl)} 
+                              alt="User" 
+                              crossOrigin="anonymous" 
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src = avatar;
+                              }}
+                            />
                           </div>
                           <div className="id-validity">Valid Until: {new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toLocaleDateString()}</div>
                         </div>
