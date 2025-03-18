@@ -154,11 +154,18 @@ const ProfilePage = () => {
           </ul>
         </div>
       );
-    } else if (user.status === "Pending") {
+    } else if (user.status === "pending") {
       return (
         <div className="verification-prompt">
           <h3>Application Under Review</h3>
           <p>Your verification application is currently being reviewed. Please wait for the admin's response.</p>
+        </div>
+      );
+    } else if (user.status === "Renewal") {
+      return (
+        <div className="verification-prompt">
+          <h3>Renewal Application Under Review</h3>
+          <p>Your renewal application is currently being processed. Please wait for the admin's response.</p>
         </div>
       );
     } else {
@@ -298,6 +305,61 @@ const ProfilePage = () => {
     }
   };
 
+  // Add this function to check if ID is expired
+  const isIDExpired = () => {
+    if (!user.validUntil) return false;
+    const expirationDate = new Date(user.validUntil);
+    const today = new Date('2026-03-18');
+    today.setHours(0, 0, 0, 0);
+    expirationDate.setHours(0, 0, 0, 0);
+    return expirationDate <= today;
+  };
+
+  // Add this function to update user status to Renewal
+  const updateUserStatusToRenewal = async () => {
+    try {
+      const response = await fetch("http://localhost:8081/updateUserStatus", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ 
+          userId: loggedInUserId,
+          status: "Renewal"
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update user status');
+      }
+
+      // Update local state
+      setUser(prev => ({
+        ...prev,
+        status: "Renewal"
+      }));
+    } catch (error) {
+      console.error('Error updating user status:', error);
+    }
+  };
+
+  // Add useEffect to check expiration and update status
+  useEffect(() => {
+    if (user && isIDExpired() && user.status !== "Renewal") {
+      updateUserStatusToRenewal();
+    }
+  }, [user]);
+
+  // Add this function to handle renewal application
+  const handleRenewalApplication = () => {
+    navigate("/form", { 
+      state: { 
+        userId: loggedInUserId,
+        isRenewal: true 
+      } 
+    });
+  };
+
   if (isLoading) {
     return (
       <div className="loading-container">
@@ -406,12 +468,23 @@ const ProfilePage = () => {
                               }}
                             />
                           </div>
-                          <div className="id-validity">Valid Until: {new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toLocaleDateString()}</div>
+                          <div className="id-validity">
+                            <strong>Category: </strong>
+                            <span>{user.classification}</span>
+                          </div>
+                          <div className="id-validity">
+                            <strong>Date Issued: </strong>
+                            {user.accepted_at ? new Date(user.accepted_at).toLocaleDateString() : 'N/A'}
+                          </div>
+                          <div className={`id-validity ${isIDExpired() ? "expired" : ""}`}>
+                            <strong>Valid Until: </strong>
+                            {user.validUntil ? new Date(user.validUntil).toLocaleDateString() : 'N/A'}
+                          </div>
                         </div>
                         <div className="id-details">
                           <div className="detail-row">
                             <strong>ID No:</strong>
-                            <span>SP-{String(user.id).padStart(6, '0')}</span>
+                            <span>{String(user.code_id).padStart(6, '0')}</span>
                           </div>
                           <div className="detail-row">
                             <strong>Name:</strong>
@@ -465,7 +538,8 @@ const ProfilePage = () => {
                         <p className="no-children-text">No registered children</p>
                       )}
                       <div className="id-footer">
-                        <p>Valid Until: {new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toLocaleDateString()}</p>
+                        <p>Date Issued: {user.accepted_at ? new Date(user.accepted_at).toLocaleDateString() : 'N/A'}</p>
+                        <p>Valid Until: {user.validUntil ? new Date(user.validUntil).toLocaleDateString() : 'N/A'}</p>
                       </div>
                     </div>
                   </div>
@@ -473,10 +547,15 @@ const ProfilePage = () => {
                     Download ID Card
                   </button>
                 </div>
-              ) : status === "Pending" ? (
+              ) : status === "pending" ? (
                 <div className="verification-prompt">
                   <h3>ID is being processed</h3>
                   <p>Please wait while your application is under review.</p>
+                </div>
+              ) : status === "Renewal" ? (
+                <div className="verification-prompt">
+                  <h3>Renewal Application Under Review</h3>
+                  <p>Please wait while your renewal application is being processed.</p>
                 </div>
               ) : (
                 <div className="verification-prompt">

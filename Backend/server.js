@@ -177,6 +177,28 @@ app.get('/pendingUsers', async (req, res) => {
   }
 });
 
+app.post('/pendingUsers/updateClassification', async (req, res) => {
+  const { userId, classification } = req.body;
+
+  try {
+    if (!userId || !classification) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    await queryDatabase(`
+      UPDATE user_details_step3 
+      SET classification = ? 
+      WHERE user_id = ?
+    `, [classification, userId]);
+
+    res.status(200).json({ message: 'Classification updated successfully', classification });
+  } catch (err) {
+    console.error('Error updating classification:', err);
+    res.status(500).json({ error: 'Error updating classification', details: err.message });
+  }
+});
+
+
 app.get('/verified-users', async (req, res) => {
   try {
     const query = `
@@ -236,32 +258,39 @@ app.post('/getUserDetails', async (req, res) => {
 
     if (userResults.length > 0) {
       const user = userResults[0];
-      
+
       // If the user is verified, fetch all related details
       if (user.status === 'Verified') {
         // Get user's personal details from step1
         const detailsResults = await queryDatabase('SELECT * FROM user_details_step1 WHERE user_id = ?', [userId]);
-        
+
+        // Get user's classification from step3
+        const classificationResult = await queryDatabase('SELECT classification FROM user_details_step3 WHERE user_id = ?', [userId]);
+
+        // Get the valid date from accepted_users table and add 1 year
+        const validDateResult = await queryDatabase(
+          'SELECT DATE_FORMAT(DATE_ADD(accepted_at, INTERVAL 1 YEAR), "%Y-%m-%d") as accepted_at FROM accepted_users WHERE user_id = ? ORDER BY accepted_at DESC LIMIT 1', 
+          [userId]
+        );
+
         // Get all children from step2 where the parent_id matches the logged-in user's ID
-        const childrenResults = await queryDatabase(`
-          SELECT s2.first_name, s2.middle_name, s2.last_name, s2.birthdate, s2.age, 
-                 s2.educational_attainment, s2.user_id as parent_id
-          FROM user_details_step2 s2
-          WHERE s2.user_id = ?
-        `, [userId]);
-        
+        const childrenResults = await queryDatabase(
+          `SELECT s2.first_name, s2.middle_name, s2.last_name, s2.birthdate, s2.age, 
+                  s2.educational_attainment, s2.user_id as parent_id
+           FROM user_details_step2 s2
+           WHERE s2.user_id = ?`, [userId]);
+
         if (detailsResults.length > 0) {
           // Merge user details with personal info and children data
           const userDetails = { 
             ...user, 
             ...detailsResults[0],
+            classification: classificationResult.length > 0 ? classificationResult[0].classification : null,
+            validUntil: validDateResult.length > 0 ? validDateResult[0].accepted_at : null,
             children: childrenResults || [] 
           };
-          
-          // Log the found children for debugging
-          console.log('Found children for user', userId, ':', childrenResults.length);
-          
-          return res.status(200).json(userDetails); 
+
+          return res.status(200).json(userDetails);
         } else {
           return res.status(404).json({ error: 'User details not found' });
         }
@@ -397,25 +426,24 @@ app.post('/userDetailsStep2', async (req, res) => {
   }
 });
 
-// Save Classification Data
 app.post('/userDetailsStep3', async (req, res) => {
-  const { userId, classification } = req.body;
+  const { userId, classification, othersDetails } = req.body;
 
   try {
-    // Check if userId and classification are being passed correctly
     if (!userId || !classification) {
       return res.status(400).json({ error: 'Missing required fields: userId or classification' });
     }
 
-    // Insert the classification data into the database
+    const saveValue = classification === '013' ? othersDetails : classification;
+
     await queryDatabase(`
       INSERT INTO user_details_step3 (userId, classification) 
       VALUES (?, ?)
-    `, [userId, classification]);
+    `, [userId, saveValue]);
 
     res.status(201).json({ message: 'Classification data saved successfully' });
   } catch (err) {
-    console.error(err);  // Log the error to server console
+    console.error(err);
     res.status(500).json({ error: 'Error saving classification data', details: err.message });
   }
 });
@@ -424,12 +452,10 @@ app.post('/userDetailsStep4', async (req, res) => {
   const { userId, needsProblems } = req.body;
 
   try {
-    // Check if both userId and needsProblems are present
     if (!userId || !needsProblems) {
       return res.status(400).json({ error: 'Missing required fields: userId or needsProblems' });
     }
 
-    // Insert the needs/problems data into the database
     await queryDatabase(`
       INSERT INTO user_details_step4 (userId, needsProblems) 
       VALUES (?, ?)
@@ -452,12 +478,10 @@ app.post('/userDetailsStep5', async (req, res) => {
   } = req.body;
 
   try {
-    // Check if the required fields are present
     if (!userId || !emergencyName || !emergencyRelationship || !emergencyAddress || !emergencyContact) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    // Insert the emergency contact data into the database
     await queryDatabase(`
       INSERT INTO user_details_step5 (user_id, emergency_name, emergency_relationship, emergency_address, emergency_contact)
       VALUES (?, ?, ?, ?, ?)
@@ -500,12 +524,10 @@ app.post('/updateUserProfile', async (req, res) => {
   const { userId, profilePic } = req.body;
   
   try {
-    // Validate inputs
     if (!userId || !profilePic) {
       return res.status(400).json({ error: 'Missing required fields: userId or profilePic' });
     }
     
-    // Update the user's profile picture in the database
     await queryDatabase('UPDATE users SET profilePic = ? WHERE id = ?', [profilePic, userId]);
     
     res.status(200).json({ success: true, message: 'Profile picture updated successfully' });
@@ -519,13 +541,11 @@ app.post('/submitAllSteps', async (req, res) => {
   const { userId, formData } = req.body;
 
   try {
-    // Check user status
     const user = await queryDatabase('SELECT status FROM users WHERE id = ?', [userId]);
     if (user[0].status === 'pending') {
       return res.status(400).json({ error: 'Your verification form is pending. Please wait for approval before submitting again.' });
     }
 
-    // Generate unique code ID
     const createDate = new Date();
     const year = createDate.getFullYear();
     const month = (createDate.getMonth() + 1).toString().padStart(2, '0');
@@ -534,10 +554,8 @@ app.post('/submitAllSteps', async (req, res) => {
 
     await queryDatabase('START TRANSACTION');
 
-    // Update user status to pending
     await queryDatabase('UPDATE users SET status = ? WHERE id = ?', ['pending', userId]);
 
-    // Step 1: Personal Information
     await queryDatabase(`
       INSERT INTO user_details_step1 (
         user_id, first_name, middle_name, last_name, age, gender, date_of_birth,
@@ -569,7 +587,6 @@ app.post('/submitAllSteps', async (req, res) => {
       codeId
     ]);
 
-    // Step 2: Children
     if (formData.children && formData.children.length > 0) {
       console.log("Processing children:", JSON.stringify(formData.children, null, 2));
       for (const child of formData.children) {
@@ -589,20 +606,16 @@ app.post('/submitAllSteps', async (req, res) => {
       }
     }
 
-    // Step 3: Classification
-    console.log("Classification value:", formData.Classification);
     await queryDatabase(
       'INSERT INTO user_details_step3 (user_id, classification, code_id) VALUES (?, ?, ?)',
       [userId, formData.Classification || "", codeId]
     );
 
-    // Step 4: Needs/Problems
     await queryDatabase(
       'INSERT INTO user_details_step4 (user_id, needs_problems, code_id) VALUES (?, ?, ?)',
       [userId, formData.needsProblems || "", codeId]
     );
 
-    // Step 5: Emergency Contact
     await queryDatabase(
       'INSERT INTO user_details_step5 (user_id, emergency_name, emergency_address, emergency_relationship, emergency_contact, code_id) VALUES (?, ?, ?, ?, ?, ?)',
       [

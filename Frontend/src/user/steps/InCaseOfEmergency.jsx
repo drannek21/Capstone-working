@@ -1,9 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
+import { useNavigate } from "react-router-dom"; // Import useNavigate
 import "./InCaseOfEmergency.css";
 import "./shared.css";
 
 export default function InCaseOfEmergency({ prevStep, updateFormData, formData, onSubmit }) {
+  const navigate = useNavigate(); // Initialize navigate function
   const { register, handleSubmit, formState: { errors } } = useForm({
     defaultValues: {
       emergencyName: formData.emergencyContact?.emergencyName || "",
@@ -38,6 +40,17 @@ export default function InCaseOfEmergency({ prevStep, updateFormData, formData, 
       }
     }
   };
+
+  // Automatically redirect after submission
+  useEffect(() => {
+    if (isSubmitted) {
+      const timer = setTimeout(() => {
+        navigate("/profile"); // Redirect to profile page after 3 seconds
+      }, 3000);
+
+      return () => clearTimeout(timer); // Cleanup timer
+    }
+  }, [isSubmitted, navigate]);
 
   return (
     <div className="ice-container">
@@ -115,9 +128,11 @@ export default function InCaseOfEmergency({ prevStep, updateFormData, formData, 
           <div className="ice-popup-content ice-success-popup">
             <div className="ice-checkmark">✔</div>
             <h3 className="ice-popup-header">All Forms Submitted Successfully!</h3>
+            <p>Redirecting to your profile in 3 seconds...</p>
           </div>
         </div>
       )}
     </div>
   );
 }
+

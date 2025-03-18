@@ -15,6 +15,25 @@ const Applications = () => {
   const [touchStart, setTouchStart] = useState(null);
   const tableContainerRef = useRef(null);
 
+  // New state for classification input and dropdown
+  const [classificationInput, setClassificationInput] = useState("");
+  const [classificationOptions] = useState([
+    { code: "001", label: "Birth due to rape" },
+    { code: "002", label: "Death of spouse" },
+    { code: "003", label: "Detention of spouse" },
+    { code: "004", label: "Spouse's incapacity" },
+    { code: "005", label: "Legal separation" },
+    { code: "006", label: "Annulled marriage" },
+    { code: "007", label: "Abandoned by spouse" },
+    { code: "008", label: "OFW's family member" },
+    { code: "009", label: "Unmarried parent" },
+    { code: "010", label: "Legal guardian" },
+    { code: "011", label: "Relative caring for child" },
+    { code: "012", label: "Pregnant woman solo caregiver" },
+  ]);
+  const [selectedClassification, setSelectedClassification] = useState(null);
+  const [showDropdown, setShowDropdown] = useState(false);
+
   useEffect(() => {
     fetchApplications();
     checkTableScroll();
@@ -52,12 +71,29 @@ const Applications = () => {
     }
   };
 
+  const handleClassificationChange = (e) => {
+    const value = e.target.value;
+    setClassificationInput(value);
+    // Check if the input is a number between 001 and 012
+    if (/^(00[1-9]|0[1-9][0-9]|1[01][0-2])$/.test(value)) {
+      setSelectedClassification(value);
+      setShowDropdown(false); // Hide dropdown if input is a valid number
+    } else {
+      setSelectedClassification(null);
+      setShowDropdown(true); // Show dropdown if input is not a valid number
+    }
+  };
+
   const openModal = (application, type) => {
     setSelectedApplication(application);
     setStepPage(1);
     setRemarks("");
     setModalType(type);
-    // Don't prevent scroll on mobile as it might cause issues
+    if (application.classification && !/^(00[1-9]|0[1-9][0-9]|1[01][0-2])$/.test(application.classification)) {
+      setShowDropdown(true); // Show dropdown if classification is not a valid number
+    } else {
+      setShowDropdown(false);
+    }
     if (window.innerWidth > 768) {
       document.body.style.overflow = 'hidden';
     }
@@ -114,7 +150,28 @@ const Applications = () => {
       alert(`Error updating application status: ${errorMessage}. Please try again.`);
     }
   };
-  
+
+  const handleClassificationUpdate = async () => {
+    if (selectedClassification) {
+      try {
+        const response = await axios.post('http://localhost:8081/pendingUsers/updateClassification', {
+          userId: selectedApplication.userId,
+          classification: selectedClassification,
+        });
+        if (response.status === 200) {
+          alert('Classification updated successfully!');
+          // Update the selected application classification directly
+          setSelectedApplication(prev => ({ ...prev, classification: selectedClassification }));
+        }
+      } catch (error) {
+        console.error('Error updating classification:', error);
+        alert('Error updating classification. Please try again.');
+      }
+    } else {
+      alert('Please select a classification.');
+    }
+  };
+
   const filteredApplications = applications.filter(app => {
     const searchLower = searchTerm.toLowerCase();
     return (
@@ -414,6 +471,24 @@ const Applications = () => {
                       <span className="label">Type</span>
                       <span className="value">{selectedApplication.classification}</span>
                     </div>
+                  </div>
+                  <div className="classification-input">
+                    {showDropdown && (
+                      <select 
+                        onChange={(e) => setSelectedClassification(e.target.value)}
+                        className="classification-dropdown"
+                      >
+                        <option value="">Select Classification</option>
+                        {classificationOptions.map(option => (
+                          <option key={option.code} value={option.code} className="dropdown-option">
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    <button className="btn accept-btn" onClick={handleClassificationUpdate} style={{ display: showDropdown ? 'block' : 'none' }}>
+                      <i className="fas fa-check"></i> Update Classification
+                    </button>
                   </div>
                 </div>
               )}

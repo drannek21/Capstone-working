@@ -6,6 +6,7 @@ import Login from "./login/Login";
 import Signup from "./login/Signup";
 import AdminDashboard from "./admin/AdminDashboard";
 import Userui from "./user/Userui";
+import ProfilePage from "./user/ProfilePage";
 import MultiStepForm from "./user/MultiStepForm";
 import SuperAdminDashboard from "./superadmin/SuperAdminDashboard"; // ✅ Add this
 import './App.css';
@@ -26,7 +27,8 @@ const MainContent = () => {
     "/userui", 
     "/login", 
     "/signup", 
-    "/form"
+    "/form",
+    "/profile"
   ].some(path => location.pathname.startsWith(path)) 
   || location.pathname.startsWith("/superadmin");
 
@@ -40,8 +42,7 @@ const MainContent = () => {
         <Route path="/admin-dashboard" element={<AdminDashboard />} />
         <Route path="/userui" element={<Userui />} />
         <Route path="/form" element={<MultiStepForm />} />
-
-        {/* Superadmin Routes with Layout Wrapper */}
+        <Route path="/profile" element={<ProfilePage />} /> {/* Add this line */}
         <Route path="/superadmin/*" element={<SuperAdminDashboard />} />
       </Routes>
     </>
