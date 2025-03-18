@@ -290,3 +290,50 @@
         font-size: 13px;
     }
 }
+
+.passwordContainer {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.passwordContainer input {
+    width: 100%;
+}
+
+.passwordToggle {
+    position: absolute;
+    right: 10px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    color: #555;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+}
+
+.passwordToggle[data-visible="true"]::before {
+    content: "\f06e"; /* Font Awesome eye open */
+    font-family: "Font Awesome 5 Free";
+    font-weight: 900;
+    font-size: 16px;
+}
+
+.passwordToggle[data-visible="false"]::before {
+    content: "\f070"; /* Font Awesome eye slash */
+    font-family: "Font Awesome 5 Free";
+    font-weight: 900;
+    font-size: 16px;
+}
+
+.passwordToggle:focus {
+    outline: none;
+}
+
+.passwordToggle:hover {
+    color: #16C47F;
+}
