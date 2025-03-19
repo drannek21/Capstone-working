@@ -2,7 +2,7 @@
 .admin-dashboard {
   display: flex;
   min-height: 100vh;
-  overflow: hidden;
+  background-color: #f8fafc;
 }
 
 /* Sidebar */
@@ -15,18 +15,15 @@
 /* Main Content */
 .main-content {
   flex-grow: 1;
-  display: flex;
-  flex-direction: column;
-  padding: 20px;
-  margin-left: 250px; /* Ensures main content stays aligned with sidebar */
-  transition: margin-left 0.3s ease-in-out;
+  margin-left: 250px;
+  padding: 2rem;
+  transition: margin-left 0.3s ease;
 }
-
 
 /* Content Area */
 .dashboard-content {
-  flex-grow: 1;
-  padding:20px 20px; /* Ensures content does not overlap with fixed header */
+  max-width: 1400px;
+  margin: 0 auto;
 }
 
 /* Sidebar Hidden - Adjustments */
@@ -39,14 +36,33 @@
   width: 100%; /* Full width when sidebar is hidden */
 }
 
+/* Sidebar Overlay */
+.sidebar-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 90;
+}
+
 /* Responsive Adjustments */
 @media (max-width: 768px) {
   .main-content {
-      margin-left: 0;
+    margin-left: 0;
+    padding: 1rem;
   }
 
   .admin-header {
       left: 0;
       width: 100%;
   }
+}
+
+/* Nav Icon Styles */
+.nav-icon {
+  margin-right: 0.75rem;
+  font-size: 1.25rem;
+  color: currentColor;
 }

@@ -39,7 +39,7 @@ const MainContent = () => {
         <Route path="/" element={<MainPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
-        <Route path="/admin-dashboard" element={<AdminDashboard />} />
+        <Route path="/admin-dashboard/*" element={<AdminDashboard />} />
         <Route path="/userui" element={<Userui />} />
         <Route path="/form" element={<MultiStepForm />} />
         <Route path="/profile" element={<ProfilePage />} /> {/* Add this line */}
