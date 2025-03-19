@@ -40,7 +40,7 @@ const ProfilePage = () => {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ userId: loggedInUserId }), // Pass the userId to fetch data
+          body: JSON.stringify({ userId: loggedInUserId }),
         });
 
         const data = await response.json();
@@ -59,17 +59,15 @@ const ProfilePage = () => {
           
           // Check if profilePic exists in the response
           if (data.profilePic) {
-            // Cache the profile picture URL in localStorage for quick access
             localStorage.setItem(`profilePic_${loggedInUserId}`, data.profilePic);
           } else {
-            // If no profile pic in response, check if we have a cached one
             const cachedProfilePic = localStorage.getItem(`profilePic_${loggedInUserId}`);
             if (cachedProfilePic) {
               data.profilePic = cachedProfilePic;
             }
           }
           
-          setUser(data); // Set the user data
+          setUser(data);
         } else {
           console.error("Error fetching user data:", data.message);
         }
@@ -81,10 +79,14 @@ const ProfilePage = () => {
     };
 
     fetchUserDetails();
-    // Check for updates every 30 seconds
-    const interval = setInterval(fetchUserDetails, 30000);
-    return () => clearInterval(interval);
-  }, [loggedInUserId, previousStatus]);
+  }, [loggedInUserId]);
+
+  // Check expiration only once when user data is loaded
+  useEffect(() => {
+    if (user && isIDExpired() && user.status !== "Renewal") {
+      updateUserStatusToRenewal();
+    }
+  }, [user?.status]); // Only run when status changes
 
   const renderUserDetails = () => {
     if (!user) return null;
@@ -309,7 +311,7 @@ const ProfilePage = () => {
   const isIDExpired = () => {
     if (!user.validUntil) return false;
     const expirationDate = new Date(user.validUntil);
-    const today = new Date('2026-03-18');
+    const today = new Date('2026-03-14');
     today.setHours(0, 0, 0, 0);
     expirationDate.setHours(0, 0, 0, 0);
     return expirationDate <= today;
@@ -342,13 +344,6 @@ const ProfilePage = () => {
       console.error('Error updating user status:', error);
     }
   };
-
-  // Add useEffect to check expiration and update status
-  useEffect(() => {
-    if (user && isIDExpired() && user.status !== "Renewal") {
-      updateUserStatusToRenewal();
-    }
-  }, [user]);
 
   // Add this function to handle renewal application
   const handleRenewalApplication = () => {
@@ -391,9 +386,14 @@ const ProfilePage = () => {
   // Update the profile picture URL determination
   const profilePicUrl = user?.profilePic || avatar;
   
-  // Add this function to force image refresh
+  // Modify this function to prevent constant refreshing
   const getImageUrl = (url) => {
-    return url === avatar ? url : `${url}?${new Date().getTime()}`;
+    if (url === avatar) return url;
+    // Only add timestamp when the URL is first created
+    if (!url.includes('?')) {
+      return `${url}?${new Date().getTime()}`;
+    }
+    return url;
   };
 
   return (
@@ -472,10 +472,7 @@ const ProfilePage = () => {
                             <strong>Category: </strong>
                             <span>{user.classification}</span>
                           </div>
-                          <div className="id-validity">
-                            <strong>Date Issued: </strong>
-                            {user.accepted_at ? new Date(user.accepted_at).toLocaleDateString() : 'N/A'}
-                          </div>
+                         
                           <div className={`id-validity ${isIDExpired() ? "expired" : ""}`}>
                             <strong>Valid Until: </strong>
                             {user.validUntil ? new Date(user.validUntil).toLocaleDateString() : 'N/A'}
