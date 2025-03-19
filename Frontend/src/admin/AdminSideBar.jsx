@@ -18,6 +18,8 @@ const AdminSideBar = () => {
 
     const handleLogout = () => {
         localStorage.removeItem("userToken");
+        localStorage.removeItem("id");
+        localStorage.removeItem("adminBarangay");
         navigate("/", { replace: true });
         setTimeout(() => {
             window.history.pushState(null, "", window.location.href);
@@ -43,7 +45,9 @@ const AdminSideBar = () => {
             </button>
 
             <div className={`sidebar ${isOpen ? "visible" : "hidden"}`}>
-                <h2 className="sidebar-title">Admin Panel</h2>
+                <h2 className="sidebar-title">
+                    Admin Panel - {localStorage.getItem("barangay") || "No barangay assigned"}
+                </h2>
                 <ul className="sidebar-menu">
                     <li>
                         <NavLink 

@@ -1,45 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './Applications.css';
 
 const Renewal = () => {
-  const [renewals, setRenewals] = useState([
-    {
-      id: 1,
-      code_id: "REN-2024-001",
-      first_name: "John",
-      middle_name: "Smith",
-      last_name: "Doe",
-      barangay: "Barangay 1",
-      email: "john.doe@email.com",
-      age: 35,
-      status: "Pending",
-      remarks: ""
-    },
-    {
-      id: 2,
-      code_id: "REN-2024-002",
-      first_name: "Jane",
-      middle_name: "Marie",
-      last_name: "Smith",
-      barangay: "Barangay 2",
-      email: "jane.smith@email.com",
-      age: 28,
-      status: "Pending",
-      remarks: ""
-    },
-    {
-      id: 3,
-      code_id: "REN-2024-003",
-      first_name: "Mike",
-      middle_name: "James",
-      last_name: "Johnson",
-      barangay: "Barangay 3",
-      email: "mike.johnson@email.com",
-      age: 42,
-      status: "Pending",
-      remarks: ""
-    }
-  ]);
+  const [renewals, setRenewals] = useState([]);
   const [selectedRenewal, setSelectedRenewal] = useState(null);
   const [remarks, setRemarks] = useState("");
   const [showModal, setShowModal] = useState(false);
@@ -47,6 +10,39 @@ const Renewal = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [renewalsPerPage] = useState(10);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    fetchRenewalUsers();
+  }, []);
+
+  const fetchRenewalUsers = async () => {
+    try {
+      setIsLoading(true);
+      const adminId = localStorage.getItem("id");
+      
+      if (!adminId) {
+        setError("Admin ID not found. Please log in again.");
+        return;
+      }
+
+      const response = await fetch(`http://localhost:8081/renewalUsers/${adminId}`);
+      
+      if (!response.ok) {
+        throw new Error("Failed to fetch renewal users");
+      }
+
+      const data = await response.json();
+      setRenewals(data);
+      setError(null);
+    } catch (error) {
+      console.error("Error fetching renewal users:", error);
+      setError("Failed to fetch renewal users");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const openModal = (renewal) => {
     setSelectedRenewal(renewal);
@@ -64,27 +60,50 @@ const Renewal = () => {
     setShowRemarksModal(true);
   };
 
-  const handleAction = (action) => {
-    if (!selectedRenewal) return;
-    
-    const updatedRenewals = renewals.map(renewal => 
-      renewal.id === selectedRenewal.id 
-        ? { 
-            ...renewal, 
-            status: action === "Accept" ? "Approved" : "Declined",
-            remarks: action === "Accept" ? "Application approved" : remarks
-          }
-        : renewal
-    );
-    
-    setRenewals(updatedRenewals);
-    closeModal();
+  const handleAction = async (action, renewal) => {
+    try {
+      // Update user status
+      const statusResponse = await fetch('http://localhost:8081/updateUserStatus', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: renewal.userId,
+          status: action === "Accept" ? "Verified" : "Declined",
+          remarks: action === "Accept" ? "You have renewed" : remarks
+        }),
+      });
+
+      if (!statusResponse.ok) {
+        throw new Error('Failed to update user status');
+      }
+
+      // Update local state
+      const updatedRenewals = renewals.map(r => 
+        r.userId === renewal.userId 
+          ? { 
+              ...r, 
+              status: action === "Accept" ? "Verified" : "Declined",
+              remarks: action === "Accept" ? "You have renewed" : remarks
+            }
+          : r
+      );
+      
+      setRenewals(updatedRenewals);
+      closeModal();
+      // Refresh the list
+      fetchRenewalUsers();
+    } catch (err) {
+      console.error('Error updating user status:', err);
+      alert('Failed to update user status. Please try again.');
+    }
   };
 
   const filteredRenewals = renewals.filter(renewal => {
     const searchLower = searchTerm.toLowerCase();
     return (
-      (renewal.id && renewal.id.toString().includes(searchLower)) ||
+      (renewal.userId && renewal.userId.toString().includes(searchLower)) ||
       (renewal.code_id && renewal.code_id.toLowerCase().includes(searchLower)) ||
       (renewal.first_name && renewal.first_name.toLowerCase().includes(searchLower)) ||
       (renewal.email && renewal.email.toLowerCase().includes(searchLower)) ||
@@ -96,6 +115,22 @@ const Renewal = () => {
   const indexOfFirstRenewal = indexOfLastRenewal - renewalsPerPage;
   const currentRenewals = filteredRenewals.slice(indexOfFirstRenewal, indexOfLastRenewal);
   const totalPages = Math.ceil(filteredRenewals.length / renewalsPerPage);
+
+  if (isLoading) {
+    return (
+      <div className="applications-container">
+        <div className="loading">Loading renewal applications...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="applications-container">
+        <div className="error">{error}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="applications-container">
@@ -119,11 +154,7 @@ const Renewal = () => {
               <th>ID</th>
               <th>Code ID</th>
               <th>Name</th>
-              <th>Barangay</th>
-              <th>Email</th>
-              <th>Age</th>
               <th>Status</th>
-              <th>Remarks</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -133,23 +164,25 @@ const Renewal = () => {
                 <td>{indexOfFirstRenewal + index + 1}</td>
                 <td>{renewal.code_id}</td>
                 <td>{`${renewal.first_name} ${renewal.middle_name || ''} ${renewal.last_name}`}</td>
-                <td>{renewal.barangay || 'N/A'}</td>
-                <td>{renewal.email}</td>
-                <td>{renewal.age}</td>
                 <td>
                   <span className={`status-badge ${renewal.status.toLowerCase()}`}>
                     {renewal.status}
                   </span>
                 </td>
-                <td>{renewal.remarks || 'No remarks'}</td>
                 <td>
                   <div className="action-buttons">
                     <button 
                       className="btn view-btn" 
                       onClick={() => openModal(renewal)}
-                      disabled={renewal.status !== "Pending"}
+                      disabled={renewal.status !== "Renewal"}
                     >
                       <i className="fas fa-eye"></i> Review
+                    </button>
+                    <button 
+                      className="btn accept-btn" 
+                      onClick={() => handleAction("Accept", renewal)}
+                    >
+                      <i className="fas fa-check"></i> Accept
                     </button>
                   </div>
                 </td>
@@ -190,7 +223,7 @@ const Renewal = () => {
         <div className="modal-overlay" onClick={closeModal}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>Review Application</h3>
+              <h3>Review Renewal Application</h3>
             </div>
             <div className="modal-content">
               <div className="details-grid">
@@ -216,10 +249,23 @@ const Renewal = () => {
                   <span className="label">Barangay</span>
                   <span className="value">{selectedRenewal.barangay}</span>
                 </div>
+                {selectedRenewal.children && selectedRenewal.children.length > 0 && (
+                  <div className="detail-item">
+                    <span className="label">Children</span>
+                    <span className="value">
+                      {selectedRenewal.children.map((child, idx) => (
+                        <div key={idx}>
+                          {child.first_name} {child.middle_name || ''} {child.last_name}
+                          {child.age && ` (${child.age} years old)`}
+                        </div>
+                      ))}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
             <div className="modal-footer">
-              <button className="btn accept-btn" onClick={() => handleAction("Accept")}>
+              <button className="btn accept-btn" onClick={() => handleAction("Accept", selectedRenewal)}>
                 <i className="fas fa-check"></i> Accept
               </button>
               <button className="btn decline-btn" onClick={handleDecline}>
@@ -238,7 +284,7 @@ const Renewal = () => {
         <div className="modal-overlay" onClick={closeModal}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>Decline Application</h3>
+              <h3>Decline Renewal Application</h3>
             </div>
             <div className="modal-content">
               <div className="remarks-section">
@@ -254,7 +300,7 @@ const Renewal = () => {
             <div className="modal-footer">
               <button 
                 className="btn decline-btn" 
-                onClick={() => handleAction("Decline")}
+                onClick={() => handleAction("Decline", selectedRenewal)}
                 disabled={!remarks.trim()}
               >
                 <i className="fas fa-times"></i> Confirm Decline

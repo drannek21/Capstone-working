@@ -23,14 +23,28 @@
     transform: translateX(0);
 }
 
-/* Sidebar Title */
+/* Sidebar Header */
+.sidebar-header {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid rgba(22, 196, 127, 0.1);
+}
+
 .sidebar-title {
     color: #16C47F;
     font-size: 1.5rem;
     font-weight: 600;
-    margin: 0 0 1.5rem 0;
-    padding-bottom: 1rem;
-    border-bottom: 1px solid rgba(22, 196, 127, 0.1);
+    margin: 0 0 0.5rem 0;
+}
+
+.admin-barangay {
+    display: block;
+    font-size: 0.9rem;
+    color: #4a5568;
+    background-color: rgba(22, 196, 127, 0.05);
+    padding: 0.5rem 0.75rem;
+    border-radius: 4px;
+    font-weight: 500;
 }
 
 /* Sidebar Menu */

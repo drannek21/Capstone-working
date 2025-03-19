@@ -311,7 +311,7 @@ const ProfilePage = () => {
   const isIDExpired = () => {
     if (!user.validUntil) return false;
     const expirationDate = new Date(user.validUntil);
-    const today = new Date('2026-03-14');
+    const today = new Date('2026-03-19');
     today.setHours(0, 0, 0, 0);
     expirationDate.setHours(0, 0, 0, 0);
     return expirationDate <= today;

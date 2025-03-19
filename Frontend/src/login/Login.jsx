@@ -40,6 +40,12 @@ const Login = () => {
         const { user } = data;
         localStorage.setItem("loggedInUser", JSON.stringify(user));
         localStorage.setItem("UserId", user.id);
+        
+        // Store admin ID and barangay if the user is an admin
+        if (user.role === "admin") {
+          localStorage.setItem("id", user.id);
+          localStorage.setItem("barangay", user.barangay);
+        }
 
         switch (user.role) {
           case "admin":

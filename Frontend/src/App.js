@@ -41,8 +41,7 @@ const MainContent = () => {
         <Route path="/signup" element={<Signup />} />
         <Route path="/admin-dashboard/*" element={<AdminDashboard />} />
         <Route path="/userui" element={<Userui />} />
-        <Route path="/form" element={<MultiStepForm />} />
-        <Route path="/profile" element={<ProfilePage />} /> {/* Add this line */}
+        <Route path="/form" element={<MultiStepForm />} /> {/* Add this line */}
         <Route path="/superadmin/*" element={<SuperAdminDashboard />} />
       </Routes>
     </>

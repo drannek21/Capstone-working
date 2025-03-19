@@ -106,6 +106,8 @@ const getUnreadCount = () => {
         return <FontAwesomeIcon icon={faCheck} className="notification-icon success" />;
       case "application_declined":
         return <FontAwesomeIcon icon={faExclamationCircle} className="notification-icon danger" />;
+      case "renewal_accepted":
+        return <FontAwesomeIcon icon={faCheck} className="notification-icon success" />;
       default:
         return <FontAwesomeIcon icon={faBell} className="notification-icon" />;
     }

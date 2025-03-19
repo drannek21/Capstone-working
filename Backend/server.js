@@ -6,18 +6,57 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const db = mysql.createConnection({
+// Create a connection pool instead of a single connection
+const pool = mysql.createPool({
   host: 'localhost',
   user: 'root',
   password: '',
   database: 'soloparent',
+  connectionLimit: 10,
+  waitForConnections: true,
+  queueLimit: 0,
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 0
 });
 
+// Improved queryDatabase function with better error handling
 const queryDatabase = (sql, params) => new Promise((resolve, reject) => {
-  db.query(sql, params, (err, result) => {
-    if (err) return reject(err);
-    resolve(result);
+  pool.getConnection((err, connection) => {
+    if (err) {
+      console.error('Error getting connection:', err);
+      return reject(err);
+    }
+
+    connection.query(sql, params, (err, result) => {
+      connection.release(); // Always release the connection
+      if (err) {
+        console.error('Query error:', err);
+        return reject(err);
+      }
+      resolve(result);
+    });
   });
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Global error handler:', err);
+  res.status(500).json({ 
+    error: 'Internal server error',
+    message: process.env.NODE_ENV === 'development' ? err.message : undefined
+  });
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+  // Don't exit the process, just log the error
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  // Don't exit the process, just log the error
 });
 
 app.post('/users', async (req, res) => {
@@ -32,33 +71,29 @@ app.post('/users', async (req, res) => {
 });
 
 
-app.get("/admins", (req, res) => {
-  const sql = "SELECT id, email, barangay FROM admin";
-  db.query(sql, (err, results) => {
-    if (err) {
-      console.error('Error fetching admins:', err);
-      return res.status(500).json({ success: false, error: err.message });
-    }
+app.get("/admins", async (req, res) => {
+  try {
+    const results = await queryDatabase("SELECT id, email, barangay FROM admin");
     res.json({ success: true, users: results });
-  });
+  } catch (err) {
+    console.error('Error fetching admins:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
-app.post("/admins", (req, res) => {
+app.post("/admins", async (req, res) => {
   const { email, password, barangay } = req.body;
   
   if (!email || !password || !barangay) {
     return res.status(400).json({ success: false, message: "All fields are required" });
   }
 
-  // Check if email or barangay already exists
-  db.query("SELECT * FROM admin WHERE email = ? OR barangay = ?", [email, barangay], (err, results) => {
-    if (err) {
-      console.error('Error checking admin:', err);
-      return res.status(500).json({ success: false, message: "Error checking admin", error: err.message });
-    }
+  try {
+    // Check if email or barangay already exists
+    const existingAdmins = await queryDatabase("SELECT * FROM admin WHERE email = ? OR barangay = ?", [email, barangay]);
 
-    if (results.length > 0) {
-      const existingAdmin = results[0];
+    if (existingAdmins.length > 0) {
+      const existingAdmin = existingAdmins[0];
       if (existingAdmin.email === email) {
         return res.status(400).json({ success: false, message: "Email already exists" });
       }
@@ -68,18 +103,15 @@ app.post("/admins", (req, res) => {
     }
 
     // If validation passes, insert new admin
-    const sql = "INSERT INTO admin (email, password, barangay) VALUES (?, ?, ?)";
-    db.query(sql, [email, password, barangay], (err, result) => {
-      if (err) {
-        console.error('Error adding admin:', err);
-        return res.status(500).json({ success: false, message: "Error adding admin", error: err.message });
-      }
-      res.json({ success: true, message: "Admin created successfully" });
-    });
-  });
+    await queryDatabase("INSERT INTO admin (email, password, barangay) VALUES (?, ?, ?)", [email, password, barangay]);
+    res.json({ success: true, message: "Admin created successfully" });
+  } catch (err) {
+    console.error('Error adding admin:', err);
+    res.status(500).json({ success: false, message: "Error adding admin", error: err.message });
+  }
 });
 
-app.put("/admins/:id", (req, res) => {
+app.put("/admins/:id", async (req, res) => {
   const { id } = req.params;
   const { email, password, barangay } = req.body;
   
@@ -87,16 +119,13 @@ app.put("/admins/:id", (req, res) => {
     return res.status(400).json({ success: false, message: "Email and barangay are required" });
   }
 
-  // Check if email or barangay already exists for other admins
-  db.query("SELECT * FROM admin WHERE (email = ? OR barangay = ?) AND id != ?", 
-    [email, barangay, id], (err, results) => {
-    if (err) {
-      console.error('Error checking admin:', err);
-      return res.status(500).json({ success: false, message: "Error checking admin", error: err.message });
-    }
+  try {
+    // Check if email or barangay already exists for other admins
+    const existingAdmins = await queryDatabase("SELECT * FROM admin WHERE (email = ? OR barangay = ?) AND id != ?", 
+      [email, barangay, id]);
 
-    if (results.length > 0) {
-      const existingAdmin = results[0];
+    if (existingAdmins.length > 0) {
+      const existingAdmin = existingAdmins[0];
       if (existingAdmin.email === email) {
         return res.status(400).json({ success: false, message: "Email already exists" });
       }
@@ -114,17 +143,16 @@ app.put("/admins/:id", (req, res) => {
       ? "UPDATE admin SET email = ?, password = ?, barangay = ? WHERE id = ?"
       : "UPDATE admin SET email = ?, barangay = ? WHERE id = ?";
 
-    db.query(sql, updateFields, (err, result) => {
-      if (err) {
-        console.error('Error updating admin:', err);
-        return res.status(500).json({ success: false, message: "Error updating admin", error: err.message });
-      }
-      if (result.affectedRows === 0) {
-        return res.status(404).json({ success: false, message: "Admin not found" });
-      }
-      res.json({ success: true, message: "Admin updated successfully" });
-    });
-  });
+    const result = await queryDatabase(sql, updateFields);
+    
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, message: "Admin not found" });
+    }
+    res.json({ success: true, message: "Admin updated successfully" });
+  } catch (err) {
+    console.error('Error updating admin:', err);
+    res.status(500).json({ success: false, message: "Error updating admin", error: err.message });
+  }
 });
 
 app.get('/pendingUsers', async (req, res) => {
@@ -238,7 +266,8 @@ app.post('/login', async (req, res) => {
           email: user.email,
           role: user.role,
           name: user.name || null,
-          status: user.status || 'active'
+          status: user.status || 'active',
+          barangay: user.barangay || null
         }
       });
     } else {
@@ -410,12 +439,12 @@ app.post('/userDetailsStep2', async (req, res) => {
         VALUES (?, ?, ?, ?, ?, ?, ?)
       `, [
         userId,
-        child.Firstname,
-        child.Middlename,
-        child.Lastname,
-        child.Birthdate,
-        child.Age,
-        child.EducationalAttainment
+        child.firstName,
+        child.middleName,
+        child.lastName,
+        child.birthdate,
+        child.age,
+        child.educationalAttainment
       ]);
     }
 
@@ -496,30 +525,83 @@ app.post('/userDetailsStep5', async (req, res) => {
 
 app.post('/updateUserStatus', async (req, res) => {
   const { userId, status, remarks } = req.body;
+  let retries = 3;
+  let lastError = null;
 
-  try {
-    await queryDatabase('UPDATE users SET status = ? WHERE id = ?', [status, userId]);
+  while (retries > 0) {
+    try {
+      // Start transaction
+      await queryDatabase('START TRANSACTION');
 
-    if (status === "Declined" && remarks) {
-      await queryDatabase(
-        'INSERT INTO declined_users (user_id, remarks, declined_at) VALUES (?, ?, NOW())', 
-        [userId, remarks]
-      );
+      // First get the current status of the user with FOR UPDATE to lock the row
+      const userResult = await queryDatabase('SELECT status FROM users WHERE id = ? FOR UPDATE', [userId]);
+      if (!userResult || userResult.length === 0) {
+        throw new Error('User not found');
+      }
+      const currentStatus = userResult[0].status;
+
+      // Update the user's status
+      await queryDatabase('UPDATE users SET status = ? WHERE id = ?', [status, userId]);
+
+      if (status === "Declined" && remarks) {
+        // Check if there's already a declined notification for this user
+        const existingDeclined = await queryDatabase(
+          'SELECT * FROM declined_users WHERE user_id = ? AND is_read = 0',
+          [userId]
+        );
+
+        if (existingDeclined.length === 0) {
+          await queryDatabase(
+            'INSERT INTO declined_users (user_id, remarks, declined_at, is_read) VALUES (?, ?, NOW(), 0)', 
+            [userId, remarks]
+          );
+        }
+      }
+
+      if (status === "Verified") {
+        // Check if there's already an unread notification for this user with the same message
+        const message = currentStatus === "Renewal" ? 'You have renewed' : 'Your application has been accepted.';
+        const existingAccepted = await queryDatabase(
+          'SELECT * FROM accepted_users WHERE user_id = ? AND message = ? AND is_read = 0',
+          [userId, message]
+        );
+
+        if (existingAccepted.length === 0) {
+          // Only insert if there's no existing unread notification with the same message
+          await queryDatabase(
+            'INSERT INTO accepted_users (user_id, accepted_at, message, is_read) VALUES (?, NOW(), ?, 0)', 
+            [userId, message]
+          );
+        }
+      }
+
+      // Commit transaction
+      await queryDatabase('COMMIT');
+      res.status(200).json({ message: 'User status updated successfully' });
+      return;
+
+    } catch (err) {
+      // Rollback transaction
+      await queryDatabase('ROLLBACK');
+      lastError = err;
+      
+      // If it's not a lock timeout error, throw immediately
+      if (err.code !== 'ER_LOCK_WAIT_TIMEOUT') {
+        throw err;
+      }
+      
+      retries--;
+      if (retries === 0) {
+        console.error('Error updating user status after all retries:', err);
+        res.status(500).json({ error: 'Database error while updating user status. Please try again.' });
+      } else {
+        // Wait for a short time before retrying
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
     }
-
-    if (status === "Verified") {
-      await queryDatabase(
-        'INSERT INTO accepted_users (user_id, accepted_at, message) VALUES (?, NOW(), ?)', 
-        [userId, 'Your application has been accepted.']
-      );
-    }
-
-    res.status(200).json({ message: 'User status updated successfully' });
-  } catch (err) {
-    console.error('Error updating user status:', err);
-    res.status(500).json({ error: 'Database error while updating user status' });
   }
 });
+
 app.post('/updateUserProfile', async (req, res) => {
   const { userId, profilePic } = req.body;
   
@@ -690,40 +772,45 @@ app.get('/notifications/:userId', async (req, res) => {
   const { userId } = req.params;
 
   try {
+    // Get all notifications (both read and unread) ordered by date
     const accepted = await queryDatabase(
-      'SELECT accepted_at, COALESCE(is_read, 0) AS is_read, message FROM accepted_users WHERE user_id = ?', 
+      'SELECT accepted_at, is_read, message FROM accepted_users WHERE user_id = ? ORDER BY accepted_at DESC', 
       [userId]
     );
     
     const declined = await queryDatabase(
-      'SELECT declined_at, remarks, COALESCE(is_read, 0) AS is_read FROM declined_users WHERE user_id = ?', 
+      'SELECT declined_at, remarks, is_read FROM declined_users WHERE user_id = ? ORDER BY declined_at DESC', 
       [userId]
     );
     
-
     let notifications = [];
 
-    if (accepted.length > 0) {
+    // Add all accepted notifications (including renewals)
+    accepted.forEach(accept => {
       notifications.push({
-        id: `accepted-${userId}`,
-        type: 'application_accepted',
-        message: accepted[0].message,
-        read: accepted[0].is_read,
-        created_at: accepted[0].accepted_at,
+        id: `accepted-${userId}-${accept.accepted_at}`,
+        type: accept.message === "You have renewed" ? 'renewal_accepted' : 'application_accepted',
+        message: accept.message,
+        read: accept.is_read === 1, // Convert to boolean
+        created_at: accept.accepted_at,
       });
-    }
+    });
 
-    if (declined.length > 0) {
+    // Add declined notifications
+    declined.forEach(decline => {
       notifications.push({
-        id: `declined-${userId}`,
+        id: `declined-${userId}-${decline.declined_at}`,
         type: 'application_declined',
-        message: `Your application has been declined. Remarks: ${declined[0].remarks}`,
-        read: declined[0].is_read,
-        created_at: declined[0].declined_at,
+        message: `Your application has been declined. Remarks: ${decline.remarks}`,
+        read: decline.is_read === 1, // Convert to boolean
+        created_at: decline.declined_at,
       });
-    }
+    });
 
-    res.status(200).json(Array.isArray(notifications) ? notifications : []); // Ensure an array
+    // Sort all notifications by date
+    notifications.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+    res.status(200).json(notifications);
   } catch (err) {
     console.error('Error fetching notifications:', err);
     res.status(500).json({ error: 'Database error while fetching notifications' });
@@ -732,55 +819,206 @@ app.get('/notifications/:userId', async (req, res) => {
 
 app.put('/notifications/mark-as-read/:userId/:type', async (req, res) => {
   const { userId, type } = req.params;
+  let retries = 3;
 
-  try {
-    let result = {};
+  while (retries > 0) {
+    try {
+      // Start transaction
+      await queryDatabase('START TRANSACTION');
 
-    if (type === 'application_accepted') {
-      result = await queryDatabase(
-        'UPDATE accepted_users SET is_read = TRUE WHERE user_id = ?',
-        [userId]
-      );
-    } else if (type === 'application_declined') {
-      result = await queryDatabase(
-        'UPDATE declined_users SET is_read = TRUE WHERE user_id = ?',
-        [userId]
-      );
-    }
+      if (type === 'application_accepted' || type === 'renewal_accepted') {
+        // Update all unread accepted notifications for this user with FOR UPDATE
+        await queryDatabase(
+          'SELECT * FROM accepted_users WHERE user_id = ? AND is_read = 0 FOR UPDATE',
+          [userId]
+        );
+        
+        await queryDatabase(
+          'UPDATE accepted_users SET is_read = 1 WHERE user_id = ? AND is_read = 0',
+          [userId]
+        );
+      } else if (type === 'application_declined') {
+        // Update all unread declined notifications for this user with FOR UPDATE
+        await queryDatabase(
+          'SELECT * FROM declined_users WHERE user_id = ? AND is_read = 0 FOR UPDATE',
+          [userId]
+        );
+        
+        await queryDatabase(
+          'UPDATE declined_users SET is_read = 1 WHERE user_id = ? AND is_read = 0',
+          [userId]
+        );
+      }
 
-    if (result && result.affectedRows !== undefined) {
-      console.log("Updated Rows:", result.affectedRows);
+      // Commit transaction
+      await queryDatabase('COMMIT');
       res.json({ success: true, message: 'Notification marked as read' });
-    } else {
-      res.json({ success: true, message: 'No notifications to update' });
+      return;
+
+    } catch (err) {
+      // Rollback transaction
+      await queryDatabase('ROLLBACK');
+      
+      // If it's not a lock timeout error, throw immediately
+      if (err.code !== 'ER_LOCK_WAIT_TIMEOUT') {
+        throw err;
+      }
+      
+      retries--;
+      if (retries === 0) {
+        console.error('Error updating notification after all retries:', err);
+        res.status(500).json({ error: 'Database error while updating notifications. Please try again.' });
+      } else {
+        // Wait for a short time before retrying
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
     }
-  } catch (err) {
-    console.error('Error updating notification:', err);
-    res.status(500).json({ error: 'Database error while updating notifications' });
   }
 });
 
 app.put('/notifications/mark-all-as-read/:userId', async (req, res) => {
   const { userId } = req.params;
+  let retries = 3;
 
-  try {
-    await queryDatabase(
-      'UPDATE accepted_users SET is_read = TRUE WHERE user_id = ?',
-      [userId]
-    );
+  while (retries > 0) {
+    try {
+      // Start transaction
+      await queryDatabase('START TRANSACTION');
 
-    await queryDatabase(
-      'UPDATE declined_users SET is_read = TRUE WHERE user_id = ?',
-      [userId]
-    );
+      // Lock and update accepted notifications
+      await queryDatabase(
+        'SELECT * FROM accepted_users WHERE user_id = ? AND is_read = 0 FOR UPDATE',
+        [userId]
+      );
+      
+      await queryDatabase(
+        'UPDATE accepted_users SET is_read = 1 WHERE user_id = ? AND is_read = 0',
+        [userId]
+      );
 
-    res.json({ success: true, message: 'All notifications marked as read' });
-  } catch (err) {
-    console.error('Error updating notifications:', err);
-    res.status(500).json({ error: 'Database error while updating notifications' });
+      // Lock and update declined notifications
+      await queryDatabase(
+        'SELECT * FROM declined_users WHERE user_id = ? AND is_read = 0 FOR UPDATE',
+        [userId]
+      );
+      
+      await queryDatabase(
+        'UPDATE declined_users SET is_read = 1 WHERE user_id = ? AND is_read = 0',
+        [userId]
+      );
+
+      // Commit transaction
+      await queryDatabase('COMMIT');
+      res.json({ success: true, message: 'All notifications marked as read' });
+      return;
+
+    } catch (err) {
+      // Rollback transaction
+      await queryDatabase('ROLLBACK');
+      
+      // If it's not a lock timeout error, throw immediately
+      if (err.code !== 'ER_LOCK_WAIT_TIMEOUT') {
+        throw err;
+      }
+      
+      retries--;
+      if (retries === 0) {
+        console.error('Error updating notifications after all retries:', err);
+        res.status(500).json({ error: 'Database error while updating notifications. Please try again.' });
+      } else {
+        // Wait for a short time before retrying
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
   }
 });
 
-app.listen(8081, () => {
-  console.log('Server is running on port 8081');
-}); 
+app.get('/renewalUsers/:adminId', async (req, res) => {
+  try {
+    const { adminId } = req.params;
+    
+    // First get the admin's barangay
+    const adminResult = await queryDatabase('SELECT barangay FROM admin WHERE id = ?', [adminId]);
+    
+    if (adminResult.length === 0) {
+      return res.status(404).json({ error: 'Admin not found' });
+    }
+
+    const adminBarangay = adminResult[0].barangay;
+
+    // Get renewal users from the same barangay as the admin
+    const users = await queryDatabase(`
+      SELECT u.id AS userId, u.email, u.name, u.status, u.barangay,
+             s1.first_name, s1.middle_name, s1.last_name, s1.age, s1.gender, 
+             s1.date_of_birth, s1.place_of_birth, s1.address, s1.education, 
+             s1.civil_status, s1.occupation, s1.religion, s1.company, 
+             s1.income, s1.employment_status, s1.contact_number, s1.email, 
+             s1.pantawid_beneficiary, s1.indigenous, s1.code_id,
+             s3.classification,
+             s4.needs_problems,
+             s5.emergency_name, s5.emergency_relationship, 
+             s5.emergency_address, s5.emergency_contact
+
+      FROM users u
+      JOIN user_details_step1 s1 ON u.id = s1.user_id
+      LEFT JOIN user_details_step3 s3 ON u.id = s3.user_id
+      LEFT JOIN user_details_step4 s4 ON u.id = s4.user_id
+      LEFT JOIN user_details_step5 s5 ON u.id = s5.user_id
+      WHERE u.status = 'Renewal' AND u.barangay = ?
+    `, [adminBarangay]);
+
+    // For each user, get their children
+    const usersWithChildren = await Promise.all(users.map(async (user) => {
+      const children = await queryDatabase(`
+        SELECT first_name, middle_name, last_name, birthdate, age, educational_attainment
+        FROM user_details_step2
+        WHERE user_id = ?
+      `, [user.userId]);
+
+      return {
+        ...user,
+        children: children
+      };
+    }));
+
+    res.status(200).json(usersWithChildren);
+  } catch (err) {
+    console.error('Error fetching renewal users:', err);
+    res.status(500).json({ error: 'Error fetching renewal users' });
+  }
+});
+
+// Update accepted users table - modified to always insert new entries
+app.post('/updateAcceptedUser', async (req, res) => {
+  const { userId, message } = req.body;
+  
+  try {
+    // Always insert a new record instead of updating
+    await queryDatabase(
+      'INSERT INTO accepted_users (user_id, message, accepted_at) VALUES (?, ?, NOW())',
+      [userId, message]
+    );
+
+    res.status(200).json({ message: 'New notification added successfully' });
+  } catch (error) {
+    console.error('Error adding notification:', error);
+    res.status(500).json({ error: 'Failed to add notification' });
+  }
+});
+
+// Add proper server startup
+const PORT = process.env.PORT || 8081;
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received. Closing HTTP server...');
+  pool.end((err) => {
+    if (err) {
+      console.error('Error closing database pool:', err);
+    }
+    process.exit(0);
+  });
+});
