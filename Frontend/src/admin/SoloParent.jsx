@@ -1,57 +1,116 @@
-import React, { useState } from 'react';
-import './Applications.css';
+import React, { useState, useEffect } from 'react';
+import './SoloParent.css';
+import axios from 'axios';
+import { useContext } from 'react';
+import { AdminContext } from '../contexts/AdminContext';
 
 const SoloParent = () => {
-  const [soloParents, setSoloParents] = useState([
-    {
-      id: 1,
-      code_id: "SP-2024-001",
-      first_name: "Maria",
-      middle_name: "Santos",
-      last_name: "Cruz",
-      barangay: "Barangay 1",
-      email: "maria.cruz@email.com",
-      age: 32,
-      children: 2,
-      classification: "007",
-      status: "Verified",
-      remarks: ""
-    },
-    {
-      id: 2,
-      code_id: "SP-2024-002",
-      first_name: "Pedro",
-      middle_name: "Garcia",
-      last_name: "Santos",
-      barangay: "Barangay 2",
-      email: "pedro.santos@email.com",
-      age: 45,
-      children: 1,
-      classification: "002",
-      status: "Verified",
-      remarks: ""
-    },
-    {
-      id: 3,
-      code_id: "SP-2024-003",
-      first_name: "Ana",
-      middle_name: "Rivera",
-      last_name: "Reyes",
-      barangay: "Barangay 3",
-      email: "ana.reyes@email.com",
-      age: 29,
-      children: 3,
-      classification: "009",
-      status: "Verified",
-      remarks: ""
-    }
-  ]);
+  const [soloParents, setSoloParents] = useState([]);
   const [selectedParent, setSelectedParent] = useState(null);
   const [remarks, setRemarks] = useState("");
   const [showRevokeModal, setShowRevokeModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [parentsPerPage] = useState(10);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [selectedStatus, setSelectedStatus] = useState('all');
+  const { adminId } = useContext(AdminContext);
+
+  useEffect(() => {
+    fetchVerifiedUsers();
+  }, [adminId, selectedStatus]);
+
+  const fetchVerifiedUsers = async () => {
+    try {
+      setIsLoading(true);
+      let url = `http://localhost:8081/verifiedUsers/${adminId}`;
+      if (selectedStatus !== 'all') {
+        url += `?status=${selectedStatus}`;
+      }
+      const response = await axios.get(url);
+      setSoloParents(response.data);
+      setError(null);
+    } catch (err) {
+      console.error('Error:', err);
+      setError('Error fetching verified users');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const openRevokeModal = (parent) => {
+    setSelectedParent(parent);
+    setShowRevokeModal(true);
+  };
+
+  const closeModal = () => {
+    setSelectedParent(null);
+    setRemarks("");
+    setShowRevokeModal(false);
+  };
+
+  const handleRevoke = async () => {
+    if (!selectedParent || !remarks.trim()) return;
+    
+    try {
+      const response = await fetch('http://localhost:8081/saveRemarks', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          code_id: selectedParent.code_id,
+          remarks: remarks,
+          user_id: selectedParent.userId,
+          admin_id: adminId
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save remarks');
+      }
+
+      // Refresh the list to show new remarks
+      await fetchVerifiedUsers();
+      closeModal();
+    } catch (err) {
+      console.error('Error saving remarks:', err);
+      alert('Failed to save remarks. Please try again.');
+    }
+  };
+
+  const filteredParents = soloParents.filter(parent => {
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      (parent.userId && parent.userId.toString().includes(searchLower)) ||
+      (parent.code_id && parent.code_id.toLowerCase().includes(searchLower)) ||
+      (parent.first_name && parent.first_name.toLowerCase().includes(searchLower)) ||
+      (parent.email && parent.email.toLowerCase().includes(searchLower)) ||
+      (parent.age && parent.age.toString().includes(searchLower))
+    );
+  });
+
+  const indexOfLastParent = currentPage * parentsPerPage;
+  const indexOfFirstParent = indexOfLastParent - parentsPerPage;
+  const currentParents = filteredParents.slice(indexOfFirstParent, indexOfLastParent);
+  const totalPages = Math.ceil(filteredParents.length / parentsPerPage);
+
+  if (isLoading) {
+    return (
+      <div className="soloparent-container">
+        <div className="loading">Loading verified solo parents...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="soloparent-container">
+        <div className="error">{error}</div>
+      </div>
+    );
+  }
 
   const classifications = {
     '001': 'Birth due to rape',
@@ -68,55 +127,21 @@ const SoloParent = () => {
     '012': 'Pregnant woman solo caregiver'
   };
 
-  const openRevokeModal = (parent) => {
-    setSelectedParent(parent);
-    setShowRevokeModal(true);
-  };
-
-  const closeModal = () => {
-    setSelectedParent(null);
-    setRemarks("");
-    setShowRevokeModal(false);
-  };
-
-  const handleRevoke = () => {
-    if (!selectedParent || !remarks.trim()) return;
-    
-    const updatedParents = soloParents.map(parent => 
-      parent.id === selectedParent.id 
-        ? { 
-            ...parent, 
-            status: "Unverified",
-            remarks: remarks
-          }
-        : parent
-    );
-    
-    setSoloParents(updatedParents);
-    closeModal();
-  };
-
-  const filteredParents = soloParents.filter(parent => {
-    const searchLower = searchTerm.toLowerCase();
-    return (
-      (parent.id && parent.id.toString().includes(searchLower)) ||
-      (parent.code_id && parent.code_id.toLowerCase().includes(searchLower)) ||
-      (parent.first_name && parent.first_name.toLowerCase().includes(searchLower)) ||
-      (parent.email && parent.email.toLowerCase().includes(searchLower)) ||
-      (parent.age && parent.age.toString().includes(searchLower))
-    );
-  });
-
-  const indexOfLastParent = currentPage * parentsPerPage;
-  const indexOfFirstParent = indexOfLastParent - parentsPerPage;
-  const currentParents = filteredParents.slice(indexOfFirstParent, indexOfLastParent);
-  const totalPages = Math.ceil(filteredParents.length / parentsPerPage);
-
   return (
-    <div className="applications-container">
-      <div className="applications-header">
-        <h2>Verified Solo Parents</h2>
+    <div className="soloparent-container">
+      <div className="soloparent-header">
+        <h2>Solo Parent Management</h2>
         <div className="search-container">
+          <select 
+            value={selectedStatus} 
+            onChange={(e) => setSelectedStatus(e.target.value)}
+            className="status-filter"
+          >
+            <option value="all">All Status</option>
+            <option value="Verified">Verified</option>
+            <option value="Pending Remarks">Pending Remarks</option>
+            <option value="Terminated">Terminated</option>
+          </select>
           <input
             type="text"
             placeholder="Search solo parents..."
@@ -134,41 +159,43 @@ const SoloParent = () => {
               <th>ID</th>
               <th>Code ID</th>
               <th>Name</th>
-              <th>Barangay</th>
               <th>Email</th>
-              <th>Children</th>
-              <th>Classification</th>
+              <th>Category</th>
               <th>Status</th>
-              <th>Remarks</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {currentParents.map((parent, index) => (
-              <tr key={index}>
+              <tr 
+                key={index} 
+                className={parent.status === "Terminated" ? "terminated-row" : ""}
+              >
                 <td>{indexOfFirstParent + index + 1}</td>
                 <td>{parent.code_id}</td>
                 <td>{`${parent.first_name} ${parent.middle_name ? parent.middle_name[0] + '.' : ''} ${parent.last_name}`}</td>
-                <td>{parent.barangay || 'N/A'}</td>
                 <td>{parent.email}</td>
-                <td className="text-center">{parent.children}</td>
-                <td>{classifications[parent.classification]}</td>
+                <td>{classifications[parent.classification] || parent.classification}</td>
                 <td>
                   <span className={`status-badge ${parent.status.toLowerCase()}`}>
                     {parent.status}
                   </span>
                 </td>
-                <td>{parent.remarks || 'No remarks'}</td>
                 <td>
-                  <div className="action-buttons">
-                    <button 
-                      className="btn decline-btn" 
-                      onClick={() => openRevokeModal(parent)}
-                      disabled={parent.status === "Unverified"}
-                    >
-                      <i className="fas fa-ban"></i> Revoke
-                    </button>
-                  </div>
+                  <button 
+                    className="btn decline-btn" 
+                    onClick={() => openRevokeModal(parent)}
+                    disabled={parent.status === "Unverified" || 
+                             parent.status === "Pending Remarks" ||
+                             parent.status === "Terminated"}
+                    title={
+                      parent.status === "Terminated" ? "User is already terminated" :
+                      parent.status === "Pending Remarks" ? "User is under investigation" :
+                      parent.status === "Unverified" ? "User is not verified" : ""
+                    }
+                  >
+                    <i className="fas fa-ban"></i> Revoke
+                  </button>
                 </td>
               </tr>
             ))}
@@ -207,7 +234,7 @@ const SoloParent = () => {
         <div className="modal-overlay" onClick={closeModal}>
           <div className="modal modal-small" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>Revoke Verification</h3>
+              <h3>Add Remarks</h3>
             </div>
             <div className="modal-content compact">
               <div className="details-grid compact">
@@ -223,11 +250,11 @@ const SoloParent = () => {
                 </div>
               </div>
               <div className="remarks-section compact">
-                <label>Reason for revoking verification:</label>
+                <label>Add remarks:</label>
                 <textarea
                   value={remarks}
                   onChange={(e) => setRemarks(e.target.value)}
-                  placeholder="Enter reason here"
+                  placeholder="Enter remarks here"
                   rows="3"
                   className="compact-textarea"
                 />
@@ -235,13 +262,13 @@ const SoloParent = () => {
             </div>
             <div className="modal-footer">
               <button 
-                className="btn decline-btn" 
+                className="btn view-btn" 
                 onClick={handleRevoke}
                 disabled={!remarks.trim()}
               >
-                <i className="fas fa-ban"></i> Confirm Revoke
+                Save Remarks
               </button>
-              <button className="btn view-btn" onClick={closeModal}>
+              <button className="btn decline-btn" onClick={closeModal}>
                 Cancel
               </button>
             </div>

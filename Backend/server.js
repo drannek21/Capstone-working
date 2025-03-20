@@ -782,6 +782,17 @@ app.get('/notifications/:userId', async (req, res) => {
       'SELECT declined_at, remarks, is_read FROM declined_users WHERE user_id = ? ORDER BY declined_at DESC', 
       [userId]
     );
+
+    // Add queries for terminated_users and user_remarks
+    const terminated = await queryDatabase(
+      'SELECT terminated_at, message, is_read FROM terminated_users WHERE user_id = ? ORDER BY terminated_at DESC',
+      [userId]
+    );
+
+    const remarks = await queryDatabase(
+      'SELECT remarks_at, remarks, is_read FROM user_remarks WHERE user_id = ? ORDER BY remarks_at DESC',
+      [userId]
+    );
     
     let notifications = [];
 
@@ -791,7 +802,7 @@ app.get('/notifications/:userId', async (req, res) => {
         id: `accepted-${userId}-${accept.accepted_at}`,
         type: accept.message === "You have renewed" ? 'renewal_accepted' : 'application_accepted',
         message: accept.message,
-        read: accept.is_read === 1, // Convert to boolean
+        read: accept.is_read === 1,
         created_at: accept.accepted_at,
       });
     });
@@ -802,8 +813,30 @@ app.get('/notifications/:userId', async (req, res) => {
         id: `declined-${userId}-${decline.declined_at}`,
         type: 'application_declined',
         message: `Your application has been declined. Remarks: ${decline.remarks}`,
-        read: decline.is_read === 1, // Convert to boolean
+        read: decline.is_read === 1,
         created_at: decline.declined_at,
+      });
+    });
+
+    // Add terminated notifications
+    terminated.forEach(term => {
+      notifications.push({
+        id: `terminated-${userId}-${term.terminated_at}`,
+        type: 'application_terminated',
+        message: term.message,
+        read: term.is_read === 1,
+        created_at: term.terminated_at,
+      });
+    });
+
+    // Add remarks notifications
+    remarks.forEach(remark => {
+      notifications.push({
+        id: `remark-${userId}-${remark.remarks_at}`,
+        type: 'application_remarks',
+        message: `Your application is under investigation. Reason: ${remark.remarks}`,
+        read: remark.is_read === 1,
+        created_at: remark.remarks_at,
       });
     });
 
@@ -827,25 +860,39 @@ app.put('/notifications/mark-as-read/:userId/:type', async (req, res) => {
       await queryDatabase('START TRANSACTION');
 
       if (type === 'application_accepted' || type === 'renewal_accepted') {
-        // Update all unread accepted notifications for this user with FOR UPDATE
         await queryDatabase(
           'SELECT * FROM accepted_users WHERE user_id = ? AND is_read = 0 FOR UPDATE',
           [userId]
         );
-        
         await queryDatabase(
           'UPDATE accepted_users SET is_read = 1 WHERE user_id = ? AND is_read = 0',
           [userId]
         );
       } else if (type === 'application_declined') {
-        // Update all unread declined notifications for this user with FOR UPDATE
         await queryDatabase(
           'SELECT * FROM declined_users WHERE user_id = ? AND is_read = 0 FOR UPDATE',
           [userId]
         );
-        
         await queryDatabase(
           'UPDATE declined_users SET is_read = 1 WHERE user_id = ? AND is_read = 0',
+          [userId]
+        );
+      } else if (type === 'application_terminated') {
+        await queryDatabase(
+          'SELECT * FROM terminated_users WHERE user_id = ? AND is_read = 0 FOR UPDATE',
+          [userId]
+        );
+        await queryDatabase(
+          'UPDATE terminated_users SET is_read = 1 WHERE user_id = ? AND is_read = 0',
+          [userId]
+        );
+      } else if (type === 'application_remarks') {
+        await queryDatabase(
+          'SELECT * FROM user_remarks WHERE user_id = ? AND is_read = 0 FOR UPDATE',
+          [userId]
+        );
+        await queryDatabase(
+          'UPDATE user_remarks SET is_read = 1 WHERE user_id = ? AND is_read = 0',
           [userId]
         );
       }
@@ -859,7 +906,6 @@ app.put('/notifications/mark-as-read/:userId/:type', async (req, res) => {
       // Rollback transaction
       await queryDatabase('ROLLBACK');
       
-      // If it's not a lock timeout error, throw immediately
       if (err.code !== 'ER_LOCK_WAIT_TIMEOUT') {
         throw err;
       }
@@ -869,7 +915,6 @@ app.put('/notifications/mark-as-read/:userId/:type', async (req, res) => {
         console.error('Error updating notification after all retries:', err);
         res.status(500).json({ error: 'Database error while updating notifications. Please try again.' });
       } else {
-        // Wait for a short time before retrying
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
     }
@@ -890,7 +935,6 @@ app.put('/notifications/mark-all-as-read/:userId', async (req, res) => {
         'SELECT * FROM accepted_users WHERE user_id = ? AND is_read = 0 FOR UPDATE',
         [userId]
       );
-      
       await queryDatabase(
         'UPDATE accepted_users SET is_read = 1 WHERE user_id = ? AND is_read = 0',
         [userId]
@@ -901,9 +945,28 @@ app.put('/notifications/mark-all-as-read/:userId', async (req, res) => {
         'SELECT * FROM declined_users WHERE user_id = ? AND is_read = 0 FOR UPDATE',
         [userId]
       );
-      
       await queryDatabase(
         'UPDATE declined_users SET is_read = 1 WHERE user_id = ? AND is_read = 0',
+        [userId]
+      );
+
+      // Lock and update terminated notifications
+      await queryDatabase(
+        'SELECT * FROM terminated_users WHERE user_id = ? AND is_read = 0 FOR UPDATE',
+        [userId]
+      );
+      await queryDatabase(
+        'UPDATE terminated_users SET is_read = 1 WHERE user_id = ? AND is_read = 0',
+        [userId]
+      );
+
+      // Lock and update remarks notifications
+      await queryDatabase(
+        'SELECT * FROM user_remarks WHERE user_id = ? AND is_read = 0 FOR UPDATE',
+        [userId]
+      );
+      await queryDatabase(
+        'UPDATE user_remarks SET is_read = 1 WHERE user_id = ? AND is_read = 0',
         [userId]
       );
 
@@ -916,7 +979,6 @@ app.put('/notifications/mark-all-as-read/:userId', async (req, res) => {
       // Rollback transaction
       await queryDatabase('ROLLBACK');
       
-      // If it's not a lock timeout error, throw immediately
       if (err.code !== 'ER_LOCK_WAIT_TIMEOUT') {
         throw err;
       }
@@ -926,7 +988,6 @@ app.put('/notifications/mark-all-as-read/:userId', async (req, res) => {
         console.error('Error updating notifications after all retries:', err);
         res.status(500).json({ error: 'Database error while updating notifications. Please try again.' });
       } else {
-        // Wait for a short time before retrying
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
     }
@@ -1003,6 +1064,253 @@ app.post('/updateAcceptedUser', async (req, res) => {
   } catch (error) {
     console.error('Error adding notification:', error);
     res.status(500).json({ error: 'Failed to add notification' });
+  }
+});
+
+app.get('/getTerminatedUsers', async (req, res) => {
+  try {
+    let query = `
+      SELECT 
+        s1.code_id,
+        CONCAT(s1.first_name, ' ', s1.last_name) as user_name,
+        u.id as user_id,
+        a.barangay as admin_barangay,
+        tu.terminated_at
+      FROM users u
+      JOIN user_details_step1 s1 ON u.id = s1.user_id
+      JOIN terminated_users tu ON u.id = tu.user_id
+      LEFT JOIN admin a ON u.barangay = a.barangay
+      WHERE u.status = 'Terminated'
+      ORDER BY tu.terminated_at DESC
+    `;
+
+    const terminatedUsers = await queryDatabase(query);
+    res.json(terminatedUsers);
+  } catch (err) {
+    console.error('Error fetching terminated users:', err);
+    res.status(500).json({ error: 'Failed to fetch terminated users' });
+  }
+});
+
+app.post('/unTerminateUser', async (req, res) => {
+  const { userId } = req.body;
+
+  try {
+    // Start transaction
+    await queryDatabase('START TRANSACTION');
+
+    // Update user status back to Verified
+    await queryDatabase(
+      'UPDATE users SET status = ? WHERE id = ?',
+      ['Verified', userId]
+    );
+
+    // Add notification for verification
+    await queryDatabase(
+      'INSERT INTO accepted_users (user_id, message, accepted_at, is_read) VALUES (?, ?, NOW(), 0)',
+      [userId, 'Your account has been reactivated.']
+    );
+
+    // Commit the transaction
+    await queryDatabase('COMMIT');
+
+    res.status(200).json({ message: 'User status updated to Verified' });
+  } catch (error) {
+    // Rollback in case of error
+    await queryDatabase('ROLLBACK');
+    console.error('Error updating status:', error);
+    res.status(500).json({ error: 'Failed to update status' });
+  }
+});
+
+// Add this endpoint after the renewalUsers endpoint
+app.get('/verifiedUsers/:adminId', async (req, res) => {
+  try {
+    const { adminId } = req.params;
+    const { status } = req.query; // Get status from query parameters
+    
+    // First get the admin's barangay
+    const adminResult = await queryDatabase('SELECT barangay FROM admin WHERE id = ?', [adminId]);
+    
+    if (adminResult.length === 0) {
+      return res.status(404).json({ error: 'Admin not found' });
+    }
+
+    const adminBarangay = adminResult[0].barangay;
+
+    // Build the WHERE clause based on the status filter
+    let statusCondition = "u.status IN ('Verified', 'Pending Remarks', 'Terminated')";
+    if (status && (status === 'Verified' || status === 'Pending Remarks' || status === 'Terminated')) {
+      statusCondition = "u.status = ?";
+    }
+
+    // Get verified users and pending remarks users with their latest remarks
+    const users = await queryDatabase(`
+      SELECT u.id AS userId, u.email, u.name, u.status, u.barangay,
+             s1.first_name, s1.middle_name, s1.last_name, s1.age, s1.gender, 
+             s1.date_of_birth, s1.place_of_birth, s1.address, s1.education, 
+             s1.civil_status, s1.occupation, s1.religion, s1.company, 
+             s1.income, s1.employment_status, s1.contact_number, s1.email, 
+             s1.pantawid_beneficiary, s1.indigenous, s1.code_id,
+             s3.classification,
+             s4.needs_problems,
+             s5.emergency_name, s5.emergency_relationship, 
+             s5.emergency_address, s5.emergency_contact,
+             (SELECT remarks 
+              FROM user_remarks ur 
+              WHERE ur.user_id = u.id 
+              ORDER BY ur.remarks_at DESC 
+              LIMIT 1) as latest_remarks
+      FROM users u
+      JOIN user_details_step1 s1 ON u.id = s1.user_id
+      LEFT JOIN user_details_step3 s3 ON u.id = s3.user_id
+      LEFT JOIN user_details_step4 s4 ON u.id = s4.user_id
+      LEFT JOIN user_details_step5 s5 ON u.id = s5.user_id
+      WHERE ${statusCondition} AND u.barangay = ?
+    `, status ? [status, adminBarangay] : [adminBarangay]);
+
+    // For each user, get their children
+    const usersWithChildren = await Promise.all(users.map(async (user) => {
+      const children = await queryDatabase(`
+        SELECT first_name, middle_name, last_name, birthdate, age, educational_attainment
+        FROM user_details_step2
+        WHERE user_id = ?
+      `, [user.userId]);
+
+      return {
+        ...user,
+        remarks: user.latest_remarks || 'No remarks',
+        children: children
+      };
+    }));
+
+    res.status(200).json(usersWithChildren);
+  } catch (err) {
+    console.error('Error fetching verified users:', err);
+    res.status(500).json({ error: 'Error fetching verified users' });
+  }
+});
+
+// Add this new endpoint for saving remarks
+app.post('/saveRemarks', async (req, res) => {
+  const { code_id, remarks, user_id, admin_id } = req.body;
+
+  try {
+    // Start transaction
+    await queryDatabase('START TRANSACTION');
+
+    // Insert the remark
+    await queryDatabase(
+      'INSERT INTO user_remarks (code_id, remarks, user_id, admin_id) VALUES (?, ?, ?, ?)',
+      [code_id, remarks, user_id, admin_id]
+    );
+
+    // Update user status to Pending Remarks
+    await queryDatabase(
+      'UPDATE users SET status = ? WHERE id = ?',
+      ['Pending Remarks', user_id]
+    );
+
+    // Commit the transaction
+    await queryDatabase('COMMIT');
+
+    res.status(200).json({ message: 'Remarks saved successfully and status updated to Pending Remarks' });
+  } catch (error) {
+    // Rollback in case of error
+    await queryDatabase('ROLLBACK');
+    console.error('Error saving remarks:', error);
+    res.status(500).json({ error: 'Failed to save remarks' });
+  }
+});
+
+app.get('/getAllRemarks', async (req, res) => {
+  try {
+    let query = `
+      SELECT 
+        r.code_id,
+        r.remarks,
+        r.remarks_at,
+        r.user_id,
+        CONCAT(s1.first_name, ' ', s1.last_name) as user_name,
+        a.barangay as admin_barangay,
+        u.status
+      FROM user_remarks r
+      JOIN users u ON r.user_id = u.id
+      JOIN user_details_step1 s1 ON u.id = s1.user_id
+      JOIN admin a ON r.admin_id = a.id
+      WHERE u.status = 'Pending Remarks'
+      ORDER BY r.remarks_at DESC
+    `;
+
+    const remarks = await queryDatabase(query);
+    res.json(remarks);
+  } catch (err) {
+    console.error('Error fetching remarks:', err);
+    res.status(500).json({ error: 'Failed to fetch remarks' });
+  }
+});
+
+// Add endpoint for accepting remarks (setting to Terminated)
+app.post('/acceptRemarks', async (req, res) => {
+  const { userId } = req.body;
+
+  try {
+    // Start transaction
+    await queryDatabase('START TRANSACTION');
+
+    // Update user status to Terminated
+    await queryDatabase(
+      'UPDATE users SET status = ? WHERE id = ?',
+      ['Terminated', userId]
+    );
+
+    // Add notification for termination
+    await queryDatabase(
+      'INSERT INTO terminated_users (user_id, message, terminated_at, is_read) VALUES (?, ?, NOW(), 0)',
+      [userId, 'Your application has been terminated.']
+    );
+
+    // Commit the transaction
+    await queryDatabase('COMMIT');
+
+    res.status(200).json({ message: 'User status updated to Terminated' });
+  } catch (error) {
+    // Rollback in case of error
+    await queryDatabase('ROLLBACK');
+    console.error('Error updating status:', error);
+    res.status(500).json({ error: 'Failed to update status' });
+  }
+});
+
+// Add endpoint for declining remarks (setting back to Verified)
+app.post('/declineRemarks', async (req, res) => {
+  const { userId } = req.body;
+
+  try {
+    // Start transaction
+    await queryDatabase('START TRANSACTION');
+
+    // Update user status back to Verified
+    await queryDatabase(
+      'UPDATE users SET status = ? WHERE id = ?',
+      ['Verified', userId]
+    );
+
+    // Add notification for verification
+    await queryDatabase(
+      'INSERT INTO accepted_users (user_id, message, accepted_at, is_read) VALUES (?, ?, NOW(), 0)',
+      [userId, 'Your application remains verified.']
+    );
+
+    // Commit the transaction
+    await queryDatabase('COMMIT');
+
+    res.status(200).json({ message: 'User status updated to Verified' });
+  } catch (error) {
+    // Rollback in case of error
+    await queryDatabase('ROLLBACK');
+    console.error('Error updating status:', error);
+    res.status(500).json({ error: 'Failed to update status' });
   }
 });
 

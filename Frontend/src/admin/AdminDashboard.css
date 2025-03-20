@@ -2,6 +2,7 @@
 .admin-dashboard {
   display: flex;
   min-height: 100vh;
+  min-width: 100vh;
   background-color: #f8fafc;
 }
 
@@ -49,6 +50,7 @@
 
 /* Responsive Adjustments */
 @media (max-width: 768px) {
+  
   .main-content {
     margin-left: 0;
     padding: 1rem;

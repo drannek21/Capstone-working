@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { FiMenu, FiX, FiHome, FiFileText, FiBell, FiLogOut, FiUsers } from 'react-icons/fi';
+import { FiMenu, FiX, FiHome, FiFileText, FiBell, FiLogOut, FiUsers, FiMessageSquare } from 'react-icons/fi';
 import './SuperAdminSideBar.css';
 
 const SuperAdminSideBar = () => {
@@ -20,11 +20,14 @@ const SuperAdminSideBar = () => {
   useEffect(() => {
     const fetchNotifications = async () => {
       try {
-        const response = await fetch('http://localhost:8081/notifications');
-        const data = await response.json();
-        if (data.success) {
-          setNotifications(data.notifications || []);
+        const adminId = localStorage.getItem("id");
+        if (!adminId) {
+          console.error('Admin ID not found');
+          return;
         }
+        const response = await fetch(`http://localhost:8081/notifications/${adminId}`);
+        const data = await response.json();
+        setNotifications(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error('Error fetching notifications:', error);
       }
@@ -99,8 +102,15 @@ const SuperAdminSideBar = () => {
             <span>Admin Management</span>
           </NavLink>
 
+          <NavLink 
+            to="/superadmin/remarks"
+            className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}
+            onClick={() => window.innerWidth < 768 && setIsOpen(false)}
+          >
+            <FiMessageSquare className="nav-icon" />
+            <span>Remarks</span>
+          </NavLink>
 
-                    
           <div 
             className="nav-link"
             onClick={handleLogout}

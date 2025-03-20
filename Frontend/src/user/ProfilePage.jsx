@@ -53,10 +53,14 @@ const ProfilePage = () => {
               alert("Congratulations! Your application has been approved!");
             } else if (data.status === "Unverified" && previousStatus === "Pending") {
               alert("Your application has been declined. Please check with the admin for more details.");
+            } else if (data.status === "Terminated") {
+              alert("Your Solo Parent application has been terminated. Please contact your Barangay for more information.");
+            } else if (data.status === "Pending Remarks") {
+              alert("Your application is under investigation. Please wait for the admin's response.");
             }
           }
           setPreviousStatus(data.status);
-          
+
           // Check if profilePic exists in the response
           if (data.profilePic) {
             localStorage.setItem(`profilePic_${loggedInUserId}`, data.profilePic);
@@ -79,7 +83,7 @@ const ProfilePage = () => {
     };
 
     fetchUserDetails();
-  }, [loggedInUserId]);
+  }, [loggedInUserId, navigate]);
 
   // Check expiration only once when user data is loaded
   useEffect(() => {
@@ -91,7 +95,23 @@ const ProfilePage = () => {
   const renderUserDetails = () => {
     if (!user) return null;
     
-    if (user.status === "Verified") {
+    if (user.status === "Terminated") {
+      return (
+        <div className="verification-prompt terminated">
+          <h3>Account Terminated</h3>
+          <p>We regret to inform you that your Solo Parent application has been terminated.</p>
+          <p>If you believe this is a mistake or would like to appeal this decision, please contact your Barangay office for assistance.</p>
+          <p>You may need to provide additional documentation or information to support your case.</p>
+        </div>
+      );
+    } else if (user.status === "Pending Remarks") {
+      return (
+        <div className="verification-prompt">
+          <h3>Application Under Investigation</h3>
+          <p>Sorry, your application is currently under investigation by the admin. Please wait for further updates.</p>
+        </div>
+      );
+    } else if (user.status === "Verified") {
       return (
         <div className="user-details">
           <h3>Personal Information</h3>
@@ -380,6 +400,8 @@ const ProfilePage = () => {
     Verified: <FaCheckCircle className="status-icon verified" />,
     Pending: <FaClock className="status-icon pending" />,
     Unverified: <FaTimes className="status-icon unverified" />,
+    "Pending Remarks": <FaClock className="status-icon pending" />,
+    Terminated: <FaTimes className="status-icon terminated" />
   };
 
   // Get the profile picture URL from user object or localStorage
@@ -543,6 +565,12 @@ const ProfilePage = () => {
                   <button className="download-id-btn" onClick={downloadID}>
                     Download ID Card
                   </button>
+                </div>
+              ) : status === "Terminated" ? (
+                <div className="verification-prompt terminated">
+                  <h3>ID Not Available</h3>
+                  <p>Your Solo Parent ID is no longer available as your application has been terminated.</p>
+                  <p>Please contact your Barangay office for more information.</p>
                 </div>
               ) : status === "pending" ? (
                 <div className="verification-prompt">

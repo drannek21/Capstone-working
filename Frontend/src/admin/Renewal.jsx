@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import './Applications.css';
+import './Renewal.css';
 
 const Renewal = () => {
   const [renewals, setRenewals] = useState([]);
@@ -118,7 +118,7 @@ const Renewal = () => {
 
   if (isLoading) {
     return (
-      <div className="applications-container">
+      <div className="renewal-container">
         <div className="loading">Loading renewal applications...</div>
       </div>
     );
@@ -126,15 +126,15 @@ const Renewal = () => {
 
   if (error) {
     return (
-      <div className="applications-container">
+      <div className="renewal-container">
         <div className="error">{error}</div>
       </div>
     );
   }
 
   return (
-    <div className="applications-container">
-      <div className="applications-header">
+    <div className="renewal-container">
+      <div className="renewal-header">
         <h2>Renewal Records</h2>
         <div className="search-container">
           <input

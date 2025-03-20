@@ -9,14 +9,17 @@ import Userui from "./user/Userui";
 import ProfilePage from "./user/ProfilePage";
 import MultiStepForm from "./user/MultiStepForm";
 import SuperAdminDashboard from "./superadmin/SuperAdminDashboard"; // ✅ Add this
+import { AdminProvider } from './contexts/AdminContext';
 import './App.css';
 
 
 function App() {
   return (
-    <Router>
-      <MainContent />
-    </Router>
+    <AdminProvider>
+      <Router>
+        <MainContent />
+      </Router>
+    </AdminProvider>
   );
 }
 

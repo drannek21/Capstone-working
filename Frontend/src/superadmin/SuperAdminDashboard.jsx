@@ -5,6 +5,8 @@ import SDashboard from './SDashboard';
 import Applications from './Applications';
 import './SuperAdminDashboard.css';
 import UserManagement from './UserManagement';
+import Remarks from './Remarks';
+
 const SuperAdminDashboard = () => {
   return (
     <div className="super-admin-dashboard">
@@ -15,7 +17,7 @@ const SuperAdminDashboard = () => {
           <Route path="sdashboard" element={<SDashboard />} />
           <Route path="applications" element={<Applications />} />
           <Route path="user-management" element={<UserManagement />} />
-
+          <Route path="remarks" element={<Remarks />} />
         </Routes>
 
         </div>
