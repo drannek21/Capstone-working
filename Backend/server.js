@@ -168,17 +168,10 @@ app.get('/pendingUsers', async (req, res) => {
              s1.civil_status, s1.occupation, s1.religion, s1.company, 
              s1.income, s1.employment_status, s1.contact_number, s1.email, 
              s1.pantawid_beneficiary, s1.indigenous, s1.code_id,
-
-             -- Step 3: Classification
              s3.classification,
-
-             -- Step 4: Needs/Problems
              s4.needs_problems,
-
-             -- Step 5: Emergency Contact
              s5.emergency_name, s5.emergency_relationship, 
              s5.emergency_address, s5.emergency_contact
-
       FROM users u
       JOIN user_details_step1 s1 ON u.id = s1.user_id
       LEFT JOIN user_details_step3 s3 ON u.id = s3.user_id
@@ -187,23 +180,41 @@ app.get('/pendingUsers', async (req, res) => {
       WHERE u.status = 'pending'
     `);
 
-    // For each user, get their children
-    const usersWithChildren = await Promise.all(users.map(async (user) => {
-      const children = await queryDatabase(`
-        SELECT first_name, middle_name, last_name, birthdate, age, educational_attainment
-        FROM user_details_step2
-        WHERE user_id = ?
-      `, [user.userId]);
+    // If there are no users, return empty array
+    if (users.length === 0) {
+      return res.status(200).json([]);
+    }
 
-      return {
-        ...user,
-        children: children
-      };
+    // Get all userIds
+    const userIds = users.map(user => user.userId);
+
+    // Get children for all users in a single query
+    const childrenQuery = `
+      SELECT user_id, first_name, middle_name, last_name, birthdate, age, educational_attainment
+      FROM user_details_step2
+      WHERE user_id IN (?)
+    `;
+
+    const children = await queryDatabase(childrenQuery, [userIds]);
+
+    // Create a map of children by user_id
+    const childrenByUser = {};
+    children.forEach(child => {
+      if (!childrenByUser[child.user_id]) {
+        childrenByUser[child.user_id] = [];
+      }
+      childrenByUser[child.user_id].push(child);
+    });
+
+    // Combine users with their children
+    const usersWithChildren = users.map(user => ({
+      ...user,
+      children: childrenByUser[user.userId] || []
     }));
 
     res.status(200).json(usersWithChildren);
   } catch (err) {
-    console.error(err);
+    console.error('Error fetching pending users:', err);
     res.status(500).json({ error: 'Error fetching pending users' });
   }
 });
@@ -644,8 +655,17 @@ app.post('/submitAllSteps', async (req, res) => {
 
     await queryDatabase('START TRANSACTION');
 
+    // Delete existing records first
+    await queryDatabase('DELETE FROM user_details_step1 WHERE user_id = ?', [userId]);
+    await queryDatabase('DELETE FROM user_details_step2 WHERE user_id = ?', [userId]);
+    await queryDatabase('DELETE FROM user_details_step3 WHERE user_id = ?', [userId]);
+    await queryDatabase('DELETE FROM user_details_step4 WHERE user_id = ?', [userId]);
+    await queryDatabase('DELETE FROM user_details_step5 WHERE user_id = ?', [userId]);
+
+    // Update user status
     await queryDatabase('UPDATE users SET status = ? WHERE id = ?', ['pending', userId]);
 
+    // Insert Step 1
     await queryDatabase(`
       INSERT INTO user_details_step1 (
         user_id, first_name, middle_name, last_name, age, gender, date_of_birth,
@@ -677,8 +697,8 @@ app.post('/submitAllSteps', async (req, res) => {
       codeId
     ]);
 
-    if (formData.children && formData.children.length > 0) {
-      console.log("Processing children:", JSON.stringify(formData.children, null, 2));
+    // Insert Step 2 (Children)
+    if (formData.children && Array.isArray(formData.children)) {
       for (const child of formData.children) {
         await queryDatabase(
           'INSERT INTO user_details_step2 (user_id, first_name, middle_name, last_name, birthdate, age, educational_attainment, code_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
@@ -696,27 +716,35 @@ app.post('/submitAllSteps', async (req, res) => {
       }
     }
 
+    // Insert Step 3
     await queryDatabase(
-      'INSERT INTO user_details_step3 (user_id, classification, code_id) VALUES (?, ?, ?)',
-      [userId, formData.Classification || "", codeId]
-    );
 
+      'INSERT INTO user_details_step3 (user_id, classification, code_id) VALUES (?, ?, ?)',
+      
+      [userId, formData.Classification || "", codeId]
+      
+      );;
+
+    // Insert Step 4
     await queryDatabase(
       'INSERT INTO user_details_step4 (user_id, needs_problems, code_id) VALUES (?, ?, ?)',
       [userId, formData.needsProblems || "", codeId]
     );
 
-    await queryDatabase(
-      'INSERT INTO user_details_step5 (user_id, emergency_name, emergency_address, emergency_relationship, emergency_contact, code_id) VALUES (?, ?, ?, ?, ?, ?)',
-      [
-        userId,
-        formData.emergencyContact?.emergencyName || "",
-        formData.emergencyContact?.emergencyAddress || "",
-        formData.emergencyContact?.emergencyRelationship || "",
-        formData.emergencyContact?.emergencyContact || "",
-        codeId
-      ]
-    );
+    // Insert Step 5
+    if (formData.emergencyContact) {
+      await queryDatabase(
+        'INSERT INTO user_details_step5 (user_id, emergency_name, emergency_relationship, emergency_address, emergency_contact, code_id) VALUES (?, ?, ?, ?, ?, ?)',
+        [
+          userId,
+          formData.emergencyContact.emergencyName || "",
+          formData.emergencyContact.emergencyRelationship || "",
+          formData.emergencyContact.emergencyAddress || "",
+          formData.emergencyContact.emergencyContact || "",
+          codeId
+        ]
+      );
+    }
 
     await queryDatabase('COMMIT');
     res.status(201).json({ message: 'Form submitted successfully. Your verification is now pending.', codeId });
