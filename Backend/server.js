@@ -1,11 +1,14 @@
+require('dotenv').config();
 const express = require('express');
 const mysql = require('mysql');
 const cors = require('cors');
+const nodemailer = require('nodemailer');
+
 
 const app = express();
 app.use(cors());
 app.use(express.json());
-
+const { sendStatusEmail } = require('./services/emailService');
 // Create a connection pool instead of a single connection
 const pool = mysql.createPool({
   host: 'localhost',
@@ -524,7 +527,7 @@ app.post('/userDetailsStep5', async (req, res) => {
 });
 
 app.post('/updateUserStatus', async (req, res) => {
-  const { userId, status, remarks } = req.body;
+  const { userId, status, remarks, email, firstName, action } = req.body;
   let retries = 3;
   let lastError = null;
 
@@ -543,8 +546,8 @@ app.post('/updateUserStatus', async (req, res) => {
       // Update the user's status
       await queryDatabase('UPDATE users SET status = ? WHERE id = ?', [status, userId]);
 
+      // Handle notifications based on status
       if (status === "Declined" && remarks) {
-        // Check if there's already a declined notification for this user
         const existingDeclined = await queryDatabase(
           'SELECT * FROM declined_users WHERE user_id = ? AND is_read = 0',
           [userId]
@@ -559,7 +562,6 @@ app.post('/updateUserStatus', async (req, res) => {
       }
 
       if (status === "Verified") {
-        // Check if there's already an unread notification for this user with the same message
         const message = currentStatus === "Renewal" ? 'You have renewed' : 'Your application has been accepted.';
         const existingAccepted = await queryDatabase(
           'SELECT * FROM accepted_users WHERE user_id = ? AND message = ? AND is_read = 0',
@@ -567,7 +569,6 @@ app.post('/updateUserStatus', async (req, res) => {
         );
 
         if (existingAccepted.length === 0) {
-          // Only insert if there's no existing unread notification with the same message
           await queryDatabase(
             'INSERT INTO accepted_users (user_id, accepted_at, message, is_read) VALUES (?, NOW(), ?, 0)', 
             [userId, message]
@@ -575,9 +576,16 @@ app.post('/updateUserStatus', async (req, res) => {
         }
       }
 
+      // Send email notification
+      const emailSent = await sendStatusEmail(email, firstName, action, remarks);
+
       // Commit transaction
       await queryDatabase('COMMIT');
-      res.status(200).json({ message: 'User status updated successfully' });
+      
+      res.json({ 
+        success: true, 
+        message: emailSent ? 'Status updated and email sent' : 'Status updated but email failed'
+      });
       return;
 
     } catch (err) {
@@ -585,9 +593,10 @@ app.post('/updateUserStatus', async (req, res) => {
       await queryDatabase('ROLLBACK');
       lastError = err;
       
-      // If it's not a lock timeout error, throw immediately
       if (err.code !== 'ER_LOCK_WAIT_TIMEOUT') {
-        throw err;
+        console.error('Error:', err);
+        res.status(500).json({ success: false, message: err.message });
+        return;
       }
       
       retries--;
@@ -595,7 +604,6 @@ app.post('/updateUserStatus', async (req, res) => {
         console.error('Error updating user status after all retries:', err);
         res.status(500).json({ error: 'Database error while updating user status. Please try again.' });
       } else {
-        // Wait for a short time before retrying
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
     }

@@ -568,57 +568,145 @@
 
 /* Responsive Design */
 @media (max-width: 768px) {
+  .profile-container {
+    padding: 0 1rem;
+    margin: 1rem auto;
+  }
+
   .profile-header {
     flex-direction: column;
     text-align: center;
-    padding: 2rem;
+    padding: 2rem 1rem;
+    gap: 1.5rem;
   }
 
   .profile-picture-container {
-    width: 150px;
-    height: 150px;
+    width: 120px;
+    height: 120px;
   }
 
   .profile-info h1 {
-    font-size: 2rem;
+    font-size: 1.8rem;
   }
 
-  .user-details ul {
-    grid-template-columns: 1fr;
+  .email {
+    font-size: 1rem;
+  }
+
+  .status-badge {
+    padding: 0.5rem 1rem;
+    font-size: 0.8rem;
+  }
+
+  .tab-navigation {
+    flex-wrap: wrap;
+    justify-content: center;
   }
 
   .tab-button {
-    padding: 1rem 1.5rem;
+    padding: 1rem;
     font-size: 1rem;
+    flex: 1 1 auto;
+    text-align: center;
   }
-  .user-details ul {
-    grid-template-columns: 1fr;
+
+  .tab-content {
+    padding: 1.5rem;
   }
-  
-  .children-list {
-    display: flex;
-    flex-direction: column;
+
+  .verification-prompt {
+    padding: 2rem 1rem;
   }
-  
+
+  .verify-button {
+    width: 100%;
+    padding: 1rem;
+  }
+
   .user-details {
     padding: 1.5rem;
   }
-}
 
-@media (max-width: 480px) {
-  .profile-container {
-    margin: 1.5rem auto;
-    padding: 0 1rem;
+  .user-details ul {
+    grid-template-columns: 1fr;
   }
 
-  .tab-button {
-    padding: 1rem 1.5rem;
-    font-size: 1rem;
+  .children-table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  .children-table th,
+  .children-table td {
+    padding: 0.75rem;
+    font-size: 0.9rem;
+  }
+
+  .modal-content {
+    width: 90%;
+    padding: 1.5rem;
   }
 
   .preview-container {
     width: 200px;
     height: 200px;
+  }
+
+  .digital-id {
+    width: 100%;
+    padding: 1rem;
+  }
+
+  .id-header {
+    flex-direction: column;
+    text-align: center;
+    gap: 1rem;
+  }
+
+  .id-body {
+    grid-template-columns: 1fr;
+    text-align: center;
+  }
+
+  .id-photo {
+    width: 120px;
+    height: 120px;
+  }
+}
+
+@media (max-width: 480px) {
+  .profile-header {
+    padding: 1.5rem;
+  }
+
+  .profile-info h1 {
+    font-size: 1.5rem;
+  }
+
+  .tab-button {
+    padding: 0.75rem;
+    font-size: 0.9rem;
+  }
+
+  .user-details h3 {
+    font-size: 1.3rem;
+    padding: 0.5rem;
+  }
+
+  .modal-content {
+    padding: 1rem;
+  }
+
+  .preview-container {
+    width: 150px;
+    height: 150px;
+  }
+
+  .upload-photo-btn,
+  .save-photo-btn {
+    padding: 0.75rem;
+    font-size: 0.9rem;
   }
 }
 
@@ -751,9 +839,10 @@
   border-collapse: separate;
   border-spacing: 0;
   margin: 1rem 0;
-  border-radius: 10px;
+  border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  background: white;
 }
 
 .children-table th {
@@ -761,15 +850,42 @@
   color: white;
   padding: 1rem;
   font-weight: 600;
+  text-align: left;
 }
 
 .children-table td {
-  padding: 0.75rem 1rem;
+  padding: 1rem;
   border-bottom: 1px solid #e2e8f0;
+  color: #2d3748;
+  font-size: 0.95rem;
 }
 
 .children-table tr:nth-child(even) {
   background: rgba(22, 196, 127, 0.05);
+}
+
+.children-table tr:hover {
+  background: rgba(22, 196, 127, 0.08);
+}
+
+.children-table tr:last-child td {
+  border-bottom: none;
+}
+
+.children-table th:first-child {
+  border-top-left-radius: 12px;
+}
+
+.children-table th:last-child {
+  border-top-right-radius: 12px;
+}
+
+.children-table tr:last-child td:first-child {
+  border-bottom-left-radius: 12px;
+}
+
+.children-table tr:last-child td:last-child {
+  border-bottom-right-radius: 12px;
 }
 
 .download-id-btn {

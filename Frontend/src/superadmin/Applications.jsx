@@ -116,24 +116,23 @@ const Applications = () => {
         return;
       }
 
-      // Log the selected application and action details
-      console.log('Processing action:', {
-        action,
-        selectedApplication,
-        remarks: remarks.trim()
-      });
+      // Log to verify the correct email is being sent
+      console.log('User email:', selectedApplication.email);
 
       const response = await axios.post('http://localhost:8081/updateUserStatus', {
         userId: selectedApplication.userId,
         status: action === "Accept" ? "Verified" : "Declined",
-        remarks: remarks.trim() || "No remarks provided" // Ensure remarks are sent even for Accept action
+        remarks: remarks.trim() || "No remarks provided",
+        email: selectedApplication.email,  // Make sure we're sending the user's email
+        firstName: selectedApplication.first_name,
+        action: action
       });
 
       if (response.status === 200) {
         // Show success message
         const message = action === "Accept" 
-          ? "Application accepted successfully!" 
-          : "Application declined successfully!";
+          ? "Application accepted and email notification sent!" 
+          : "Application declined and email notification sent!";
         alert(message);
         
         // Refresh the applications list
@@ -145,7 +144,6 @@ const Applications = () => {
       }
     } catch (error) {
       console.error('Error updating status:', error);
-      // More detailed error message
       const errorMessage = error.response?.data?.error || error.message || "Unknown error occurred";
       alert(`Error updating application status: ${errorMessage}. Please try again.`);
     }
