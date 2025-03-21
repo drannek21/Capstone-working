@@ -11,6 +11,19 @@ export default function MultiStepForm() {
   const { state } = useLocation();
   const userId = state?.userId || localStorage.getItem("UserId");
 
+  // Add age calculation function
+  const calculateAge = (birthDate) => {
+    const today = new Date();
+    const birth = new Date(birthDate);
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
   const [step, setStep] = useState(1);
   const totalSteps = 5;
   const [formData, setFormData] = useState({
@@ -54,6 +67,11 @@ export default function MultiStepForm() {
   });
 
   const updateFormData = (newData) => {
+    // Add age calculation when date of birth is updated
+    if (newData.dateOfBirth) {
+      const calculatedAge = calculateAge(newData.dateOfBirth);
+      newData.age = calculatedAge.toString();
+    }
     setFormData((prev) => ({ ...prev, ...newData }));
   };
 

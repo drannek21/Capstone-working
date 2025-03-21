@@ -10,6 +10,10 @@ const Signup = () => {
     name: "",
     barangay: "",
   });
+  
+  // Add state for password visibility
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -25,6 +29,9 @@ const Signup = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    if ((name === 'name' || name === 'email') && value.length > 50) {
+      return; // Prevent input if length exceeds 50
+    }
     setFormData((prev) => ({
       ...prev,
       [name]: value
@@ -75,6 +82,7 @@ const Signup = () => {
     }
   };
 
+  // In the return statement, update the input fields:
   return (
     <div className={styles.signupContainer}>
       <div className={styles.signupBox}>
@@ -89,6 +97,7 @@ const Signup = () => {
               placeholder="Enter your name"
               value={formData.name}
               onChange={handleChange}
+              maxLength={50}
               required
             />
           </div>
@@ -101,6 +110,7 @@ const Signup = () => {
               placeholder="Enter your email"
               value={formData.email}
               onChange={handleChange}
+              maxLength={50}
               required
             />
           </div>
@@ -125,27 +135,43 @@ const Signup = () => {
           <div className={styles.passwordContainer}>
             <div className={styles.inputGroup}>
               <label htmlFor="password">Password</label>
-              <input
-                id="password"
-                type="password"
-                name="password"
-                placeholder="Enter your password"
-                value={formData.password}
-                onChange={handleChange}
-                required
-              />
+              <div className={styles.passwordContainer}>
+                <input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  name="password"
+                  placeholder="Enter your password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  required
+                />
+                <button 
+                  type="button" 
+                  className={styles.passwordToggle}
+                  onClick={() => setShowPassword(!showPassword)}
+                  data-visible={showPassword}
+                />
+              </div>
             </div>
             <div className={styles.inputGroup}>
               <label htmlFor="confirmPassword">Confirm Password</label>
-              <input
-                id="confirmPassword"
-                type="password"
-                name="confirmPassword"
-                placeholder="Confirm your password"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                required
-              />
+              <div className={styles.passwordContainer}>
+                <input
+                  id="confirmPassword"
+                  type={showConfirmPassword ? "text" : "password"}
+                  name="confirmPassword"
+                  placeholder="Confirm your password"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  required
+                />
+                <button 
+                  type="button" 
+                  className={styles.passwordToggle}
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  data-visible={showConfirmPassword}
+                />
+              </div>
             </div>
           </div>
           {error && <p className={styles.errorMessage}>{error}</p>}

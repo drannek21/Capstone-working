@@ -2,13 +2,28 @@
 .signupContainer {
     display: flex;
     justify-content: center;
-    align-items: center;
-    height: 100vh;
+    align-items: flex-start; /* Changed from center to flex-start */
+    min-height: 100vh;
     background-image: url('../assets/hero-bg.jpg');
     background-size: cover;
     background-position: center;
     position: relative;
-    padding: 20px;
+    padding: 20px 20px 40px; /* Reduced top padding, kept bottom padding */
+}
+
+.signupBox {
+    background: white;
+    padding: 3rem;
+    border-radius: 12px;
+    box-shadow: 0px 8px 24px rgba(0, 0, 0, 0.3);
+    width: 400px;
+    max-width: 90%;
+    text-align: center;
+    position: relative;
+    z-index: 2;
+    overflow: hidden;
+    animation: fadeIn 0.8s ease-out, slideUp 0.8s ease-out;
+    margin: 20px 0; /* Added margin top and bottom */
 }
 
 /* ✅ Green Overlay Animation */
@@ -98,9 +113,69 @@
 /* ✅ Barangay Dropdown */
 .dropdown {
     cursor: pointer;
-    appearance: none; /* Removes default styles in some browsers */
+    appearance: none;
     background-color: #fff;
     transition: border-color 0.3s ease;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23555' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 16px;
+    padding-right: 40px;
+}
+
+.dropdown:hover {
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2316C47F' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+}
+
+.passwordContainer {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.passwordContainer input {
+    width: 100%;
+    padding-right: 35px; /* Add padding to prevent text overlap with the icon */
+}
+
+.passwordToggle {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    color: #555;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    z-index: 1; /* Ensure the button stays above the input */
+}
+
+.passwordToggle[data-visible="true"]::before {
+    content: "\f06e";
+    font-family: "Font Awesome 5 Free";
+    font-weight: 900;
+    font-size: 16px;
+}
+
+.passwordToggle[data-visible="false"]::before {
+    content: "\f070";
+    font-family: "Font Awesome 5 Free";
+    font-weight: 900;
+    font-size: 16px;
+}
+
+.passwordToggle:focus {
+    outline: none;
+}
+
+.passwordToggle:hover {
+    color: #16C47F;
 }
 
 .passwordContainer {
@@ -252,4 +327,17 @@
     .loginText {
         font-size: 13px;
     }
+}
+
+.passwordContainer input::placeholder {
+    font-size: 13px;
+    color: #999;
+}
+.passwordInput {
+    font-size: 14px;
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    transition: border 0.3s, box-shadow 0.3s, transform 0.2s;
 }
