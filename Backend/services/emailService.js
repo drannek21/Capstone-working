@@ -4,17 +4,21 @@ const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_APP_PASSWORD // Use App Password from Google Account
+    pass: process.env.EMAIL_APP_PASSWORD
   }
 });
 
-const sendStatusEmail = async (email, firstName, action, remarks = '') => {
+const sendStatusEmail = async (email, firstName, action, remarks = '', dateOfBirth = '') => {
   const messageTemplates = {
     Accept: `Dear ${firstName},
 
 We are pleased to inform you that your Solo Parent ID application has been approved by the Department of Social Welfare and Development (DSWD).
 
 You may now visit your respective Barangay Office to claim your Solo Parent ID. Please bring a valid government ID for verification purposes.
+
+Your login credentials:
+Email/Username: ${email}
+Password: ${dateOfBirth}
 
 For any inquiries, please contact your Barangay Office or DSWD Office.
 

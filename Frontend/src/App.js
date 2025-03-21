@@ -3,11 +3,9 @@ import { BrowserRouter as Router, Route, Routes, useLocation } from "react-route
 import Navbar from "./components/Navbar";
 import MainPage from "./mainpage/MainPage";
 import Login from "./login/Login";
-import Signup from "./login/Signup";
+import MultiStepForm from "./user/MultiStepForm";
 import AdminDashboard from "./admin/AdminDashboard";
 import Userui from "./user/Userui";
-import ProfilePage from "./user/ProfilePage";
-import MultiStepForm from "./user/MultiStepForm";
 import SuperAdminDashboard from "./superadmin/SuperAdminDashboard"; // ✅ Add this
 import { AdminProvider } from './contexts/AdminContext';
 import './App.css';
@@ -41,10 +39,9 @@ const MainContent = () => {
       <Routes>
         <Route path="/" element={<MainPage />} />
         <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
+        <Route path="/signup" element={<MultiStepForm />} />
         <Route path="/admin-dashboard/*" element={<AdminDashboard />} />
         <Route path="/userui" element={<Userui />} />
-        <Route path="/form" element={<MultiStepForm />} /> {/* Add this line */}
         <Route path="/superadmin/*" element={<SuperAdminDashboard />} />
       </Routes>
     </>

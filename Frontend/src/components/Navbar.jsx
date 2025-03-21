@@ -1,9 +1,10 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom"; // Add useNavigate import
 import styles from "./Navbar.module.css";
 
 const Navbar = () => {
   const [menuOpen, setMenuOpen] = useState(false);
+  const navigate = useNavigate(); // Initialize navigation
 
   const scrollToAbout = (e) => {
     e.preventDefault();
@@ -75,6 +76,14 @@ const Navbar = () => {
             >
               Contacts
             </Link>
+          </li>
+          <li>
+            <button
+              className={styles["login-nav"]}
+              onClick={() => navigate("/login")}
+            >
+              Login
+            </button>
           </li>
         </ul>
       </div>

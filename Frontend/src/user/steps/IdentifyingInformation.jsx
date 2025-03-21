@@ -1,66 +1,45 @@
 import React, { useState } from "react";
 import "./IdentifyingInformation.css";
+import barangays from '../../data/santaMariaBarangays.json';
 
 export default function IdentifyingInformation({ nextStep, updateFormData, formData }) {
   const [errors, setErrors] = useState({});
   const [successMessage, setSuccessMessage] = useState("");
 
-  // Update formData directly when inputs change
+  const calculateAge = (dateOfBirth) => {
+    const today = new Date();
+    const birthDate = new Date(dateOfBirth);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
 
-    // Prevent numbers in name fields (First Name, Middle Name, Last Name)
-    if (name === "firstName" || name === "middleName" || name === "lastName") {
-      if (/[^a-zA-Z ]/.test(value)) {
-        return; // If the value contains numbers or special characters, do not update
-      }
-    }
-
-    // Prevent special characters or numbers in Religion field
-    if (name === "religion") {
-      if (/[^a-zA-Z ]/.test(value)) {
-        return; // If the value contains special characters or numbers, do not update
-      }
-    }
-
-    // Handle phone number input with prefix "09" and 11 digits
-    if (name === "contactNumber") {
-      let formattedValue = value.replace(/\D/g, ""); // Remove non-digit characters
-      if (!formattedValue.startsWith("09") && formattedValue.length > 0) {
-        formattedValue = "09" + formattedValue.substring(formattedValue.length > 2 ? 2 : 0);
+    if (name === 'dateOfBirth') {
+      const age = calculateAge(value);
+      updateFormData({ dateOfBirth: value, age });
+    } else if (name === 'contactNumber') {
+      let formattedValue = value.replace(/\D/g, '');
+      if (!formattedValue.startsWith('09') && formattedValue.length > 0) {
+        formattedValue = '09' + formattedValue.substring(formattedValue.length > 2 ? 2 : 0);
       }
       if (formattedValue.length <= 11) {
         updateFormData({ [name]: formattedValue });
       }
-      return;
+    } else if (name === 'income') {
+      // Ensure income is saved as the selected text value
+      updateFormData({ [name]: value || '' });
+    } else {
+      updateFormData({ [name]: value });
     }
-
-    // Format Monthly Income with Peso sign and restrict to max 20,000
-    if (name === "income") {
-      const numericValue = value.replace(/\D/g, ''); // Remove non-numeric characters
-      let incomeValue = numericValue !== "" ? parseInt(numericValue, 10) : "";
-
-      // Ensure the income doesn't exceed 20,000
-      if (incomeValue > 20000) {
-        incomeValue = 20000;
-      }
-
-      updateFormData({ [name]: incomeValue ? incomeValue.toString() : '' });
-      return;
-    }
-
-    // Limit Age to 3 digits (1 to 999)
-    if (name === "age") {
-      if (value && (value > 999 || value <= 0 || isNaN(value))) {
-        return; // Allow only numbers between 1 and 999
-      }
-    }
-
-    // Update formData for other fields
-    updateFormData({ [name]: value });
   };
 
-  // Simple validation function
+  // Update the validation for contact number
   const validateForm = () => {
     const newErrors = {};
 
@@ -92,8 +71,8 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
       newErrors.placeOfBirth = "Place of Birth is required.";
     }
 
-    if (!formData.address) {
-      newErrors.address = "Address is required.";
+    if (!formData.barangay) {
+      newErrors.barangay = "Barangay is required.";
     }
 
     if (!formData.education) {
@@ -116,16 +95,22 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
       newErrors.company = "Company/Agency is required.";
     }
 
-    if (!formData.income || formData.income <= 0) {
-      newErrors.income = "Monthly Income must be a positive number.";
+    // Add this single income validation
+    if (!formData.income) {
+      newErrors.income = "Monthly Income is required.";
+    }
+
+    // Fix the barangay validation
+    if (!formData.barangay) {  // Changed from address to barangay
+      newErrors.barangay = "Barangay is required.";  // Changed from address to barangay
     }
 
     if (!formData.employmentStatus) {
       newErrors.employmentStatus = "Employment Status is required.";
     }
 
-    if (!formData.contactNumber || formData.contactNumber.length < 10) {
-      newErrors.contactNumber = "Contact Number must be at least 10 digits.";
+    if (!formData.contactNumber || !formData.contactNumber.startsWith('09') || formData.contactNumber.length !== 11) {
+      newErrors.contactNumber = "Contact Number must start with 09 and be exactly 11 digits.";
     }
 
     if (!formData.email || !/\S+@\S+\.\S+/.test(formData.email)) {
@@ -182,6 +167,8 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
             value={formData.firstName || ''}
             onChange={handleChange}
             className="identifying-input"
+            placeholder="Enter your first name"
+            maxLength={20}
           />
           {errors.firstName && <span className="error">{errors.firstName}</span>}
         </div>
@@ -193,6 +180,8 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
             value={formData.middleName || ''}
             onChange={handleChange}
             className="identifying-input"
+            placeholder="Enter your middle name"
+            maxLength={20}
           />
           {errors.middleName && <span className="error">{errors.middleName}</span>}
         </div>
@@ -204,26 +193,43 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
             value={formData.lastName || ''}
             onChange={handleChange}
             className="identifying-input"
+            placeholder="Enter your last name"
+            maxLength={20}
           />
           {errors.lastName && <span className="error">{errors.lastName}</span>}
         </div>
       </div>
 
-      {/* Age & Gender */}
+      {/* Date of Birth & Age */}
       <div className="identifying-row">
+        <div className="form-group">
+          <label className="identifying-label">Date of Birth</label>
+          <input
+            type="date"
+            name="dateOfBirth"
+            value={formData.dateOfBirth || ''}
+            onChange={handleChange}
+            className="identifying-input"
+            placeholder="Select your birth date"
+          />
+          {errors.dateOfBirth && <span className="error">{errors.dateOfBirth}</span>}
+        </div>
         <div className="form-group">
           <label className="identifying-label">Age</label>
           <input
             type="number"
             name="age"
             value={formData.age || ''}
-            onChange={handleChange}
+            readOnly
             className="identifying-input"
-            min="1"
-            max="999"
+            placeholder="Auto-calculated from birth date"
           />
           {errors.age && <span className="error">{errors.age}</span>}
         </div>
+      </div>
+
+      {/* Gender & Place of Birth */}
+      <div className="identifying-row">
         <div className="form-group">
           <label className="identifying-label">Gender</label>
           <select
@@ -239,21 +245,6 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
           </select>
           {errors.gender && <span className="error">{errors.gender}</span>}
         </div>
-      </div>
-
-      {/* Birthdate & Birthplace */}
-      <div className="identifying-row">
-        <div className="form-group">
-          <label className="identifying-label">Date of Birth</label>
-          <input
-            type="date"
-            name="dateOfBirth"
-            value={formData.dateOfBirth || ''}
-            onChange={handleChange}
-            className="identifying-input"
-          />
-          {errors.dateOfBirth && <span className="error">{errors.dateOfBirth}</span>}
-        </div>
         <div className="form-group">
           <label className="identifying-label">Place of Birth</label>
           <input
@@ -262,25 +253,44 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
             value={formData.placeOfBirth || ''}
             onChange={handleChange}
             className="identifying-input"
+            placeholder="Enter your place of birth"
+            maxLength={50}
           />
           {errors.placeOfBirth && <span className="error">{errors.placeOfBirth}</span>}
         </div>
       </div>
 
       {/* Address */}
-      <div className="form-group">
-        <label className="identifying-label">Address</label>
-        <input
-          type="text"
-          name="address"
-          value={formData.address || ''}
-          onChange={handleChange}
-          className="identifying-input"
-        />
-        {errors.address && <span className="error">{errors.address}</span>}
+      <div className="identifying-row">
+        <div className="form-group">
+          <label className="identifying-label">Municipality</label>
+          <input
+            type="text"
+            value="Santa Maria"
+            disabled
+            className="identifying-input"
+          />
+        </div>
+        <div className="form-group">
+          <label className="identifying-label">Barangay</label>
+          <select
+            name="barangay"  // Changed from 'address' to 'barangay'
+            value={formData.barangay || ''}  // Changed from address to barangay
+            onChange={handleChange}
+            className="identifying-input"
+          >
+            <option value="" disabled>Select Barangay</option>
+            {barangays.Barangays.map((barangay, index) => (
+              <option key={index} value={barangay}>
+                {barangay}
+              </option>
+            ))}
+          </select>
+          {errors.barangay && <span className="error">{errors.barangay}</span>}
+        </div>
       </div>
 
-      {/* Educational Attainment & Civil Status */}
+      {/* Educational Attainment, Civil Status, and Occupation in one row */}
       <div className="identifying-row">
         <div className="form-group">
           <label className="identifying-label">Educational Attainment</label>
@@ -290,6 +300,8 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
             value={formData.education || ''}
             onChange={handleChange}
             className="identifying-input"
+            placeholder="Enter your educational attainment"
+            maxLength={20}
           />
           {errors.education && <span className="error">{errors.education}</span>}
         </div>
@@ -309,10 +321,6 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
           </select>
           {errors.civilStatus && <span className="error">{errors.civilStatus}</span>}
         </div>
-      </div>
-
-      {/* Occupation & Religion */}
-      <div className="identifying-row">
         <div className="form-group">
           <label className="identifying-label">Occupation</label>
           <input
@@ -321,9 +329,15 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
             value={formData.occupation || ''}
             onChange={handleChange}
             className="identifying-input"
+            placeholder="Enter your occupation"
+            maxLength={20}
           />
           {errors.occupation && <span className="error">{errors.occupation}</span>}
         </div>
+      </div>
+
+      {/* Religion, Company, and Monthly Income in one row */}
+      <div className="identifying-row">
         <div className="form-group">
           <label className="identifying-label">Religion</label>
           <input
@@ -332,13 +346,11 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
             value={formData.religion || ''}
             onChange={handleChange}
             className="identifying-input"
+            placeholder="Enter your religion"
+            maxLength={20}
           />
           {errors.religion && <span className="error">{errors.religion}</span>}
         </div>
-      </div>
-
-      {/* Company & Monthly Income */}
-      <div className="identifying-row">
         <div className="form-group">
           <label className="identifying-label">Company/Agency</label>
           <input
@@ -347,21 +359,25 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
             value={formData.company || ''}
             onChange={handleChange}
             className="identifying-input"
+            placeholder="Enter your company/agency"
+            maxLength={40}
           />
           {errors.company && <span className="error">{errors.company}</span>}
         </div>
         <div className="form-group">
           <label className="identifying-label">Monthly Income</label>
-          <div className="peso-input-container">
-            <span className="peso-sign">₱</span>
-            <input
-              type="text"
-              name="income"
-              value={formData.income || ''}
-              onChange={handleChange}
-              className="identifying-input peso-input"
-            />
-          </div>
+          <select
+            name="income"
+            value={formData.income || ''}
+            onChange={handleChange}
+            className="identifying-input"
+          >
+            <option value="" disabled>Select Income Range</option>
+            <option value="Below ₱10,000">Below ₱10,000</option>
+            <option value="₱11,000-₱20,000">₱11,000-₱20,000</option>
+            <option value="₱21,000-₱43,000">₱21,000-₱43,000</option>
+            <option value="₱44,000 and above">₱44,000 and above</option>
+          </select>
           {errors.income && <span className="error">{errors.income}</span>}
         </div>
       </div>
@@ -447,3 +463,4 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
     </form>
   );
 }
+

@@ -129,8 +129,8 @@ const ProfilePage = () => {
               <span className="value">{user.place_of_birth}</span>
             </li>
             <li>
-              <span className="label">Address</span>
-              <span className="value">{user.address}</span>
+              <span className="label">Barangay</span>
+              <span className="value">{user.barangay}</span>
             </li>
             <li>
               <span className="label">Religion</span>
@@ -146,7 +146,7 @@ const ProfilePage = () => {
             </li>
             <li>
               <span className="label">Monthly Income</span>
-              <span className="value">₱ {user.income}</span>
+              <span className="value">{user.income}</span>
             </li>
             <li>
               <span className="label">Contact Number</span>
@@ -154,20 +154,19 @@ const ProfilePage = () => {
             </li>
             <li>
               <span className="label family">Family Composition</span>
-              {user.children && user.children.length > 0 ? (
+              {user.familyMembers && user.familyMembers.length > 0 ? (
                 <ul className="children-list">
-                  {user.children.map((child, index) => (
-                    <li key={index}>
-                      <strong>Child {index + 1}: {child.first_name} {child.middle_name} {child.last_name}</strong>
-                      <div className="child-details">
-                        {child.birthdate && (
-                          <span>Born: {new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(new Date(child.birthdate))}</span>
-                        )}
-                        {child.age && <span>Age: {child.age}</span>}
-                        {child.educational_attainment && <span>Education: {child.educational_attainment}</span>}
-                      </div>
-                    </li>
-                  ))}
+                  {user.familyMembers
+                    .filter(member => member.relationship === 'Child')
+                    .map((child, index) => (
+                      <li key={index}>
+                        <strong>Child {index + 1}: {child.name}</strong>
+                        <div className="child-details">
+                          <span>Age: {child.age}</span>
+                          <span>Education: {child.educational_attainment}</span>
+                        </div>
+                      </li>
+                    ))}
                 </ul>
               ) : (
                 <span className="no-children">No children registered</span>
@@ -365,16 +364,6 @@ const ProfilePage = () => {
     }
   };
 
-  // Add this function to handle renewal application
-  const handleRenewalApplication = () => {
-    navigate("/form", { 
-      state: { 
-        userId: loggedInUserId,
-        isRenewal: true 
-      } 
-    });
-  };
-
   if (isLoading) {
     return (
       <div className="loading-container">
@@ -510,8 +499,8 @@ const ProfilePage = () => {
                             <span>{user.name}</span>
                           </div>
                           <div className="detail-row">
-                            <strong>Address:</strong>
-                            <span>{user.address}</span>
+                            <strong>Barangay:</strong>
+                            <span>{user.barangay}</span>
                           </div>
                           <div className="detail-row">
                             <strong>Birthdate:</strong>
@@ -534,7 +523,7 @@ const ProfilePage = () => {
                     {/* Back of ID */}
                     <div className="id-back">
                       <h3>Children Information</h3>
-                      {user.children && user.children.length > 0 ? (
+                      {user.familyMembers && user.familyMembers.length > 0 ? (
                         <table className="children-table">
                           <thead>
                             <tr>
@@ -544,13 +533,15 @@ const ProfilePage = () => {
                             </tr>
                           </thead>
                           <tbody>
-                            {user.children.map((child, index) => (
-                              <tr key={index}>
-                                <td>{`${child.first_name} ${child.middle_name} ${child.last_name}`}</td>
-                                <td>{child.age}</td>
-                                <td>{child.educational_attainment}</td>
-                              </tr>
-                            ))}
+                            {user.familyMembers
+                              .filter(member => member.relationship === 'Child')
+                              .map((child, index) => (
+                                <tr key={index}>
+                                  <td>{child.name}</td>
+                                  <td>{child.age}</td>
+                                  <td>{child.educational_attainment}</td>
+                                </tr>
+                              ))}
                           </tbody>
                         </table>
                       ) : (

@@ -836,40 +836,34 @@
 
 .children-table {
   width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  margin: 1rem 0;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-  background: white;
+  min-width: 400px;
+  max-height: 200px;
+  overflow-y: auto;
+  display: block;
+  border-collapse: collapse;
+  margin: 10px 0;
 }
 
-.children-table th {
-  background: #16C47F;
-  color: white;
-  padding: 1rem;
-  font-weight: 600;
-  text-align: left;
-}
-
+.children-table th,
 .children-table td {
-  padding: 1rem;
-  border-bottom: 1px solid #e2e8f0;
-  color: #2d3748;
-  font-size: 0.95rem;
+  padding: 10px;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 250px;
 }
 
-.children-table tr:nth-child(even) {
-  background: rgba(22, 196, 127, 0.05);
-}
-
-.children-table tr:hover {
-  background: rgba(22, 196, 127, 0.08);
-}
-
-.children-table tr:last-child td {
-  border-bottom: none;
+@media (max-width: 768px) {
+  .children-table {
+    min-width: 300px;
+  }
+  .children-table th,
+  .children-table td {
+    padding: 8px;
+    max-width: 200px;
+  }
 }
 
 .children-table th:first-child {

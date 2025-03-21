@@ -15,8 +15,7 @@ const Applications = () => {
   const [touchStart, setTouchStart] = useState(null);
   const tableContainerRef = useRef(null);
 
-  // New state for classification input and dropdown
-  const [classificationInput, setClassificationInput] = useState("");
+  // New state for classification dropdown
   const [classificationOptions] = useState([
     { code: "001", label: "Birth due to rape" },
     { code: "002", label: "Death of spouse" },
@@ -71,19 +70,6 @@ const Applications = () => {
     }
   };
 
-  const handleClassificationChange = (e) => {
-    const value = e.target.value;
-    setClassificationInput(value);
-    // Check if the input is a number between 001 and 012
-    if (/^(00[1-9]|0[1-9][0-9]|1[01][0-2])$/.test(value)) {
-      setSelectedClassification(value);
-      setShowDropdown(false); // Hide dropdown if input is a valid number
-    } else {
-      setSelectedClassification(null);
-      setShowDropdown(true); // Show dropdown if input is not a valid number
-    }
-  };
-
   const openModal = (application, type) => {
     setSelectedApplication(application);
     setStepPage(1);
@@ -115,19 +101,19 @@ const Applications = () => {
         alert("Please provide remarks for declining.");
         return;
       }
-
+  
       // Log to verify the correct email is being sent
       console.log('User email:', selectedApplication.email);
-
+  
       const response = await axios.post('http://localhost:8081/updateUserStatus', {
-        userId: selectedApplication.userId,
+        code_id: selectedApplication.code_id, // Ensure this matches the backend
         status: action === "Accept" ? "Verified" : "Declined",
         remarks: remarks.trim() || "No remarks provided",
-        email: selectedApplication.email,  // Make sure we're sending the user's email
+        email: selectedApplication.email,
         firstName: selectedApplication.first_name,
-        action: action
+        action: action,
       });
-
+  
       if (response.status === 200) {
         // Show success message
         const message = action === "Accept" 
@@ -151,9 +137,10 @@ const Applications = () => {
 
   const handleClassificationUpdate = async () => {
     if (selectedClassification) {
+      console.log('Sending code_id:', selectedApplication.code_id); // Log the code_id
       try {
         const response = await axios.post('http://localhost:8081/pendingUsers/updateClassification', {
-          userId: selectedApplication.userId,
+          code_id: selectedApplication.code_id,
           classification: selectedClassification,
         });
         if (response.status === 200) {
@@ -254,8 +241,6 @@ const Applications = () => {
               <th>Code ID</th>
               <th>Name</th>
               <th>Barangay</th>
-              <th>Email</th>
-              <th>Age</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -266,17 +251,15 @@ const Applications = () => {
                 <td>{app.code_id}</td>
                 <td>{`${app.first_name} ${app.middle_name || ''} ${app.last_name}`}</td>
                 <td>{app.barangay || 'N/A'}</td>
-                <td>{app.email}</td>
-                <td>{app.age}</td>
                 <td>
                   <div className="action-buttons">
-                    <button className="btn view-btn" onClick={() => openModal(app, "view")}>
+                    <button className="btn view-btn" onClick={() => openModal(app, "view")}> 
                       <i className="fas fa-eye"></i> View
                     </button>
-                    <button className="btn accept-btn" onClick={() => openModal(app, "confirmAccept")}>
+                    <button className="btn accept-btn" onClick={() => openModal(app, "confirmAccept")}> 
                       <i className="fas fa-check"></i> Accept
                     </button>
-                    <button className="btn decline-btn" onClick={() => openModal(app, "decline")}>
+                    <button className="btn decline-btn" onClick={() => openModal(app, "decline")}> 
                       <i className="fas fa-times"></i> Decline
                     </button>
                   </div>
@@ -368,8 +351,8 @@ const Applications = () => {
                       <span className="value">{selectedApplication.place_of_birth}</span>
                     </div>
                     <div className="detail-item">
-                      <span className="label">Address</span>
-                      <span className="value">{selectedApplication.address}</span>
+                      <span className="label">Barangay</span>
+                      <span className="value">{selectedApplication.barangay}</span>
                     </div>
                     <div className="detail-item">
                       <span className="label">Email</span>
@@ -422,45 +405,40 @@ const Applications = () => {
                   </div>
                 </div>
               )}
-
               {stepPage === 2 && (
                 <div className="detail-section">
-                  <h4>Family Information (Children)</h4>
-                  {selectedApplication.children && selectedApplication.children.length > 0 ? (
+                  <h4>Family Information</h4>
+                  {selectedApplication.familyMembers && selectedApplication.familyMembers.length > 0 ? (
                     <div className="children-list">
-                      {selectedApplication.children.map((child, index) => (
+                      {selectedApplication.familyMembers.map((member, index) => (
                         <div key={index} className="child-details">
-                          <h5>Child {index + 1}</h5>
+                          <h5>Family Member {index + 1}</h5>
                           <div className="details-grid">
                             <div className="detail-item">
                               <span className="label">Name</span>
-                              <span className="value">
-                                {`${child.first_name || ''} ${child.middle_name || ''} ${child.last_name || ''}`}
-                              </span>
+                              <span className="value">{member.name}</span>
                             </div>
                             <div className="detail-item">
-                              <span className="label">Birthdate</span>
-                              <span className="value">{formatDate(child.birthdate)}</span>
+                              <span className="label">Relationship</span>
+                              <span className="value">{member.relationship}</span>
                             </div>
                             <div className="detail-item">
                               <span className="label">Age</span>
-                              <span className="value">{child.age}</span>
+                              <span className="value">{member.age}</span>
                             </div>
                             <div className="detail-item">
-                              <span className="label">Education</span>
-                              <span className="value">{child.educational_attainment}</span>
+                              <span className="label">Occupation</span>
+                              <span className="value">{member.educational_attainment}</span>
                             </div>
                           </div>
-                          {index < selectedApplication.children.length - 1 && <hr />}
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p>No children information available.</p>
+                    <p>No family members information available.</p>
                   )}
                 </div>
               )}
-
               {stepPage === 3 && (
                 <div className="detail-section">
                   <h4>Classification</h4>
@@ -490,7 +468,6 @@ const Applications = () => {
                   </div>
                 </div>
               )}
-
               {stepPage === 4 && (
                 <div className="detail-section">
                   <h4>Needs/Problems</h4>
@@ -502,7 +479,6 @@ const Applications = () => {
                   </div>
                 </div>
               )}
-
               {stepPage === 5 && (
                 <div className="detail-section">
                   <h4>Emergency Contact</h4>

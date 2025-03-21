@@ -20,11 +20,17 @@
 }
 
 /* Row layout for side-by-side fields */
+/* Update for three fields per row */
 .identifying-row {
   display: flex;
-  gap: 1.5rem;
-  margin-bottom: 1.5rem;
-  flex-wrap: wrap;
+  gap: 15px;
+  margin-bottom: 15px;
+  width: 100%;
+}
+
+.identifying-row .form-group {
+  flex: 1;
+  min-width: 0; /* Prevents overflow issues */
 }
 
 /* Each row item should take equal space */

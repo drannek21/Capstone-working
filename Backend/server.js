@@ -160,59 +160,62 @@ app.put("/admins/:id", async (req, res) => {
 
 app.get('/pendingUsers', async (req, res) => {
   try {
-    // First, get all pending users with their basic information
+    // First, get all pending users with their code_id
     const users = await queryDatabase(`
-      SELECT u.id AS userId, u.email, u.name, u.status, u.barangay,
+      SELECT u.id AS userId, u.email, u.name, u.status, u.code_id,
              s1.first_name, s1.middle_name, s1.last_name, s1.age, s1.gender, 
-             s1.date_of_birth, s1.place_of_birth, s1.address, s1.education, 
+             s1.date_of_birth, s1.place_of_birth, s1.barangay, s1.education, 
              s1.civil_status, s1.occupation, s1.religion, s1.company, 
              s1.income, s1.employment_status, s1.contact_number, s1.email, 
-             s1.pantawid_beneficiary, s1.indigenous, s1.code_id,
+             s1.pantawid_beneficiary, s1.indigenous,
              s3.classification,
              s4.needs_problems,
              s5.emergency_name, s5.emergency_relationship, 
              s5.emergency_address, s5.emergency_contact
       FROM users u
-      JOIN user_details_step1 s1 ON u.id = s1.user_id
-      LEFT JOIN user_details_step3 s3 ON u.id = s3.user_id
-      LEFT JOIN user_details_step4 s4 ON u.id = s4.user_id
-      LEFT JOIN user_details_step5 s5 ON u.id = s5.user_id
-      WHERE u.status = 'pending'
+      JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
+      LEFT JOIN step3_classification s3 ON u.code_id = s3.code_id
+      LEFT JOIN step4_needs_problems s4 ON u.code_id = s4.code_id
+      LEFT JOIN step5_in_case_of_emergency s5 ON u.code_id = s5.code_id
+      WHERE u.status = 'Pending'
     `);
 
-    // If there are no users, return empty array
     if (users.length === 0) {
       return res.status(200).json([]);
     }
 
-    // Get all userIds
-    const userIds = users.map(user => user.userId);
+    // Get all code_ids
+    const codeIds = users.map(user => user.code_id);
 
-    // Get children for all users in a single query
-    const childrenQuery = `
-      SELECT user_id, first_name, middle_name, last_name, birthdate, age, educational_attainment
-      FROM user_details_step2
-      WHERE user_id IN (?)
+    // Get family members for all users using code_id
+    const familyQuery = `
+      SELECT code_id, 
+             family_member_name as name,
+             relationship,
+             occupation as educational_attainment,
+             age
+      FROM step2_family_occupation
+      WHERE code_id IN (?) AND relationship = 'Child'
     `;
 
-    const children = await queryDatabase(childrenQuery, [userIds]);
+    const familyMembers = await queryDatabase(familyQuery, [codeIds]);
 
-    // Create a map of children by user_id
-    const childrenByUser = {};
-    children.forEach(child => {
-      if (!childrenByUser[child.user_id]) {
-        childrenByUser[child.user_id] = [];
+    // Map family members to users
+    const familyByUser = {};
+    familyMembers.forEach(member => {
+      if (!familyByUser[member.code_id]) {
+        familyByUser[member.code_id] = [];
       }
-      childrenByUser[child.user_id].push(child);
+      familyByUser[member.code_id].push(member);
     });
 
-    // Combine users with their children
-    const usersWithChildren = users.map(user => ({
+    // Combine users with their family members
+    const usersWithFamily = users.map(user => ({
       ...user,
-      children: childrenByUser[user.userId] || []
+      familyMembers: familyByUser[user.code_id] || []
     }));
 
-    res.status(200).json(usersWithChildren);
+    res.status(200).json(usersWithFamily);
   } catch (err) {
     console.error('Error fetching pending users:', err);
     res.status(500).json({ error: 'Error fetching pending users' });
@@ -220,18 +223,19 @@ app.get('/pendingUsers', async (req, res) => {
 });
 
 app.post('/pendingUsers/updateClassification', async (req, res) => {
-  const { userId, classification } = req.body;
+  const { code_id, classification } = req.body;
 
   try {
-    if (!userId || !classification) {
+    if (!code_id || !classification) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
+    // Ensure the correct table is referenced
     await queryDatabase(`
-      UPDATE user_details_step3 
+      UPDATE step3_classification 
       SET classification = ? 
-      WHERE user_id = ?
-    `, [classification, userId]);
+      WHERE code_id = ?
+    `, [classification, code_id]);
 
     res.status(200).json({ message: 'Classification updated successfully', classification });
   } catch (err) {
@@ -239,7 +243,6 @@ app.post('/pendingUsers/updateClassification', async (req, res) => {
     res.status(500).json({ error: 'Error updating classification', details: err.message });
   }
 });
-
 
 app.get('/verified-users', async (req, res) => {
   try {
@@ -260,7 +263,7 @@ app.post('/login', async (req, res) => {
   const { email, password } = req.body;
   try {
     // First check users table
-    let results = await queryDatabase('SELECT *, "user" as role FROM users WHERE email = ? AND password = ?', [email, password]);
+    let results = await queryDatabase('SELECT *, "user" as role FROM users WHERE email = ? AND password = ? AND status = "Verified"', [email, password]);
     
     // If not found in users, check admin table
     if (results.length === 0) {
@@ -297,48 +300,48 @@ app.post('/getUserDetails', async (req, res) => {
   const { userId } = req.body;
   try {
     // Fetch user details
-    const userResults = await queryDatabase('SELECT * FROM users WHERE id = ?', [userId]);
+    const userResults = await queryDatabase(`
+      SELECT u.*, s1.* 
+      FROM users u
+      LEFT JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
+      WHERE u.id = ?`, [userId]);
 
     if (userResults.length > 0) {
       const user = userResults[0];
 
       // If the user is verified, fetch all related details
       if (user.status === 'Verified') {
-        // Get user's personal details from step1
-        const detailsResults = await queryDatabase('SELECT * FROM user_details_step1 WHERE user_id = ?', [userId]);
-
         // Get user's classification from step3
-        const classificationResult = await queryDatabase('SELECT classification FROM user_details_step3 WHERE user_id = ?', [userId]);
+        const classificationResult = await queryDatabase(
+          'SELECT classification FROM step3_classification WHERE code_id = ?', 
+          [user.code_id]
+        );
 
-        // Get the valid date from accepted_users table and add 1 year
+        // Get the valid date from accepted_users table
         const validDateResult = await queryDatabase(
           'SELECT DATE_FORMAT(DATE_ADD(accepted_at, INTERVAL 1 YEAR), "%Y-%m-%d") as accepted_at FROM accepted_users WHERE user_id = ? ORDER BY accepted_at DESC LIMIT 1', 
           [userId]
         );
 
-        // Get all children from step2 where the parent_id matches the logged-in user's ID
-        const childrenResults = await queryDatabase(
-          `SELECT s2.first_name, s2.middle_name, s2.last_name, s2.birthdate, s2.age, 
-                  s2.educational_attainment, s2.user_id as parent_id
-           FROM user_details_step2 s2
-           WHERE s2.user_id = ?`, [userId]);
+        // Get all family members from step2 (removed the relationship filter)
+        const familyResults = await queryDatabase(
+          `SELECT family_member_name as name, relationship, occupation as educational_attainment, age
+           FROM step2_family_occupation 
+           WHERE code_id = ?`, 
+          [user.code_id]
+        );
 
-        if (detailsResults.length > 0) {
-          // Merge user details with personal info and children data
-          const userDetails = { 
-            ...user, 
-            ...detailsResults[0],
-            classification: classificationResult.length > 0 ? classificationResult[0].classification : null,
-            validUntil: validDateResult.length > 0 ? validDateResult[0].accepted_at : null,
-            children: childrenResults || [] 
-          };
+        // Merge all user details
+        const userDetails = { 
+          ...user,
+          classification: classificationResult.length > 0 ? classificationResult[0].classification : null,
+          validUntil: validDateResult.length > 0 ? validDateResult[0].accepted_at : null,
+          familyMembers: familyResults || [] 
+        };
 
-          return res.status(200).json(userDetails);
-        } else {
-          return res.status(404).json({ error: 'User details not found' });
-        }
+        return res.status(200).json(userDetails);
       } else {
-        return res.status(200).json(user); // Just return basic user info if not verified
+        return res.status(200).json(user);
       }
     } else {
       res.status(404).json({ error: 'User not found' });
@@ -348,7 +351,6 @@ app.post('/getUserDetails', async (req, res) => {
     res.status(500).json({ error: 'Error fetching user details' });
   }
 });
-
 app.get('/users', async (req, res) => {
   try {
     const users = await queryDatabase('SELECT * FROM users');
@@ -376,186 +378,36 @@ app.get('/superadmin', async (req, res) => {
   }
 });
 
-app.post('/userDetailsStep1', async (req, res) => {
-  const {
-    userId, firstName, middleName, lastName, age, gender, dateOfBirth,
-    placeOfBirth, address, education, civilStatus, occupation, religion,
-    company, income, employmentStatus, contactNumber, email, pantawidBeneficiary,
-    indigenous
-  } = req.body;
-
-  const createDate = new Date();
-  const year = createDate.getFullYear();
-  const month = (createDate.getMonth() + 1).toString().padStart(2, '0');  // Format month as 2 digits
-
-  try {
-    // Get the highest codeId for the current month
-    const result = await queryDatabase(`
-      SELECT codeId FROM user_details_step1 
-      WHERE codeId LIKE ? 
-      ORDER BY codeId DESC LIMIT 1
-    `, [`${year}-${month}-%`]);
-
-    // Generate the new codeId based on a random number (6 digits)
-    let newId = Math.floor(Math.random() * 1000000); // Random number between 0 and 999999
-    newId = newId.toString().padStart(6, '0'); // Pad with leading zeros if necessary
-
-    const codeId = `${year}-${month}-${newId}`;
-
-    // Insert the new record with the generated `codeId`
-    await queryDatabase(`
-      INSERT INTO user_details_step1 (
-        userId, firstName, middleName, lastName, age, gender, dateOfBirth,
-        placeOfBirth, address, education, civilStatus, occupation, religion,
-        company, income, employmentStatus, contactNumber, email, pantawidBeneficiary,
-        indigenous, codeId
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [
-      userId, 
-      firstName, 
-      middleName, 
-      lastName, 
-      age, 
-      gender, 
-      dateOfBirth,
-      placeOfBirth, 
-      address, 
-      education, 
-      civilStatus, 
-      occupation, 
-      religion,
-      company, 
-      income, 
-      employmentStatus, 
-      contactNumber, 
-      email, 
-      pantawidBeneficiary,
-      indigenous, 
-      codeId
-    ]);
-
-    res.status(201).json({ message: 'Data inserted successfully with random codeId value' });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Error inserting data into user_details_step1' });
-  }
-});
-
-app.post('/userDetailsStep2', async (req, res) => {
-  const { userId, numberOfChildren, children } = req.body;
-
-  try {
-    // Insert each child as a new row
-    for (let i = 0; i < numberOfChildren; i++) {
-      const child = children[i];
-      await queryDatabase(`
-        INSERT INTO user_details_step2(user_id, first_name, middle_name, last_name, birthdate, age, educational_attainment)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `, [
-        userId,
-        child.firstName,
-        child.middleName,
-        child.lastName,
-        child.birthdate,
-        child.age,
-        child.educationalAttainment
-      ]);
-    }
-
-    res.status(201).json({ message: 'Family and occupation data saved successfully' });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Error saving family and occupation data', details: err.message });
-  }
-});
-
-app.post('/userDetailsStep3', async (req, res) => {
-  const { userId, classification, othersDetails } = req.body;
-
-  try {
-    if (!userId || !classification) {
-      return res.status(400).json({ error: 'Missing required fields: userId or classification' });
-    }
-
-    const saveValue = classification === '013' ? othersDetails : classification;
-
-    await queryDatabase(`
-      INSERT INTO user_details_step3 (userId, classification) 
-      VALUES (?, ?)
-    `, [userId, saveValue]);
-
-    res.status(201).json({ message: 'Classification data saved successfully' });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Error saving classification data', details: err.message });
-  }
-});
-
-app.post('/userDetailsStep4', async (req, res) => {
-  const { userId, needsProblems } = req.body;
-
-  try {
-    if (!userId || !needsProblems) {
-      return res.status(400).json({ error: 'Missing required fields: userId or needsProblems' });
-    }
-
-    await queryDatabase(`
-      INSERT INTO user_details_step4 (userId, needsProblems) 
-      VALUES (?, ?)
-    `, [userId, needsProblems]);
-
-    res.status(201).json({ message: 'Needs/problems data saved successfully' });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Error saving needs/problems data', details: err.message });
-  }
-});
-
-app.post('/userDetailsStep5', async (req, res) => {
-  const {
-    userId,
-    emergencyName,
-    emergencyRelationship,
-    emergencyAddress,
-    emergencyContact
-  } = req.body;
-
-  try {
-    if (!userId || !emergencyName || !emergencyRelationship || !emergencyAddress || !emergencyContact) {
-      return res.status(400).json({ error: 'Missing required fields' });
-    }
-
-    await queryDatabase(`
-      INSERT INTO user_details_step5 (user_id, emergency_name, emergency_relationship, emergency_address, emergency_contact)
-      VALUES (?, ?, ?, ?, ?)
-    `, [userId, emergencyName, emergencyRelationship, emergencyAddress, emergencyContact]);
-
-    res.status(201).json({ message: 'Emergency contact data saved successfully' });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Error saving emergency contact data', details: err.message });
-  }
-});
-
 app.post('/updateUserStatus', async (req, res) => {
-  const { userId, status, remarks, email, firstName, action } = req.body;
+  const { code_id, status, remarks, email, firstName, action } = req.body;
+  console.log('Received request to update status:', { code_id, status, remarks, email, firstName, action });
+
   let retries = 3;
   let lastError = null;
 
   while (retries > 0) {
     try {
-      // Start transaction
       await queryDatabase('START TRANSACTION');
 
-      // First get the current status of the user with FOR UPDATE to lock the row
-      const userResult = await queryDatabase('SELECT status FROM users WHERE id = ? FOR UPDATE', [userId]);
+      // First get the user ID and current status
+      const userResult = await queryDatabase(`
+        SELECT u.id, u.status, s1.date_of_birth 
+        FROM users u 
+        JOIN step1_identifying_information s1 ON u.code_id = s1.code_id 
+        WHERE u.code_id = ? 
+        FOR UPDATE`, [code_id]);
+
       if (!userResult || userResult.length === 0) {
+        console.error('User not found for code_id:', code_id);
         throw new Error('User not found');
       }
+
       const currentStatus = userResult[0].status;
+      const userId = userResult[0].id;
 
       // Update the user's status
-      await queryDatabase('UPDATE users SET status = ? WHERE id = ?', [status, userId]);
+      await queryDatabase('UPDATE users SET status = ? WHERE code_id = ?', [status, code_id]);
+      console.log('User status updated successfully for code_id:', code_id);
 
       // Handle notifications based on status
       if (status === "Declined" && remarks) {
@@ -569,6 +421,7 @@ app.post('/updateUserStatus', async (req, res) => {
             'INSERT INTO declined_users (user_id, remarks, declined_at, is_read) VALUES (?, ?, NOW(), 0)', 
             [userId, remarks]
           );
+          console.log('Declined user record created for user_id:', userId);
         }
       }
 
@@ -584,11 +437,18 @@ app.post('/updateUserStatus', async (req, res) => {
             'INSERT INTO accepted_users (user_id, accepted_at, message, is_read) VALUES (?, NOW(), ?, 0)', 
             [userId, message]
           );
+          console.log('Accepted user record created for user_id:', userId);
         }
       }
 
-      // Send email notification
-      const emailSent = await sendStatusEmail(email, firstName, action, remarks);
+      // Send email notification with date of birth
+      const emailSent = await sendStatusEmail(
+        email, 
+        firstName, 
+        action, 
+        remarks, 
+        userResult[0].date_of_birth
+      );
 
       // Commit transaction
       await queryDatabase('COMMIT');
@@ -600,19 +460,19 @@ app.post('/updateUserStatus', async (req, res) => {
       return;
 
     } catch (err) {
+      // ... rest of the error handling code remains the same ...
       // Rollback transaction
       await queryDatabase('ROLLBACK');
       lastError = err;
+      console.error('Error updating user status:', err);
       
       if (err.code !== 'ER_LOCK_WAIT_TIMEOUT') {
-        console.error('Error:', err);
         res.status(500).json({ success: false, message: err.message });
         return;
       }
       
       retries--;
       if (retries === 0) {
-        console.error('Error updating user status after all retries:', err);
         res.status(500).json({ error: 'Database error while updating user status. Please try again.' });
       } else {
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -620,7 +480,6 @@ app.post('/updateUserStatus', async (req, res) => {
     }
   }
 });
-
 app.post('/updateUserProfile', async (req, res) => {
   const { userId, profilePic } = req.body;
   
@@ -639,42 +498,28 @@ app.post('/updateUserProfile', async (req, res) => {
 });
 
 app.post('/submitAllSteps', async (req, res) => {
-  const { userId, formData } = req.body;
+  const { formData } = req.body;
 
   try {
-    const user = await queryDatabase('SELECT status FROM users WHERE id = ?', [userId]);
-    if (user[0].status === 'pending') {
-      return res.status(400).json({ error: 'Your verification form is pending. Please wait for approval before submitting again.' });
-    }
-
     const createDate = new Date();
     const year = createDate.getFullYear();
     const month = (createDate.getMonth() + 1).toString().padStart(2, '0');
     const newId = Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
     const codeId = `${year}-${month}-${newId}`;
 
+    // Start transaction
     await queryDatabase('START TRANSACTION');
 
-    // Delete existing records first
-    await queryDatabase('DELETE FROM user_details_step1 WHERE user_id = ?', [userId]);
-    await queryDatabase('DELETE FROM user_details_step2 WHERE user_id = ?', [userId]);
-    await queryDatabase('DELETE FROM user_details_step3 WHERE user_id = ?', [userId]);
-    await queryDatabase('DELETE FROM user_details_step4 WHERE user_id = ?', [userId]);
-    await queryDatabase('DELETE FROM user_details_step5 WHERE user_id = ?', [userId]);
-
-    // Update user status
-    await queryDatabase('UPDATE users SET status = ? WHERE id = ?', ['pending', userId]);
-
-    // Insert Step 1
+    // Insert Step 1 - Identifying Information
     await queryDatabase(`
-      INSERT INTO user_details_step1 (
-        user_id, first_name, middle_name, last_name, age, gender, date_of_birth,
-        place_of_birth, address, education, civil_status, occupation, religion,
+      INSERT INTO step1_identifying_information (
+        code_id, first_name, middle_name, last_name, age, gender, date_of_birth,
+        place_of_birth, barangay, education, civil_status, occupation, religion,
         company, income, employment_status, contact_number, email, pantawid_beneficiary,
-        indigenous, code_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        indigenous
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
-      userId, 
+      codeId,
       formData.firstName || "", 
       formData.middleName || "", 
       formData.lastName || "", 
@@ -682,128 +527,123 @@ app.post('/submitAllSteps', async (req, res) => {
       formData.gender || "", 
       formData.dateOfBirth || "", 
       formData.placeOfBirth || "", 
-      formData.address || "", 
+      formData.barangay || "", 
       formData.education || "", 
       formData.civilStatus || "", 
       formData.occupation || "", 
       formData.religion || "", 
       formData.company || "", 
-      formData.income || "", 
+      formData.income || "", // Make sure the income is handled as needed
       formData.employmentStatus || "", 
       formData.contactNumber || "", 
       formData.email || "", 
       formData.pantawidBeneficiary || "",
-      formData.indigenous || "", 
-      codeId
+      formData.indigenous || ""
     ]);
 
-    // Insert Step 2 (Children)
+    // Insert Step 2 - Family Occupation
     if (formData.children && Array.isArray(formData.children)) {
       for (const child of formData.children) {
         await queryDatabase(
-          'INSERT INTO user_details_step2 (user_id, first_name, middle_name, last_name, birthdate, age, educational_attainment, code_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+          'INSERT INTO step2_family_occupation (code_id, family_member_name, relationship, occupation, age) VALUES (?, ?, ?, ?, ?)',
           [
-            userId, 
-            child.firstName || "", 
-            child.middleName || "", 
-            child.lastName || "", 
-            child.birthdate || "", 
-            child.age || "", 
-            child.educationalAttainment || "", 
-            codeId
+            codeId,
+            `${child.firstName} ${child.middleName} ${child.lastName}`.trim(),
+            'Child', // Default relationship
+            child.educationalAttainment || 'N/A', // Use education for occupation
+            child.age || 0
           ]
         );
       }
     }
 
-    // Insert Step 3
+    // Insert Step 3 - Classification
     await queryDatabase(
-
-      'INSERT INTO user_details_step3 (user_id, classification, code_id) VALUES (?, ?, ?)',
-      
-      [userId, formData.Classification || "", codeId]
-      
-      );;
-
-    // Insert Step 4
-    await queryDatabase(
-      'INSERT INTO user_details_step4 (user_id, needs_problems, code_id) VALUES (?, ?, ?)',
-      [userId, formData.needsProblems || "", codeId]
+      'INSERT INTO step3_classification (code_id, classification) VALUES (?, ?)',
+      [codeId, formData.Classification || ""]
     );
 
-    // Insert Step 5
+    // Insert Step 4 - Needs/Problems
+    await queryDatabase(
+      'INSERT INTO step4_needs_problems (code_id, needs_problems) VALUES (?, ?)',
+      [codeId, formData.needsProblems || ""]
+    );
+
+    // Insert Step 5 - Emergency Contact
     if (formData.emergencyContact) {
       await queryDatabase(
-        'INSERT INTO user_details_step5 (user_id, emergency_name, emergency_relationship, emergency_address, emergency_contact, code_id) VALUES (?, ?, ?, ?, ?, ?)',
+        'INSERT INTO step5_in_case_of_emergency (code_id, emergency_name, emergency_relationship, emergency_address, emergency_contact) VALUES (?, ?, ?, ?, ?)',
         [
-          userId,
+          codeId,
           formData.emergencyContact.emergencyName || "",
           formData.emergencyContact.emergencyRelationship || "",
           formData.emergencyContact.emergencyAddress || "",
-          formData.emergencyContact.emergencyContact || "",
-          codeId
+          formData.emergencyContact.emergencyContact || ""
         ]
       );
     }
 
+    // Insert into the `users` table after all steps
+    const fullName = `${formData.firstName} ${formData.middleName} ${formData.lastName}`.trim();
+    await queryDatabase(
+      'INSERT INTO users (email, name, password, status, code_id) VALUES (?, ?, ?, ?, ?)',
+      [formData.email, fullName, formData.dateOfBirth, 'Pending', codeId]
+    );
+
+    // Commit the transaction
     await queryDatabase('COMMIT');
+
+    // Success response
     res.status(201).json({ message: 'Form submitted successfully. Your verification is now pending.', codeId });
 
   } catch (err) {
+    // Rollback transaction on error
     await queryDatabase('ROLLBACK');
     console.error('Error saving form data:', err);
     res.status(500).json({ error: 'Error saving form data: ' + err.message });
   }
 });
-
-// Debug endpoint to check user_details_step2 relationships
-app.get('/debug/user-children', async (req, res) => {
+app.get('/debug/family-occupation', async (req, res) => {
   try {
     const results = await queryDatabase(`
       SELECT 
-        u.id as user_id,
-        u.name as parent_name,
-        u.email as parent_email,
-        s2.first_name,
-        s2.middle_name,
-        s2.last_name,
-        s2.birthdate,
-        s2.age,
-        s2.educational_attainment
-      FROM users u
-      LEFT JOIN user_details_step2 s2 ON u.id = s2.user_id
-      ORDER BY u.id, s2.first_name
+        s1.code_id,
+        s1.first_name as parent_first_name,
+        s1.last_name as parent_last_name,
+        s2.family_member_name,
+        s2.relationship,
+        s2.occupation,
+        s2.age
+      FROM step1_identifying_information s1
+      LEFT JOIN step2_family_occupation s2 ON s1.code_id = s2.code_id
+      ORDER BY s1.code_id, s2.family_member_name
     `);
     
-    // Group children by parent
-    const userChildren = {};
+    // Group family members by parent
+    const familyData = {};
     results.forEach(row => {
-      if (!userChildren[row.user_id]) {
-        userChildren[row.user_id] = {
-          parent_name: row.parent_name,
-          parent_email: row.parent_email,
-          children: []
+      if (!familyData[row.code_id]) {
+        familyData[row.code_id] = {
+          parent_name: `${row.parent_first_name} ${row.parent_last_name}`,
+          family_members: []
         };
       }
-      if (row.first_name) { // Only add if there's actually a child
-        userChildren[row.user_id].children.push({
-          first_name: row.first_name,
-          middle_name: row.middle_name,
-          last_name: row.last_name,
-          birthdate: row.birthdate,
-          age: row.age,
-          educational_attainment: row.educational_attainment
+      if (row.family_member_name) { // Only add if there's actually a family member
+        familyData[row.code_id].family_members.push({
+          name: row.family_member_name,
+          relationship: row.relationship,
+          occupation: row.occupation,
+          age: row.age
         });
       }
     });
     
-    res.status(200).json(userChildren);
+    res.status(200).json(familyData);
   } catch (err) {
     console.error('Error in debug endpoint:', err);
-    res.status(500).json({ error: 'Error fetching user-children relationships' });
+    res.status(500).json({ error: 'Error fetching family occupation data' });
   }
 });
-
 app.get('/notifications/:userId', async (req, res) => {
   const { userId } = req.params;
 
@@ -885,7 +725,6 @@ app.get('/notifications/:userId', async (req, res) => {
     res.status(500).json({ error: 'Database error while fetching notifications' });
   }
 });
-
 app.put('/notifications/mark-as-read/:userId/:type', async (req, res) => {
   const { userId, type } = req.params;
   let retries = 3;
@@ -956,7 +795,6 @@ app.put('/notifications/mark-as-read/:userId/:type', async (req, res) => {
     }
   }
 });
-
 app.put('/notifications/mark-all-as-read/:userId', async (req, res) => {
   const { userId } = req.params;
   let retries = 3;
@@ -1029,7 +867,6 @@ app.put('/notifications/mark-all-as-read/:userId', async (req, res) => {
     }
   }
 });
-
 app.get('/renewalUsers/:adminId', async (req, res) => {
   try {
     const { adminId } = req.params;
@@ -1084,8 +921,6 @@ app.get('/renewalUsers/:adminId', async (req, res) => {
     res.status(500).json({ error: 'Error fetching renewal users' });
   }
 });
-
-// Update accepted users table - modified to always insert new entries
 app.post('/updateAcceptedUser', async (req, res) => {
   const { userId, message } = req.body;
   
@@ -1102,7 +937,6 @@ app.post('/updateAcceptedUser', async (req, res) => {
     res.status(500).json({ error: 'Failed to add notification' });
   }
 });
-
 app.get('/getTerminatedUsers', async (req, res) => {
   try {
     let query = `
@@ -1127,7 +961,6 @@ app.get('/getTerminatedUsers', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch terminated users' });
   }
 });
-
 app.post('/unTerminateUser', async (req, res) => {
   const { userId } = req.body;
 
@@ -1158,8 +991,6 @@ app.post('/unTerminateUser', async (req, res) => {
     res.status(500).json({ error: 'Failed to update status' });
   }
 });
-
-// Add this endpoint after the renewalUsers endpoint
 app.get('/verifiedUsers/:adminId', async (req, res) => {
   try {
     const { adminId } = req.params;
@@ -1226,8 +1057,6 @@ app.get('/verifiedUsers/:adminId', async (req, res) => {
     res.status(500).json({ error: 'Error fetching verified users' });
   }
 });
-
-// Add this new endpoint for saving remarks
 app.post('/saveRemarks', async (req, res) => {
   const { code_id, remarks, user_id, admin_id } = req.body;
 
@@ -1258,7 +1087,6 @@ app.post('/saveRemarks', async (req, res) => {
     res.status(500).json({ error: 'Failed to save remarks' });
   }
 });
-
 app.get('/getAllRemarks', async (req, res) => {
   try {
     let query = `
@@ -1285,8 +1113,6 @@ app.get('/getAllRemarks', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch remarks' });
   }
 });
-
-// Add endpoint for accepting remarks (setting to Terminated)
 app.post('/acceptRemarks', async (req, res) => {
   const { userId } = req.body;
 
@@ -1317,8 +1143,6 @@ app.post('/acceptRemarks', async (req, res) => {
     res.status(500).json({ error: 'Failed to update status' });
   }
 });
-
-// Add endpoint for declining remarks (setting back to Verified)
 app.post('/declineRemarks', async (req, res) => {
   const { userId } = req.body;
 
@@ -1349,8 +1173,6 @@ app.post('/declineRemarks', async (req, res) => {
     res.status(500).json({ error: 'Failed to update status' });
   }
 });
-
-// Add proper server startup
 const PORT = process.env.PORT || 8081;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);

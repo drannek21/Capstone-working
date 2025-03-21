@@ -45,7 +45,7 @@ export default function InCaseOfEmergency({ prevStep, updateFormData, formData, 
   useEffect(() => {
     if (isSubmitted) {
       const timer = setTimeout(() => {
-        navigate("/userui"); // Redirect to profile page after 3 seconds
+        navigate("/login"); // Redirect to profile page after 3 seconds
       }, 3000);
 
       return () => clearTimeout(timer); // Cleanup timer

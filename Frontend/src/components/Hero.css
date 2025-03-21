@@ -258,3 +258,21 @@
       padding: 12px 20px;
   }
 }
+
+.sign-up {
+  background-color: #16C47F; /* Same green as navbar */
+  color: white;
+  border: 1px solid #16C47F;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  margin-right: 10px;
+}
+
+.sign-up:hover {
+  background-color: #0E9B64; /* Darker green on hover */
+  color: white;
+  border-color: #0E9B64;
+}

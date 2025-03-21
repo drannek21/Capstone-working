@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { useLocation } from "react-router-dom";
 import IdentifyingInformation from "./steps/IdentifyingInformation";
 import FamilyOccupation from "./steps/FamilyOccupation";
 import Classification from "./steps/Classification";
@@ -8,9 +7,6 @@ import InCaseOfEmergency from "./steps/InCaseOfEmergency";
 import "./MultiStepForm.css";
 
 export default function MultiStepForm() {
-  const { state } = useLocation();
-  const userId = state?.userId || localStorage.getItem("UserId");
-
   // Add age calculation function
   const calculateAge = (birthDate) => {
     const today = new Date();
@@ -35,7 +31,7 @@ export default function MultiStepForm() {
     gender: "",
     dateOfBirth: "",
     placeOfBirth: "",
-    address: "",
+    barangay: "",
     education: "",
     civilStatus: "",
     occupation: "",
@@ -84,7 +80,6 @@ export default function MultiStepForm() {
   const handleFinalSubmit = async () => {
     try {
       const submissionData = {
-        userId,
         formData: {
           // Step 1: Personal Information
           firstName: formData.firstName,
@@ -94,7 +89,7 @@ export default function MultiStepForm() {
           gender: formData.gender,
           dateOfBirth: formData.dateOfBirth,
           placeOfBirth: formData.placeOfBirth,
-          address: formData.address,
+          barangay: formData.barangay,
           education: formData.education,
           civilStatus: formData.civilStatus,
           occupation: formData.occupation,

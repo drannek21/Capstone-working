@@ -21,9 +21,8 @@ const Hero = () => {
           <h2 className="herotitle">Support for Solo Parents in Santa Maria</h2>
           <p>Providing assistance and welfare programs for solo parents.</p>
           <div className="hero-buttons">
-            {/* ✅ Updated Login button to navigate to /login */}
-            <button className="login-hero" onClick={() => navigate("/login")}>
-              Login
+            <button className="sign-up" onClick={() => navigate("/signup")}>
+              Sign Up
             </button>
             <button className="learn-more" onClick={scrollToAbout}>
               Learn More
