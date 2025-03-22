@@ -1079,33 +1079,22 @@ app.post('/acceptRemarks', async (req, res) => {
   const { code_id } = req.body;
 
   try {
-    await executeWithRetry(async () => {
-      await queryDatabase('START TRANSACTION');
+    const userResult = await queryDatabase('SELECT id FROM users WHERE code_id = ?', [code_id]);
+    if (userResult.length === 0) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    const user_id = userResult[0].id;
 
-      const userResult = await queryDatabase('SELECT id FROM users WHERE code_id = ?', [code_id]);
-      if (userResult.length === 0) {
-        throw new Error('User not found');
-      }
-      const user_id = userResult[0].id;
+    // Just update the user status since we don't have notifications table yet
+    await queryDatabase(
+      'UPDATE users SET status = ? WHERE code_id = ?',
+      ['Verified', code_id]
+    );
 
-      await queryDatabase(
-        'UPDATE users SET status = ? WHERE code_id = ?',
-        ['Terminated', code_id]
-      );
-
-      await queryDatabase(
-        'INSERT INTO terminated_users (user_id, message, terminated_at, is_read) VALUES (?, ?, NOW(), 0)',
-        [user_id, 'Your application has been terminated.']
-      );
-
-      await queryDatabase('COMMIT');
-    });
-
-    res.status(200).json({ message: 'User status updated to Terminated' });
+    res.status(200).json({ success: true, message: 'User verified successfully' });
   } catch (error) {
-    await queryDatabase('ROLLBACK');
-    console.error('Error updating status:', error);
-    res.status(500).json({ error: 'Failed to update status' });
+    console.error('Error verifying user:', error);
+    res.status(500).json({ success: false, message: 'Failed to verify user' });
   }
 });
 
@@ -1113,35 +1102,96 @@ app.post('/declineRemarks', async (req, res) => {
   const { code_id } = req.body;
 
   try {
-    await executeWithRetry(async () => {
-      await queryDatabase('START TRANSACTION');
+    const userResult = await queryDatabase('SELECT id FROM users WHERE code_id = ?', [code_id]);
+    if (userResult.length === 0) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    const user_id = userResult[0].id;
 
-      const userResult = await queryDatabase('SELECT id FROM users WHERE code_id = ?', [code_id]);
-      if (userResult.length === 0) {
-        throw new Error('User not found');
-      }
-      const user_id = userResult[0].id;
-
-      await queryDatabase(
+    // Update user status and add to terminated_users
+    await Promise.all([
+      queryDatabase(
         'UPDATE users SET status = ? WHERE code_id = ?',
-        ['Declined', code_id]
-      );
-
-      await queryDatabase(
+        ['Terminated', code_id]
+      ),
+      queryDatabase(
         'INSERT INTO terminated_users (user_id, message, terminated_at, is_read) VALUES (?, ?, NOW(), 0)',
-        [user_id, 'Your application has been declined.']
-      );
+        [user_id, 'Your application has been terminated.']
+      )
+    ]);
 
-      await queryDatabase('COMMIT');
-    });
-
-    res.status(200).json({ message: 'User status updated to Declined' });
+    res.status(200).json({ success: true, message: 'User terminated successfully' });
   } catch (error) {
-    await queryDatabase('ROLLBACK');
-    console.error('Error updating status:', error);
-    res.status(500).json({ error: 'Failed to update status' });
+    console.error('Error terminating user:', error);
+    res.status(500).json({ success: false, message: 'Failed to terminate user' });
   }
 });
+
+app.post('/saveDocument', async (req, res) => {
+  const { userId, documentType, documentUrl, documentName } = req.body;
+
+  try {
+    // Update the users table with the document information
+    // We'll store documents as JSON in the documents column
+    const user = await queryDatabase('SELECT * FROM users WHERE id = ?', [userId]);
+    
+    if (user.length === 0) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Get existing documents or initialize empty array
+    let documents = user[0].documents ? JSON.parse(user[0].documents) : [];
+
+    // Update or add new document
+    const existingDocIndex = documents.findIndex(doc => doc.type === documentType);
+    if (existingDocIndex !== -1) {
+      documents[existingDocIndex] = {
+        ...documents[existingDocIndex],
+        url: documentUrl,
+        status: 'pending'
+      };
+    } else {
+      documents.push({
+        type: documentType,
+        name: documentName,
+        url: documentUrl,
+        status: 'pending'
+      });
+    }
+
+    // Update user's documents in the database
+    await queryDatabase(
+      'UPDATE users SET documents = ? WHERE id = ?',
+      [JSON.stringify(documents), userId]
+    );
+
+    res.json({ success: true, documents });
+  } catch (error) {
+    console.error('Error saving document:', error);
+    res.status(500).json({ success: false, message: 'Failed to save document' });
+  }
+});
+
+app.get('/getUserDocuments/:userId', async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    const user = await queryDatabase('SELECT documents FROM users WHERE id = ?', [userId]);
+    
+    if (user.length === 0) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const documents = user[0].documents ? JSON.parse(user[0].documents) : [];
+    res.json({ success: true, documents });
+  } catch (error) {
+    console.error('Error fetching documents:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch documents' });
+  }
+});
+
+const documentsRouter = require('./routes/documents');
+app.use('/api/documents', documentsRouter);
 
 const PORT = process.env.PORT || 8081;
 app.listen(PORT, () => {

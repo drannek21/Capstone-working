@@ -13,6 +13,8 @@ const Remarks = () => {
   const [remarksPerPage] = useState(10);
   const [showRemarksModal, setShowRemarksModal] = useState(false);
   const [selectedRemark, setSelectedRemark] = useState(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
     fetchRemarks();
@@ -55,23 +57,42 @@ const Remarks = () => {
 
   const handleAccept = async (userId) => {
     try {
-      await axios.post('http://localhost:8081/acceptRemarks', { userId });
-      setShowRemarksModal(false);
-      fetchRemarks(); // Refresh the list
+      setShowRemarksModal(false); // Close modal immediately for better UX
+      const response = await axios.post('http://localhost:8081/acceptRemarks', { code_id: selectedRemark.code_id });
+      if (response.data.success) {
+        // Remove the terminated remark from the local state
+        setRemarks(prev => prev.filter(r => r.code_id !== selectedRemark.code_id));
+        setSuccessMessage('Account Verified');
+        setShowSuccessModal(true); // Show success modal
+        setTimeout(() => setShowSuccessModal(false), 2000); // Auto hide after 2 seconds
+      } else {
+        throw new Error(response.data.message || 'Failed to verify user');
+      }
     } catch (err) {
-      console.error('Error updating status:', err);
-      alert('Failed to update status');
+      console.error('Error verifying user:', err);
+      alert('Failed to verify user');
     }
   };
 
   const handleDecline = async (userId) => {
     try {
-      await axios.post('http://localhost:8081/declineRemarks', { userId });
       setShowRemarksModal(false);
-      fetchRemarks(); // Refresh the list
+      const response = await axios.post('http://localhost:8081/declineRemarks', { code_id: selectedRemark.code_id });
+      if (response.data.success) {
+        setRemarks(prev => prev.filter(r => r.code_id !== selectedRemark.code_id));
+        setTerminatedUsers(prev => [{
+          ...selectedRemark,
+          terminated_at: new Date().toISOString()
+        }, ...prev]);
+        setSuccessMessage('Account Terminated');
+        setShowSuccessModal(true);
+        setTimeout(() => setShowSuccessModal(false), 2000);
+      } else {
+        throw new Error(response.data.message || 'Failed to terminate user');
+      }
     } catch (err) {
-      console.error('Error updating status:', err);
-      alert('Failed to update status');
+      console.error('Error terminating user:', err);
+      alert('Failed to terminate user');
     }
   };
 
@@ -251,17 +272,29 @@ const Remarks = () => {
                 Cancel
               </button>
               <button 
-                onClick={() => handleDecline(selectedRemark.user_id)} 
-                className="decline-btn"
-              >
-                Set as Verified
-              </button>
-              <button 
                 onClick={() => handleAccept(selectedRemark.user_id)} 
                 className="accept-btn"
               >
-                Set as Terminated
+                Re-verify Account
               </button>
+              <button 
+                onClick={() => handleDecline(selectedRemark.user_id)} 
+                className="decline-btn"
+              >
+                Terminate Account
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className="modal-overlay">
+          <div className="success-modal">
+            <div className="success-content">
+              <i className="fas fa-check-circle"></i>
+              <h3>{successMessage}</h3>
             </div>
           </div>
         </div>

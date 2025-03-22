@@ -5,6 +5,8 @@ import { FaCamera, FaCheckCircle, FaClock, FaTimes } from "react-icons/fa"; // I
 import avatar from "../assets/avatar.jpg";
 import html2canvas from 'html2canvas';
 import dswdLogo from '../assets/dswd-logo.png';
+import axios from 'axios';
+import toast from 'react-hot-toast';
 
 const ProfilePage = () => {
   const [activeTab, setActiveTab] = useState("Details");
@@ -14,6 +16,16 @@ const ProfilePage = () => {
   const [previewUrl, setPreviewUrl] = useState(null);
   const [previousStatus, setPreviousStatus] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [documents, setDocuments] = useState({
+    psa: null,
+    itr: null,
+    medical: null,
+    marriage: null,
+    death: null,
+    cenomar: null,
+  });
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState({});
   const navigate = useNavigate();
 
   const loggedInUserId = localStorage.getItem("UserId");
@@ -23,6 +35,7 @@ const ProfilePage = () => {
   const UPLOAD_PRESET = 'soloparent';  // Make sure this matches your Cloudinary upload preset
   const CLOUDINARY_FOLDER = 'Profile_Pics';
 
+  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
 
   // Fetch user details and check for status changes
   useEffect(() => {
@@ -35,7 +48,7 @@ const ProfilePage = () => {
 
       try {
         setIsLoading(true);
-        const response = await fetch("http://localhost:8081/getUserDetails", {
+        const response = await fetch(`${API_BASE_URL}/getUserDetails`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -218,8 +231,11 @@ const ProfilePage = () => {
   };
 
   // Trigger the file input click event
-  const handleUploadClick = () => {
-    document.getElementById("profilePicInput").click();
+  const handleUploadClick = (type) => {
+    const fileInput = document.getElementById(`file-input-${type}`);
+    if (fileInput) {
+      fileInput.click();
+    }
   };
 
   // Handle the profile picture upload to Cloudinary
@@ -248,7 +264,7 @@ const ProfilePage = () => {
       const imageUrl = cloudinaryData.secure_url;
 
       // Then, update the backend
-      const backendResponse = await fetch("http://localhost:8081/updateUserProfile", {
+      const backendResponse = await fetch(`${API_BASE_URL}/updateUserProfile`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -364,7 +380,7 @@ const ProfilePage = () => {
   // Add this function to update user status to Renewal
   const updateUserStatusToRenewal = async () => {
     try {
-      const response = await fetch("http://localhost:8081/updateUserStatus", {
+      const response = await fetch(`${API_BASE_URL}/updateUserStatus`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -386,6 +402,154 @@ const ProfilePage = () => {
       }));
     } catch (error) {
       console.error('Error updating user status:', error);
+    }
+  };
+
+  const uploadToCloudinary = async (file, documentType) => {
+    if (!file || !user) return;
+
+    setIsUploading(true);
+    setUploadProgress(prev => ({
+      ...prev,
+      [documentType]: 0
+    }));
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', UPLOAD_PRESET);
+      formData.append('cloud_name', CLOUD_NAME);
+      
+      const folderPath = `${user.first_name}_${user.last_name}_${user.id}/documents`;
+      formData.append('folder', folderPath);
+
+      const response = await axios.post(
+        `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/auto/upload`,
+        formData,
+        {
+          onUploadProgress: (progressEvent) => {
+            const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            setUploadProgress(prev => ({
+              ...prev,
+              [documentType]: progress
+            }));
+          }
+        }
+      );
+
+      setDocuments(prev => ({
+        ...prev,
+        [documentType]: {
+          name: file.name,
+          url: response.data.secure_url,
+          public_id: response.data.public_id,
+          status: 'uploaded'
+        }
+      }));
+
+      try {
+        // Just confirm with backend (no database operations)
+        await axios.post(`${API_BASE_URL}/api/documents/save`);
+      } catch (error) {
+        console.warn('Backend confirmation failed:', error);
+      }
+
+      toast.success(`${documentType.toUpperCase()} uploaded successfully!`);
+
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error(`Failed to upload ${documentType}. Please try again.`);
+      
+      setDocuments(prev => ({
+        ...prev,
+        [documentType]: null
+      }));
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(prev => ({
+        ...prev,
+        [documentType]: 0
+      }));
+    }
+  };
+
+  const handleFileUpload = async (e, type) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Please upload only PDF, JPG, or PNG files');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+    if (file.size > maxSize) {
+      toast.error('File size should not exceed 5MB');
+      return;
+    }
+
+    // Upload to Cloudinary
+    await uploadToCloudinary(file, type);
+  };
+
+  const handleRemoveDocument = async (documentType) => {
+    try {
+      const doc = documents[documentType];
+      if (!doc || !doc.public_id) return;
+
+      // Delete from Cloudinary
+      await axios.post(`${API_BASE_URL}/api/documents/delete`, {
+        userId: user.id,
+        publicId: doc.public_id
+      });
+
+      // Update state
+      setDocuments(prev => ({
+        ...prev,
+        [documentType]: null
+      }));
+
+      toast.success(`${documentType.toUpperCase()} removed successfully!`);
+    } catch (error) {
+      console.error('Remove error:', error);
+      toast.error(`Failed to remove ${documentType}. Please try again.`);
+    }
+  };
+
+  const handleProfileImageUpload = async (file) => {
+    if (!file) return;
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', UPLOAD_PRESET);
+      formData.append('cloud_name', CLOUD_NAME);
+      formData.append('folder', 'Profile_Pics');
+
+      const response = await axios.post(
+        `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
+        formData,
+        {
+          onUploadProgress: (progressEvent) => {
+            const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            // Update progress state if needed
+          }
+        }
+      );
+
+      // Update user's profile image
+      setUser(prev => ({
+        ...prev,
+        profile_image: response.data.secure_url
+      }));
+
+      toast.success('Profile image uploaded successfully!');
+    } catch (error) {
+      console.error('Profile image upload error:', error);
+      toast.error('Failed to upload profile image');
     }
   };
 
@@ -435,20 +599,28 @@ const ProfilePage = () => {
   return (
     <div className="profile-container">
       <div className="profile-header">
-        <div className="profile-picture-container">
+        <div className="profile-image-container">
           <img 
-            src={getImageUrl(profilePicUrl)} 
+            src={user?.profile_image || avatar} 
             alt="Profile" 
-            className="profile-pic" 
-            onError={(e) => {
-              console.log("Image failed to load, using avatar");
-              e.target.onerror = null;
-              e.target.src = avatar;
-            }}
+            className="profile-image"
           />
-          <button className="upload-button" onClick={() => setShowUploadModal(true)}>
-            <FaCamera />
-          </button>
+          <div className="profile-image-overlay">
+            <label htmlFor="profile-image-upload">
+              <FaCamera className="camera-icon" />
+              <input
+                id="profile-image-upload"
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  if (e.target.files[0]) {
+                    handleProfileImageUpload(e.target.files[0]);
+                  }
+                }}
+              />
+            </label>
+          </div>
         </div>
         <div className="profile-info">
           <h1>{user.name || "User"}</h1>
@@ -462,7 +634,7 @@ const ProfilePage = () => {
 
       <div className="profile-content">
         <div className="tab-navigation">
-          {["Details", "ID"].map((tab) => (
+          {["Details", "ID", "Documents"].map((tab) => (
             <button
               key={tab}
               className={`tab-button ${activeTab === tab ? "active" : ""}`}
@@ -475,7 +647,6 @@ const ProfilePage = () => {
 
         <div className="tab-content">
           {activeTab === "Details" && renderUserDetails()}
-          
           {activeTab === "ID" && (
             <div className="id-tab">
               {status === "Verified" ? (
@@ -607,6 +778,265 @@ const ProfilePage = () => {
                   </button>
                 </div>
               )}
+            </div>
+          )}
+          {activeTab === "Documents" && (
+            <div className="documents-section">
+              <h3>Required Documents</h3>
+              <div className="document-list">
+                {/* PSA Birth Certificate */}
+                <div className="document-group">
+                  <h4>PSA Birth Certificate</h4>
+                  <div className="upload-area" onClick={() => handleUploadClick('psa')}>
+                    {isUploading && uploadProgress.psa > 0 ? (
+                      <div className="upload-progress">
+                        <div className="progress-bar" style={{ width: `${uploadProgress.psa}%` }}></div>
+                        <span>{uploadProgress.psa}%</span>
+                      </div>
+                    ) : (
+                      <>
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M12 16L12 8" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
+                          <path d="M9 11L12 8L15 11" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          <path d="M8 16H16" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
+                        </svg>
+                        <p>Drag and drop or <span className="browse-link">browse</span></p>
+                      </>
+                    )}
+                    <input 
+                      id="file-input-psa"
+                      type="file" 
+                      accept=".pdf,.jpg,.jpeg,.png" 
+                      style={{ display: 'none' }}
+                      onChange={(e) => handleFileUpload(e, 'psa')}
+                    />
+                  </div>
+                  {documents.psa && (
+                    <div className="document-item">
+                      <div className="document-info">
+                        <span className="document-name">{documents.psa.name}</span>
+                        <span className="document-status uploaded">Uploaded</span>
+                      </div>
+                      <div className="document-actions">
+                        <button className="document-upload-btn">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 16L12 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                            <path d="M9 11L12 8L15 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                          Replace
+                        </button>
+                        <button className="cancel-btn" onClick={() => handleRemoveDocument('psa')}>
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Income Tax Return */}
+                <div className="document-group">
+                  <h4>Income Tax Return (ITR)</h4>
+                  <div className="upload-area" onClick={() => handleUploadClick('itr')}>
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M12 16L12 8" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
+                      <path d="M9 11L12 8L15 11" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M8 16H16" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
+                    </svg>
+                    <p>Drag and drop or <span className="browse-link">browse</span></p>
+                    <input 
+                      id="file-input-itr"
+                      type="file" 
+                      accept=".pdf,.jpg,.jpeg,.png" 
+                      style={{ display: 'none' }}
+                      onChange={(e) => handleFileUpload(e, 'itr')}
+                    />
+                  </div>
+                  {documents.itr && (
+                    <div className="document-item">
+                      <div className="document-info">
+                        <span className="document-name">{documents.itr.name}</span>
+                        <span className="document-status uploaded">Uploaded</span>
+                      </div>
+                      <div className="document-actions">
+                        <button className="document-upload-btn">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 16L12 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                            <path d="M9 11L12 8L15 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                          Replace
+                        </button>
+                        <button className="cancel-btn" onClick={() => handleRemoveDocument('itr')}>
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Medical Certificate */}
+                <div className="document-group">
+                  <h4>Medical Certificate</h4>
+                  <div className="upload-area" onClick={() => handleUploadClick('medical')}>
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M12 16L12 8" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
+                      <path d="M9 11L12 8L15 11" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M8 16H16" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
+                    </svg>
+                    <p>Drag and drop or <span className="browse-link">browse</span></p>
+                    <input 
+                      id="file-input-medical"
+                      type="file" 
+                      accept=".pdf,.jpg,.jpeg,.png" 
+                      style={{ display: 'none' }}
+                      onChange={(e) => handleFileUpload(e, 'medical')}
+                    />
+                  </div>
+                  {documents.medical && (
+                    <div className="document-item">
+                      <div className="document-info">
+                        <span className="document-name">{documents.medical.name}</span>
+                        <span className="document-status uploaded">Uploaded</span>
+                      </div>
+                      <div className="document-actions">
+                        <button className="document-upload-btn">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 16L12 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                            <path d="M9 11L12 8L15 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                          Replace
+                        </button>
+                        <button className="cancel-btn" onClick={() => handleRemoveDocument('medical')}>
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Conditional Documents based on Civil Status */}
+                {user.civil_status === 'Married' && (
+                  <div className="document-group">
+                    <h4>Marriage Certificate</h4>
+                    <div className="upload-area" onClick={() => handleUploadClick('marriage')}>
+                      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 16L12 8" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
+                        <path d="M9 11L12 8L15 11" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M8 16H16" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
+                      </svg>
+                      <p>Drag and drop or <span className="browse-link">browse</span></p>
+                      <input 
+                        id="file-input-marriage"
+                        type="file" 
+                        accept=".pdf,.jpg,.jpeg,.png" 
+                        style={{ display: 'none' }}
+                        onChange={(e) => handleFileUpload(e, 'marriage')}
+                      />
+                    </div>
+                    {documents.marriage && (
+                      <div className="document-item">
+                        <div className="document-info">
+                          <span className="document-name">{documents.marriage.name}</span>
+                          <span className="document-status uploaded">Uploaded</span>
+                        </div>
+                        <div className="document-actions">
+                          <button className="document-upload-btn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M12 16L12 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                              <path d="M9 11L12 8L15 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                            Replace
+                          </button>
+                          <button className="cancel-btn" onClick={() => handleRemoveDocument('marriage')}>
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {user.civil_status === 'Widowed' && (
+                  <div className="document-group">
+                    <h4>Death Certificate</h4>
+                    <div className="upload-area" onClick={() => handleUploadClick('death')}>
+                      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 16L12 8" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
+                        <path d="M9 11L12 8L15 11" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M8 16H16" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
+                      </svg>
+                      <p>Drag and drop or <span className="browse-link">browse</span></p>
+                      <input 
+                        id="file-input-death"
+                        type="file" 
+                        accept=".pdf,.jpg,.jpeg,.png" 
+                        style={{ display: 'none' }}
+                        onChange={(e) => handleFileUpload(e, 'death')}
+                      />
+                    </div>
+                    {documents.death && (
+                      <div className="document-item">
+                        <div className="document-info">
+                          <span className="document-name">{documents.death.name}</span>
+                          <span className="document-status uploaded">Uploaded</span>
+                        </div>
+                        <div className="document-actions">
+                          <button className="document-upload-btn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M12 16L12 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                              <path d="M9 11L12 8L15 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                            Replace
+                          </button>
+                          <button className="cancel-btn" onClick={() => handleRemoveDocument('death')}>
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {(!user.civil_status || user.civil_status === 'Single') && (
+                  <div className="document-group">
+                    <h4>CENOMAR</h4>
+                    <div className="upload-area" onClick={() => handleUploadClick('cenomar')}>
+                      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 16L12 8" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
+                        <path d="M9 11L12 8L15 11" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M8 16H16" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
+                      </svg>
+                      <p>Drag and drop or <span className="browse-link">browse</span></p>
+                      <input 
+                        id="file-input-cenomar"
+                        type="file" 
+                        accept=".pdf,.jpg,.jpeg,.png" 
+                        style={{ display: 'none' }}
+                        onChange={(e) => handleFileUpload(e, 'cenomar')}
+                      />
+                    </div>
+                    {documents.cenomar && (
+                      <div className="document-item">
+                        <div className="document-info">
+                          <span className="document-name">{documents.cenomar.name}</span>
+                          <span className="document-status uploaded">Uploaded</span>
+                        </div>
+                        <div className="document-actions">
+                          <button className="document-upload-btn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M12 16L12 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                              <path d="M9 11L12 8L15 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                            Replace
+                          </button>
+                          <button className="cancel-btn" onClick={() => handleRemoveDocument('cenomar')}>
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
