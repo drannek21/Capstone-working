@@ -15,25 +15,42 @@ const SoloParent = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedStatus, setSelectedStatus] = useState('all');
-  const { adminId } = useContext(AdminContext);
+  const { adminId, setAdminId } = useContext(AdminContext);
 
   useEffect(() => {
-    fetchVerifiedUsers();
-  }, [adminId, selectedStatus]);
+    const fetchData = async () => {
+      try {
+        // Get adminId from localStorage if not in context
+        const storedAdminId = localStorage.getItem('adminId') || localStorage.getItem('id');
+        if (storedAdminId) {
+          setAdminId(storedAdminId);
+          await fetchVerifiedUsers(storedAdminId);
+        } else {
+          setError('Admin ID not found. Please log in again.');
+        }
+      } catch (err) {
+        setError('Error fetching data. Please try again.');
+        console.error('Fetch error:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  const fetchVerifiedUsers = async () => {
+    fetchData();
+  }, [setAdminId, selectedStatus]);
+
+  const fetchVerifiedUsers = async (currentAdminId) => {
     try {
       setIsLoading(true);
-      let url = `http://localhost:8081/verifiedUsers/${adminId}`;
+      let url = `http://localhost:8081/verifiedUsers/${currentAdminId}`;
       if (selectedStatus !== 'all') {
         url += `?status=${selectedStatus}`;
       }
       const response = await axios.get(url);
-      setSoloParents(response.data);
-      setError(null);
+      setSoloParents(response.data || []);
     } catch (err) {
-      console.error('Error:', err);
       setError('Error fetching verified users');
+      console.error('Fetch verified users error:', err);
     } finally {
       setIsLoading(false);
     }
@@ -112,20 +129,13 @@ const SoloParent = () => {
     );
   }
 
-  const classifications = {
-    '001': 'Birth due to rape',
-    '002': 'Death of spouse',
-    '003': 'Detention of spouse',
-    '004': "Spouse's incapacity",
-    '005': 'Legal separation',
-    '006': 'Annulled marriage',
-    '007': 'Abandoned by spouse',
-    '008': "OFW's family member",
-    '009': 'Unmarried parent',
-    '010': 'Legal guardian',
-    '011': 'Relative caring for child',
-    '012': 'Pregnant woman solo caregiver'
-  };
+  if (!adminId) {
+    return (
+      <div className="soloparent-container">
+        <div className="error">Admin session expired. Please login again.</div>
+      </div>
+    );
+  }
 
   return (
     <div className="soloparent-container">
@@ -175,7 +185,7 @@ const SoloParent = () => {
                 <td>{parent.code_id}</td>
                 <td>{`${parent.first_name} ${parent.middle_name ? parent.middle_name[0] + '.' : ''} ${parent.last_name}`}</td>
                 <td>{parent.email}</td>
-                <td>{classifications[parent.classification] || parent.classification}</td>
+                <td>{parent.classification}</td>
                 <td>
                   <span className={`status-badge ${parent.status.toLowerCase()}`}>
                     {parent.status}

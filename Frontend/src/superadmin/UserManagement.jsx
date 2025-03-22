@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './UserManagement.css';
+import { FaEye, FaEyeSlash } from 'react-icons/fa';
 
 const UserManagement = () => {
   const [users, setUsers] = useState([]);
@@ -11,13 +12,16 @@ const UserManagement = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedBarangay, setSelectedBarangay] = useState('All');
   const [barangays, setBarangays] = useState([
-    'All', 
-    'Barangay 1', 'Barangay 2', 'Barangay 3', 'Barangay 4', 'Barangay 5',
-    'Barangay 6', 'Barangay 7', 'Barangay 8', 'Barangay 9', 'Barangay 10',
-    'Barangay 11', 'Barangay 12', 'Barangay 13', 'Barangay 14', 'Barangay 15',
-    'Barangay 16', 'Barangay 17', 'Barangay 18', 'Barangay 19', 'Barangay 20',
-    'Barangay 21', 'Barangay 22', 'Barangay 23', 'Barangay 24', 'Barangay 25'
+    'All',
+    'Adia', 'Bagong Pook', 'Bagumbayan', 'Bubucal', 'Cabooan',
+    'Calangay', 'Cambuja', 'Coralan', 'Cueva', 'Inayapan',
+    'Jose P. Laurel, Sr.', 'Jose P. Rizal', 'Juan Santiago',
+    'Kayhacat', 'Macasipac', 'Masinao', 'Matalinting',
+    'Pao-o', 'Parang ng Buho', 'Poblacion Dos',
+    'Poblacion Quatro', 'Poblacion Tres', 'Poblacion Uno',
+    'Talangka', 'Tungkod'
   ]);
+  const [assignedBarangays, setAssignedBarangays] = useState(new Set());
   const [newUser, setNewUser] = useState({
     email: '',
     password: '',
@@ -25,10 +29,20 @@ const UserManagement = () => {
   });
   const [editUser, setEditUser] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     fetchUsers();
   }, []);
+
+  useEffect(() => {
+    const assigned = new Set(users.map(user => user.barangay));
+    setAssignedBarangays(assigned);
+  }, [users]);
+
+  const availableBarangays = barangays.filter(
+    barangay => barangay === 'All' || !assignedBarangays.has(barangay)
+  );
 
   const fetchUsers = async () => {
     try {
@@ -93,10 +107,25 @@ const UserManagement = () => {
 
   const handleNewUserChange = (e) => {
     const { name, value } = e.target;
-    setNewUser(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    if (name === 'barangay') {
+      const formattedBarangay = value.replace(/\s+/g, '');
+      const capitalizedBarangay = formattedBarangay.charAt(0).toUpperCase() + formattedBarangay.slice(1).toLowerCase();
+      setNewUser(prev => ({
+        ...prev,
+        barangay: value,
+        email: `barangay${formattedBarangay.toLowerCase()}@gmail.com`,
+        password: `${capitalizedBarangay}123@`
+      }));
+    } else {
+      setNewUser(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
+  };
+
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
   };
 
   const handleAddUser = async (e) => {
@@ -166,10 +195,21 @@ const UserManagement = () => {
 
   const handleEditChange = (e) => {
     const { name, value } = e.target;
-    setEditUser(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    if (name === 'barangay') {
+      const formattedBarangay = value.replace(/\s+/g, '');
+      const capitalizedBarangay = formattedBarangay.charAt(0).toUpperCase() + formattedBarangay.slice(1).toLowerCase();
+      setEditUser(prev => ({
+        ...prev,
+        barangay: value,
+        email: `barangay${formattedBarangay.toLowerCase()}@gmail.com`,
+        password: `${capitalizedBarangay}123@`
+      }));
+    } else {
+      setEditUser(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
   };
 
   return (
@@ -183,7 +223,7 @@ const UserManagement = () => {
               onChange={handleBarangayChange}
               className="barangay-select"
             >
-              {barangays.map(barangay => (
+              {availableBarangays.map(barangay => (
                 <option key={barangay} value={barangay}>
                   {barangay === 'All' ? 'All Barangays' : barangay}
                 </option>
@@ -284,14 +324,23 @@ const UserManagement = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Password:</label>
-                  <input 
-                    type="password" 
-                    name="password"
-                    value={newUser.password}
-                    onChange={handleNewUserChange}
-                    required 
-                  />
+                  <div className="password-input-container">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      name="password"
+                      value={newUser.password}
+                      onChange={handleNewUserChange}
+                      required
+                      className="password-input"
+                    />
+                    <span
+                      className="password-toggle"
+                      onClick={togglePasswordVisibility}
+                      style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', cursor: 'pointer' }}
+                    >
+                      {showPassword ? <FaEyeSlash /> : <FaEye />}
+                    </span>
+                  </div>
                 </div>
                 <div className="form-group">
                   <label>Barangay:</label>
@@ -302,7 +351,7 @@ const UserManagement = () => {
                     required
                   >
                     <option value="">Select Barangay</option>
-                    {barangays.filter(b => b !== 'All').map(barangay => (
+                    {availableBarangays.filter(b => b !== 'All').map(barangay => (
                       <option key={barangay} value={barangay}>
                         {barangay}
                       </option>
@@ -364,14 +413,24 @@ const UserManagement = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Password:</label>
-                  <input 
-                    type="password" 
-                    name="password"
-                    value={editUser.password}
-                    onChange={handleEditChange}
-                    placeholder="Leave blank to keep current password"
-                  />
+                  <div className="password-input-container">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      name="password"
+                      value={editUser.password}
+                      onChange={handleEditChange}
+                      placeholder="Leave blank to keep current password"
+                      className="password-input"
+                      style={{ width: '250px', paddingRight: '30px' }}
+                    />
+                    <span
+                      className="password-toggle"
+                      onClick={togglePasswordVisibility}
+                      style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', cursor: 'pointer' }}
+                    >
+                      {showPassword ? <FaEyeSlash /> : <FaEye />}
+                    </span>
+                  </div>
                 </div>
                 <div className="form-group">
                   <label>Barangay:</label>
@@ -382,7 +441,7 @@ const UserManagement = () => {
                     required
                   >
                     <option value="">Select Barangay</option>
-                    {barangays.filter(b => b !== 'All').map(barangay => (
+                    {availableBarangays.filter(b => b !== 'All').map(barangay => (
                       <option key={barangay} value={barangay}>
                         {barangay}
                       </option>

@@ -258,6 +258,8 @@
 
 .form-group {
   margin-bottom: 1.5rem;
+  margin-left: 10px;
+  margin-right: 50px;
 }
 
 .form-group label {

@@ -5,7 +5,6 @@ import './SuperAdminSideBar.css';
 
 const SuperAdminSideBar = () => {
   const [isOpen, setIsOpen] = useState(window.innerWidth >= 768);
-  const [notifications, setNotifications] = useState([]);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -17,55 +16,28 @@ const SuperAdminSideBar = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  useEffect(() => {
-    const fetchNotifications = async () => {
-      try {
-        const adminId = localStorage.getItem("id");
-        if (!adminId) {
-          console.error('Admin ID not found');
-          return;
-        }
-        const response = await fetch(`http://localhost:8081/notifications/${adminId}`);
-        const data = await response.json();
-        setNotifications(Array.isArray(data) ? data : []);
-      } catch (error) {
-        console.error('Error fetching notifications:', error);
-      }
-    };
-
-    fetchNotifications();
-  }, []);
-
   const toggleSidebar = () => {
     setIsOpen(!isOpen);
   };
 
   const handleLogout = () => {
-    // Clear user session
-    localStorage.removeItem("userToken");
-
-    // Navigate to login page
-    navigate("/", { replace: true });
-
-    // Prevent back navigation
+    localStorage.removeItem('userToken');
+    navigate('/', { replace: true });
     setTimeout(() => {
-        window.history.pushState(null, "", window.location.href);
-        window.onpopstate = () => {
-            window.history.pushState(null, "", window.location.href);
-        };
+      window.history.pushState(null, '', window.location.href);
+      window.onpopstate = () => {
+        window.history.pushState(null, '', window.location.href);
+      };
     }, 0);
-
-    // Reload to clear cached session data
     window.location.reload();
-};
-  
+  };
 
   return (
     <>
-      <button 
+      <button
         className="menu-toggle"
         onClick={toggleSidebar}
-        aria-label={isOpen ? "Close menu" : "Open menu"}
+        aria-label={isOpen ? 'Close menu' : 'Open menu'}
       >
         {isOpen ? <FiX /> : <FiMenu />}
       </button>
@@ -75,7 +47,7 @@ const SuperAdminSideBar = () => {
           <h2>Super Admin</h2>
         </div>
         <nav className="sidebar-nav">
-          <NavLink 
+          <NavLink
             to="/superadmin/sdashboard"
             className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}
             onClick={() => window.innerWidth < 768 && setIsOpen(false)}
@@ -83,8 +55,8 @@ const SuperAdminSideBar = () => {
             <FiHome className="nav-icon" />
             <span>Dashboard</span>
           </NavLink>
-          
-          <NavLink 
+
+          <NavLink
             to="/superadmin/applications"
             className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}
             onClick={() => window.innerWidth < 768 && setIsOpen(false)}
@@ -93,7 +65,7 @@ const SuperAdminSideBar = () => {
             <span>Applications</span>
           </NavLink>
 
-          <NavLink 
+          <NavLink
             to="/superadmin/user-management"
             className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}
             onClick={() => window.innerWidth < 768 && setIsOpen(false)}
@@ -102,7 +74,7 @@ const SuperAdminSideBar = () => {
             <span>Admin Management</span>
           </NavLink>
 
-          <NavLink 
+          <NavLink
             to="/superadmin/remarks"
             className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}
             onClick={() => window.innerWidth < 768 && setIsOpen(false)}
@@ -111,7 +83,7 @@ const SuperAdminSideBar = () => {
             <span>Remarks</span>
           </NavLink>
 
-          <div 
+          <div
             className="nav-link"
             onClick={handleLogout}
             style={{ cursor: 'pointer' }}
@@ -119,12 +91,11 @@ const SuperAdminSideBar = () => {
             <FiLogOut className="nav-icon" />
             <span>Log Out</span>
           </div>
-
         </nav>
       </div>
 
       {isOpen && window.innerWidth < 768 && (
-        <div 
+        <div
           className="sidebar-overlay"
           onClick={toggleSidebar}
           role="button"

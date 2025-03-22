@@ -107,7 +107,7 @@ const Applications = () => {
   
       const response = await axios.post('http://localhost:8081/updateUserStatus', {
         code_id: selectedApplication.code_id, // Ensure this matches the backend
-        status: action === "Accept" ? "Verified" : "Declined",
+        status: action === "Accept" ? "Created" : "Declined",
         remarks: remarks.trim() || "No remarks provided",
         email: selectedApplication.email,
         firstName: selectedApplication.first_name,

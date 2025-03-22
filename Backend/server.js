@@ -4,12 +4,11 @@ const mysql = require('mysql');
 const cors = require('cors');
 const nodemailer = require('nodemailer');
 
-
 const app = express();
 app.use(cors());
 app.use(express.json());
 const { sendStatusEmail } = require('./services/emailService');
-// Create a connection pool instead of a single connection
+
 const pool = mysql.createPool({
   host: 'localhost',
   user: 'root',
@@ -22,7 +21,6 @@ const pool = mysql.createPool({
   keepAliveInitialDelay: 0
 });
 
-// Improved queryDatabase function with better error handling
 const queryDatabase = (sql, params) => new Promise((resolve, reject) => {
   pool.getConnection((err, connection) => {
     if (err) {
@@ -31,7 +29,7 @@ const queryDatabase = (sql, params) => new Promise((resolve, reject) => {
     }
 
     connection.query(sql, params, (err, result) => {
-      connection.release(); // Always release the connection
+      connection.release(); 
       if (err) {
         console.error('Query error:', err);
         return reject(err);
@@ -41,7 +39,6 @@ const queryDatabase = (sql, params) => new Promise((resolve, reject) => {
   });
 });
 
-// Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Global error handler:', err);
   res.status(500).json({ 
@@ -50,16 +47,12 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Handle uncaught exceptions
 process.on('uncaughtException', (err) => {
   console.error('Uncaught Exception:', err);
-  // Don't exit the process, just log the error
 });
 
-// Handle unhandled promise rejections
 process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-  // Don't exit the process, just log the error
 });
 
 app.post('/users', async (req, res) => {
@@ -72,7 +65,6 @@ app.post('/users', async (req, res) => {
     res.status(500).json({ error: 'Error inserting user into database' });
   }
 });
-
 
 app.get("/admins", async (req, res) => {
   try {
@@ -92,7 +84,6 @@ app.post("/admins", async (req, res) => {
   }
 
   try {
-    // Check if email or barangay already exists
     const existingAdmins = await queryDatabase("SELECT * FROM admin WHERE email = ? OR barangay = ?", [email, barangay]);
 
     if (existingAdmins.length > 0) {
@@ -105,7 +96,6 @@ app.post("/admins", async (req, res) => {
       }
     }
 
-    // If validation passes, insert new admin
     await queryDatabase("INSERT INTO admin (email, password, barangay) VALUES (?, ?, ?)", [email, password, barangay]);
     res.json({ success: true, message: "Admin created successfully" });
   } catch (err) {
@@ -123,7 +113,6 @@ app.put("/admins/:id", async (req, res) => {
   }
 
   try {
-    // Check if email or barangay already exists for other admins
     const existingAdmins = await queryDatabase("SELECT * FROM admin WHERE (email = ? OR barangay = ?) AND id != ?", 
       [email, barangay, id]);
 
@@ -137,7 +126,6 @@ app.put("/admins/:id", async (req, res) => {
       }
     }
 
-    // If validation passes, update admin
     const updateFields = password 
       ? [email, password, barangay, id]
       : [email, barangay, id];
@@ -160,7 +148,6 @@ app.put("/admins/:id", async (req, res) => {
 
 app.get('/pendingUsers', async (req, res) => {
   try {
-    // First, get all pending users with their code_id
     const users = await queryDatabase(`
       SELECT u.id AS userId, u.email, u.name, u.status, u.code_id,
              s1.first_name, s1.middle_name, s1.last_name, s1.age, s1.gender, 
@@ -184,10 +171,8 @@ app.get('/pendingUsers', async (req, res) => {
       return res.status(200).json([]);
     }
 
-    // Get all code_ids
     const codeIds = users.map(user => user.code_id);
 
-    // Get family members for all users using code_id
     const familyQuery = `
       SELECT code_id, 
              family_member_name as name,
@@ -200,7 +185,6 @@ app.get('/pendingUsers', async (req, res) => {
 
     const familyMembers = await queryDatabase(familyQuery, [codeIds]);
 
-    // Map family members to users
     const familyByUser = {};
     familyMembers.forEach(member => {
       if (!familyByUser[member.code_id]) {
@@ -209,7 +193,6 @@ app.get('/pendingUsers', async (req, res) => {
       familyByUser[member.code_id].push(member);
     });
 
-    // Combine users with their family members
     const usersWithFamily = users.map(user => ({
       ...user,
       familyMembers: familyByUser[user.code_id] || []
@@ -230,7 +213,6 @@ app.post('/pendingUsers/updateClassification', async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    // Ensure the correct table is referenced
     await queryDatabase(`
       UPDATE step3_classification 
       SET classification = ? 
@@ -261,45 +243,50 @@ app.get('/verified-users', async (req, res) => {
 
 app.post('/login', async (req, res) => {
   const { email, password } = req.body;
+
   try {
-    // First check users table
-    let results = await queryDatabase('SELECT *, "user" as role FROM users WHERE email = ? AND password = ? AND status = "Verified"', [email, password]);
-    
-    // If not found in users, check admin table
-    if (results.length === 0) {
-      results = await queryDatabase('SELECT *, "admin" as role FROM admin WHERE email = ? AND password = ?', [email, password]);
-    }
-    
-    // If not found in admin, check superadmin table
-    if (results.length === 0) {
-      results = await queryDatabase('SELECT *, "superadmin" as role FROM superadmin WHERE email = ? AND password = ?', [email, password]);
+    // Check users table first
+    let [user] = await queryDatabase('SELECT * FROM users WHERE email = ? AND password = ?', [email, password]);
+
+    if (!user) {
+      // Check admin table if user not found
+      [user] = await queryDatabase('SELECT * FROM admin WHERE email = ? AND password = ?', [email, password]);
+      if (user) user.role = 'admin';
     }
 
-    if (results.length > 0) {
-      const user = results[0];
+    if (!user) {
+      // Check superadmin table if still not found
+      [user] = await queryDatabase('SELECT * FROM superadmin WHERE email = ? AND password = ?', [email, password]);
+      if (user) user.role = 'superadmin';
+    }
+
+    if (user) {
+      // Update status to Verified on first login if previously Pending
+      if (user.status === 'Created') {
+        await queryDatabase('UPDATE users SET status = ? WHERE id = ?', ['Verified', user.id]);
+        user.status = 'Verified';
+      }
+
       res.status(200).json({ 
         user: {
           id: user.id,
           email: user.email,
-          role: user.role,
-          name: user.name || null,
-          status: user.status || 'active',
-          barangay: user.barangay || null
+          status: user.status,
+          role: user.role || 'user'
         }
       });
     } else {
-      res.status(401).json({ error: 'Invalid email or password' });
+      res.status(401).json({ error: 'Invalid credentials' });
     }
-  } catch (err) {
-    console.error('Login error:', err);
-    res.status(500).json({ error: 'Database error' });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ error: 'Login failed' });
   }
 });
 
 app.post('/getUserDetails', async (req, res) => {
   const { userId } = req.body;
   try {
-    // Fetch user details
     const userResults = await queryDatabase(`
       SELECT u.*, s1.* 
       FROM users u
@@ -309,29 +296,24 @@ app.post('/getUserDetails', async (req, res) => {
     if (userResults.length > 0) {
       const user = userResults[0];
 
-      // If the user is verified, fetch all related details
       if (user.status === 'Verified') {
-        // Get user's classification from step3
         const classificationResult = await queryDatabase(
           'SELECT classification FROM step3_classification WHERE code_id = ?', 
           [user.code_id]
         );
 
-        // Get the valid date from accepted_users table
         const validDateResult = await queryDatabase(
           'SELECT DATE_FORMAT(DATE_ADD(accepted_at, INTERVAL 1 YEAR), "%Y-%m-%d") as accepted_at FROM accepted_users WHERE user_id = ? ORDER BY accepted_at DESC LIMIT 1', 
           [userId]
         );
 
-        // Get all family members from step2 (removed the relationship filter)
         const familyResults = await queryDatabase(
           `SELECT family_member_name as name, relationship, occupation as educational_attainment, age
-           FROM step2_family_occupation 
+           FROM step2_family_occupation
            WHERE code_id = ?`, 
           [user.code_id]
         );
 
-        // Merge all user details
         const userDetails = { 
           ...user,
           classification: classificationResult.length > 0 ? classificationResult[0].classification : null,
@@ -351,6 +333,7 @@ app.post('/getUserDetails', async (req, res) => {
     res.status(500).json({ error: 'Error fetching user details' });
   }
 });
+
 app.get('/users', async (req, res) => {
   try {
     const users = await queryDatabase('SELECT * FROM users');
@@ -389,7 +372,6 @@ app.post('/updateUserStatus', async (req, res) => {
     try {
       await queryDatabase('START TRANSACTION');
 
-      // First get the user ID and current status
       const userResult = await queryDatabase(`
         SELECT u.id, u.status, s1.date_of_birth, u.password 
         FROM users u 
@@ -405,11 +387,9 @@ app.post('/updateUserStatus', async (req, res) => {
       const currentStatus = userResult[0].status;
       const userId = userResult[0].id;
 
-      // Update the user's status
       await queryDatabase('UPDATE users SET status = ? WHERE code_id = ?', [status, code_id]);
       console.log('User status updated successfully for code_id:', code_id);
 
-      // Handle notifications based on status
       if (status === "Declined" && remarks) {
         const existingDeclined = await queryDatabase(
           'SELECT * FROM declined_users WHERE user_id = ? AND is_read = 0',
@@ -425,7 +405,7 @@ app.post('/updateUserStatus', async (req, res) => {
         }
       }
 
-      if (status === "Verified") {
+      if (status === "Verified" || status === "Created") {
         const message = currentStatus === "Renewal" ? 'You have renewed' : 'Your application has been accepted.';
         const existingAccepted = await queryDatabase(
           'SELECT * FROM accepted_users WHERE user_id = ? AND message = ? AND is_read = 0',
@@ -441,7 +421,6 @@ app.post('/updateUserStatus', async (req, res) => {
         }
       }
 
-      // Send email notification with date of birth
       const emailSent = await sendStatusEmail(
         email, 
         firstName, 
@@ -451,7 +430,6 @@ app.post('/updateUserStatus', async (req, res) => {
         userResult[0].password
       );
 
-      // Commit transaction
       await queryDatabase('COMMIT');
       
       res.json({ 
@@ -461,8 +439,6 @@ app.post('/updateUserStatus', async (req, res) => {
       return;
 
     } catch (err) {
-      // ... rest of the error handling code remains the same ...
-      // Rollback transaction
       await queryDatabase('ROLLBACK');
       lastError = err;
       console.error('Error updating user status:', err);
@@ -481,6 +457,7 @@ app.post('/updateUserStatus', async (req, res) => {
     }
   }
 });
+
 app.post('/updateUserProfile', async (req, res) => {
   const { userId, profilePic } = req.body;
   
@@ -508,10 +485,8 @@ app.post('/submitAllSteps', async (req, res) => {
     const newId = Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
     const codeId = `${year}-${month}-${newId}`;
 
-    // Start transaction
     await queryDatabase('START TRANSACTION');
 
-    // Insert Step 1 - Identifying Information
     await queryDatabase(`
       INSERT INTO step1_identifying_information (
         code_id, first_name, middle_name, last_name, age, gender, date_of_birth,
@@ -534,7 +509,7 @@ app.post('/submitAllSteps', async (req, res) => {
       formData.occupation || "", 
       formData.religion || "", 
       formData.company || "", 
-      formData.income || "", // Make sure the income is handled as needed
+      formData.income || "", 
       formData.employmentStatus || "", 
       formData.contactNumber || "", 
       formData.email || "", 
@@ -542,7 +517,6 @@ app.post('/submitAllSteps', async (req, res) => {
       formData.indigenous || ""
     ]);
 
-    // Insert Step 2 - Family Occupation
     if (formData.children && Array.isArray(formData.children)) {
       for (const child of formData.children) {
         await queryDatabase(
@@ -550,27 +524,24 @@ app.post('/submitAllSteps', async (req, res) => {
           [
             codeId,
             `${child.firstName} ${child.middleName} ${child.lastName}`.trim(),
-            'Child', // Default relationship
-            child.educationalAttainment || 'N/A', // Use education for occupation
+            'Child', 
+            child.educationalAttainment || 'N/A', 
             child.age || 0
           ]
         );
       }
     }
 
-    // Insert Step 3 - Classification
     await queryDatabase(
       'INSERT INTO step3_classification (code_id, classification) VALUES (?, ?)',
       [codeId, formData.Classification || ""]
     );
 
-    // Insert Step 4 - Needs/Problems
     await queryDatabase(
       'INSERT INTO step4_needs_problems (code_id, needs_problems) VALUES (?, ?)',
       [codeId, formData.needsProblems || ""]
     );
 
-    // Insert Step 5 - Emergency Contact
     if (formData.emergencyContact) {
       await queryDatabase(
         'INSERT INTO step5_in_case_of_emergency (code_id, emergency_name, emergency_relationship, emergency_address, emergency_contact) VALUES (?, ?, ?, ?, ?)',
@@ -584,26 +555,23 @@ app.post('/submitAllSteps', async (req, res) => {
       );
     }
 
-    // Insert into the `users` table after all steps
     const fullName = `${formData.firstName} ${formData.middleName} ${formData.lastName}`.trim();
     await queryDatabase(
       'INSERT INTO users (email, name, password, status, code_id) VALUES (?, ?, ?, ?, ?)',
       [formData.email, fullName, formData.dateOfBirth, 'Pending', codeId]
     );
 
-    // Commit the transaction
     await queryDatabase('COMMIT');
 
-    // Success response
     res.status(201).json({ message: 'Form submitted successfully. Your verification is now pending.', codeId });
 
   } catch (err) {
-    // Rollback transaction on error
     await queryDatabase('ROLLBACK');
     console.error('Error saving form data:', err);
     res.status(500).json({ error: 'Error saving form data: ' + err.message });
   }
 });
+
 app.get('/debug/family-occupation', async (req, res) => {
   try {
     const results = await queryDatabase(`
@@ -620,7 +588,6 @@ app.get('/debug/family-occupation', async (req, res) => {
       ORDER BY s1.code_id, s2.family_member_name
     `);
     
-    // Group family members by parent
     const familyData = {};
     results.forEach(row => {
       if (!familyData[row.code_id]) {
@@ -629,7 +596,7 @@ app.get('/debug/family-occupation', async (req, res) => {
           family_members: []
         };
       }
-      if (row.family_member_name) { // Only add if there's actually a family member
+      if (row.family_member_name) { 
         familyData[row.code_id].family_members.push({
           name: row.family_member_name,
           relationship: row.relationship,
@@ -645,11 +612,11 @@ app.get('/debug/family-occupation', async (req, res) => {
     res.status(500).json({ error: 'Error fetching family occupation data' });
   }
 });
+
 app.get('/notifications/:userId', async (req, res) => {
   const { userId } = req.params;
 
   try {
-    // Get all notifications (both read and unread) ordered by date
     const accepted = await queryDatabase(
       'SELECT accepted_at, is_read, message FROM accepted_users WHERE user_id = ? ORDER BY accepted_at DESC', 
       [userId]
@@ -660,7 +627,6 @@ app.get('/notifications/:userId', async (req, res) => {
       [userId]
     );
 
-    // Add queries for terminated_users and user_remarks
     const terminated = await queryDatabase(
       'SELECT terminated_at, message, is_read FROM terminated_users WHERE user_id = ? ORDER BY terminated_at DESC',
       [userId]
@@ -673,7 +639,6 @@ app.get('/notifications/:userId', async (req, res) => {
     
     let notifications = [];
 
-    // Add all accepted notifications (including renewals)
     accepted.forEach(accept => {
       notifications.push({
         id: `accepted-${userId}-${accept.accepted_at}`,
@@ -684,7 +649,6 @@ app.get('/notifications/:userId', async (req, res) => {
       });
     });
 
-    // Add declined notifications
     declined.forEach(decline => {
       notifications.push({
         id: `declined-${userId}-${decline.declined_at}`,
@@ -695,7 +659,6 @@ app.get('/notifications/:userId', async (req, res) => {
       });
     });
 
-    // Add terminated notifications
     terminated.forEach(term => {
       notifications.push({
         id: `terminated-${userId}-${term.terminated_at}`,
@@ -706,7 +669,6 @@ app.get('/notifications/:userId', async (req, res) => {
       });
     });
 
-    // Add remarks notifications
     remarks.forEach(remark => {
       notifications.push({
         id: `remark-${userId}-${remark.remarks_at}`,
@@ -717,7 +679,6 @@ app.get('/notifications/:userId', async (req, res) => {
       });
     });
 
-    // Sort all notifications by date
     notifications.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
     res.status(200).json(notifications);
@@ -726,13 +687,13 @@ app.get('/notifications/:userId', async (req, res) => {
     res.status(500).json({ error: 'Database error while fetching notifications' });
   }
 });
+
 app.put('/notifications/mark-as-read/:userId/:type', async (req, res) => {
   const { userId, type } = req.params;
   let retries = 3;
 
   while (retries > 0) {
     try {
-      // Start transaction
       await queryDatabase('START TRANSACTION');
 
       if (type === 'application_accepted' || type === 'renewal_accepted') {
@@ -773,13 +734,11 @@ app.put('/notifications/mark-as-read/:userId/:type', async (req, res) => {
         );
       }
 
-      // Commit transaction
       await queryDatabase('COMMIT');
       res.json({ success: true, message: 'Notification marked as read' });
       return;
 
     } catch (err) {
-      // Rollback transaction
       await queryDatabase('ROLLBACK');
       
       if (err.code !== 'ER_LOCK_WAIT_TIMEOUT') {
@@ -796,16 +755,15 @@ app.put('/notifications/mark-as-read/:userId/:type', async (req, res) => {
     }
   }
 });
+
 app.put('/notifications/mark-all-as-read/:userId', async (req, res) => {
   const { userId } = req.params;
   let retries = 3;
 
   while (retries > 0) {
     try {
-      // Start transaction
       await queryDatabase('START TRANSACTION');
 
-      // Lock and update accepted notifications
       await queryDatabase(
         'SELECT * FROM accepted_users WHERE user_id = ? AND is_read = 0 FOR UPDATE',
         [userId]
@@ -815,7 +773,6 @@ app.put('/notifications/mark-all-as-read/:userId', async (req, res) => {
         [userId]
       );
 
-      // Lock and update declined notifications
       await queryDatabase(
         'SELECT * FROM declined_users WHERE user_id = ? AND is_read = 0 FOR UPDATE',
         [userId]
@@ -825,7 +782,6 @@ app.put('/notifications/mark-all-as-read/:userId', async (req, res) => {
         [userId]
       );
 
-      // Lock and update terminated notifications
       await queryDatabase(
         'SELECT * FROM terminated_users WHERE user_id = ? AND is_read = 0 FOR UPDATE',
         [userId]
@@ -835,7 +791,6 @@ app.put('/notifications/mark-all-as-read/:userId', async (req, res) => {
         [userId]
       );
 
-      // Lock and update remarks notifications
       await queryDatabase(
         'SELECT * FROM user_remarks WHERE user_id = ? AND is_read = 0 FOR UPDATE',
         [userId]
@@ -845,13 +800,11 @@ app.put('/notifications/mark-all-as-read/:userId', async (req, res) => {
         [userId]
       );
 
-      // Commit transaction
       await queryDatabase('COMMIT');
       res.json({ success: true, message: 'All notifications marked as read' });
       return;
 
     } catch (err) {
-      // Rollback transaction
       await queryDatabase('ROLLBACK');
       
       if (err.code !== 'ER_LOCK_WAIT_TIMEOUT') {
@@ -868,11 +821,11 @@ app.put('/notifications/mark-all-as-read/:userId', async (req, res) => {
     }
   }
 });
+
 app.get('/renewalUsers/:adminId', async (req, res) => {
   try {
     const { adminId } = req.params;
     
-    // First get the admin's barangay
     const adminResult = await queryDatabase('SELECT barangay FROM admin WHERE id = ?', [adminId]);
     
     if (adminResult.length === 0) {
@@ -881,11 +834,10 @@ app.get('/renewalUsers/:adminId', async (req, res) => {
 
     const adminBarangay = adminResult[0].barangay;
 
-    // Get renewal users from the same barangay as the admin
     const users = await queryDatabase(`
-      SELECT u.id AS userId, u.email, u.name, u.status, u.barangay,
+      SELECT u.id AS userId, u.email, u.name, u.status, s1.barangay,
              s1.first_name, s1.middle_name, s1.last_name, s1.age, s1.gender, 
-             s1.date_of_birth, s1.place_of_birth, s1.address, s1.education, 
+             s1.date_of_birth, s1.place_of_birth, s1.education, 
              s1.civil_status, s1.occupation, s1.religion, s1.company, 
              s1.income, s1.employment_status, s1.contact_number, s1.email, 
              s1.pantawid_beneficiary, s1.indigenous, s1.code_id,
@@ -895,21 +847,19 @@ app.get('/renewalUsers/:adminId', async (req, res) => {
              s5.emergency_address, s5.emergency_contact
 
       FROM users u
-      JOIN user_details_step1 s1 ON u.id = s1.user_id
-      LEFT JOIN user_details_step3 s3 ON u.id = s3.user_id
-      LEFT JOIN user_details_step4 s4 ON u.id = s4.user_id
-      LEFT JOIN user_details_step5 s5 ON u.id = s5.user_id
-      WHERE u.status = 'Renewal' AND u.barangay = ?
+      JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
+      LEFT JOIN step3_classification s3 ON u.code_id = s3.code_id
+      LEFT JOIN step4_needs_problems s4 ON u.code_id = s4.code_id
+      LEFT JOIN step5_in_case_of_emergency s5 ON u.code_id = s5.code_id
+      WHERE u.status = 'Renewal' AND s1.barangay = ?
     `, [adminBarangay]);
 
-    // For each user, get their children
     const usersWithChildren = await Promise.all(users.map(async (user) => {
       const children = await queryDatabase(`
         SELECT first_name, middle_name, last_name, birthdate, age, educational_attainment
         FROM user_details_step2
-        WHERE user_id = ?
-      `, [user.userId]);
-
+        WHERE code_id = ?
+      `, [user.code_id]);
       return {
         ...user,
         children: children
@@ -922,14 +872,14 @@ app.get('/renewalUsers/:adminId', async (req, res) => {
     res.status(500).json({ error: 'Error fetching renewal users' });
   }
 });
+
 app.post('/updateAcceptedUser', async (req, res) => {
-  const { userId, message } = req.body;
+  const { code_id, message } = req.body;
   
   try {
-    // Always insert a new record instead of updating
     await queryDatabase(
       'INSERT INTO accepted_users (user_id, message, accepted_at) VALUES (?, ?, NOW())',
-      [userId, message]
+      [code_id, message]
     );
 
     res.status(200).json({ message: 'New notification added successfully' });
@@ -938,6 +888,7 @@ app.post('/updateAcceptedUser', async (req, res) => {
     res.status(500).json({ error: 'Failed to add notification' });
   }
 });
+
 app.get('/getTerminatedUsers', async (req, res) => {
   try {
     let query = `
@@ -948,9 +899,9 @@ app.get('/getTerminatedUsers', async (req, res) => {
         a.barangay as admin_barangay,
         tu.terminated_at
       FROM users u
-      JOIN user_details_step1 s1 ON u.id = s1.user_id
+      JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
       JOIN terminated_users tu ON u.id = tu.user_id
-      LEFT JOIN admin a ON u.barangay = a.barangay
+      LEFT JOIN admin a ON s1.barangay = a.barangay
       WHERE u.status = 'Terminated'
       ORDER BY tu.terminated_at DESC
     `;
@@ -962,42 +913,38 @@ app.get('/getTerminatedUsers', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch terminated users' });
   }
 });
+
 app.post('/unTerminateUser', async (req, res) => {
   const { userId } = req.body;
 
   try {
-    // Start transaction
     await queryDatabase('START TRANSACTION');
 
-    // Update user status back to Verified
     await queryDatabase(
       'UPDATE users SET status = ? WHERE id = ?',
       ['Verified', userId]
     );
 
-    // Add notification for verification
     await queryDatabase(
       'INSERT INTO accepted_users (user_id, message, accepted_at, is_read) VALUES (?, ?, NOW(), 0)',
       [userId, 'Your account has been reactivated.']
     );
 
-    // Commit the transaction
     await queryDatabase('COMMIT');
 
     res.status(200).json({ message: 'User status updated to Verified' });
   } catch (error) {
-    // Rollback in case of error
     await queryDatabase('ROLLBACK');
     console.error('Error updating status:', error);
     res.status(500).json({ error: 'Failed to update status' });
   }
 });
+
 app.get('/verifiedUsers/:adminId', async (req, res) => {
   try {
     const { adminId } = req.params;
-    const { status } = req.query; // Get status from query parameters
+    const { status } = req.query; 
     
-    // First get the admin's barangay
     const adminResult = await queryDatabase('SELECT barangay FROM admin WHERE id = ?', [adminId]);
     
     if (adminResult.length === 0) {
@@ -1006,17 +953,15 @@ app.get('/verifiedUsers/:adminId', async (req, res) => {
 
     const adminBarangay = adminResult[0].barangay;
 
-    // Build the WHERE clause based on the status filter
     let statusCondition = "u.status IN ('Verified', 'Pending Remarks', 'Terminated')";
     if (status && (status === 'Verified' || status === 'Pending Remarks' || status === 'Terminated')) {
       statusCondition = "u.status = ?";
     }
 
-    // Get verified users and pending remarks users with their latest remarks
     const users = await queryDatabase(`
-      SELECT u.id AS userId, u.email, u.name, u.status, u.barangay,
+      SELECT u.id AS userId, u.email, u.name, u.status, s1.barangay,
              s1.first_name, s1.middle_name, s1.last_name, s1.age, s1.gender, 
-             s1.date_of_birth, s1.place_of_birth, s1.address, s1.education, 
+             s1.date_of_birth, s1.place_of_birth, s1.education, 
              s1.civil_status, s1.occupation, s1.religion, s1.company, 
              s1.income, s1.employment_status, s1.contact_number, s1.email, 
              s1.pantawid_beneficiary, s1.indigenous, s1.code_id,
@@ -1030,20 +975,19 @@ app.get('/verifiedUsers/:adminId', async (req, res) => {
               ORDER BY ur.remarks_at DESC 
               LIMIT 1) as latest_remarks
       FROM users u
-      JOIN user_details_step1 s1 ON u.id = s1.user_id
-      LEFT JOIN user_details_step3 s3 ON u.id = s3.user_id
-      LEFT JOIN user_details_step4 s4 ON u.id = s4.user_id
-      LEFT JOIN user_details_step5 s5 ON u.id = s5.user_id
-      WHERE ${statusCondition} AND u.barangay = ?
+      JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
+      LEFT JOIN step3_classification s3 ON u.code_id = s3.code_id
+      LEFT JOIN step4_needs_problems s4 ON u.code_id = s4.code_id
+      LEFT JOIN step5_in_case_of_emergency s5 ON u.code_id = s5.code_id
+      WHERE ${statusCondition} AND s1.barangay = ?
     `, status ? [status, adminBarangay] : [adminBarangay]);
 
-    // For each user, get their children
     const usersWithChildren = await Promise.all(users.map(async (user) => {
       const children = await queryDatabase(`
-        SELECT first_name, middle_name, last_name, birthdate, age, educational_attainment
-        FROM user_details_step2
-        WHERE user_id = ?
-      `, [user.userId]);
+        SELECT family_member_name, relationship, occupation, age
+        FROM step2_family_occupation
+        WHERE code_id = ?
+      `, [user.code_id]);
 
       return {
         ...user,
@@ -1058,36 +1002,33 @@ app.get('/verifiedUsers/:adminId', async (req, res) => {
     res.status(500).json({ error: 'Error fetching verified users' });
   }
 });
+
 app.post('/saveRemarks', async (req, res) => {
   const { code_id, remarks, user_id, admin_id } = req.body;
 
   try {
-    // Start transaction
     await queryDatabase('START TRANSACTION');
 
-    // Insert the remark
     await queryDatabase(
       'INSERT INTO user_remarks (code_id, remarks, user_id, admin_id) VALUES (?, ?, ?, ?)',
       [code_id, remarks, user_id, admin_id]
     );
 
-    // Update user status to Pending Remarks
     await queryDatabase(
       'UPDATE users SET status = ? WHERE id = ?',
       ['Pending Remarks', user_id]
     );
 
-    // Commit the transaction
     await queryDatabase('COMMIT');
 
     res.status(200).json({ message: 'Remarks saved successfully and status updated to Pending Remarks' });
   } catch (error) {
-    // Rollback in case of error
     await queryDatabase('ROLLBACK');
     console.error('Error saving remarks:', error);
     res.status(500).json({ error: 'Failed to save remarks' });
   }
 });
+
 app.get('/getAllRemarks', async (req, res) => {
   try {
     let query = `
@@ -1101,7 +1042,7 @@ app.get('/getAllRemarks', async (req, res) => {
         u.status
       FROM user_remarks r
       JOIN users u ON r.user_id = u.id
-      JOIN user_details_step1 s1 ON u.id = s1.user_id
+      JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
       JOIN admin a ON r.admin_id = a.id
       WHERE u.status = 'Pending Remarks'
       ORDER BY r.remarks_at DESC
@@ -1114,72 +1055,99 @@ app.get('/getAllRemarks', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch remarks' });
   }
 });
+
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 100;
+
+const executeWithRetry = async (fn) => {
+  let retries = 0;
+  while (retries < MAX_RETRIES) {
+    try {
+      return await fn();
+    } catch (error) {
+      if (error.code === 'ER_LOCK_DEADLOCK' && retries < MAX_RETRIES - 1) {
+        retries++;
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+        continue;
+      }
+      throw error;
+    }
+  }
+};
+
 app.post('/acceptRemarks', async (req, res) => {
-  const { userId } = req.body;
+  const { code_id } = req.body;
 
   try {
-    // Start transaction
-    await queryDatabase('START TRANSACTION');
+    await executeWithRetry(async () => {
+      await queryDatabase('START TRANSACTION');
 
-    // Update user status to Terminated
-    await queryDatabase(
-      'UPDATE users SET status = ? WHERE id = ?',
-      ['Terminated', userId]
-    );
+      const userResult = await queryDatabase('SELECT id FROM users WHERE code_id = ?', [code_id]);
+      if (userResult.length === 0) {
+        throw new Error('User not found');
+      }
+      const user_id = userResult[0].id;
 
-    // Add notification for termination
-    await queryDatabase(
-      'INSERT INTO terminated_users (user_id, message, terminated_at, is_read) VALUES (?, ?, NOW(), 0)',
-      [userId, 'Your application has been terminated.']
-    );
+      await queryDatabase(
+        'UPDATE users SET status = ? WHERE code_id = ?',
+        ['Terminated', code_id]
+      );
 
-    // Commit the transaction
-    await queryDatabase('COMMIT');
+      await queryDatabase(
+        'INSERT INTO terminated_users (user_id, message, terminated_at, is_read) VALUES (?, ?, NOW(), 0)',
+        [user_id, 'Your application has been terminated.']
+      );
+
+      await queryDatabase('COMMIT');
+    });
 
     res.status(200).json({ message: 'User status updated to Terminated' });
   } catch (error) {
-    // Rollback in case of error
     await queryDatabase('ROLLBACK');
     console.error('Error updating status:', error);
     res.status(500).json({ error: 'Failed to update status' });
   }
 });
+
 app.post('/declineRemarks', async (req, res) => {
-  const { userId } = req.body;
+  const { code_id } = req.body;
 
   try {
-    // Start transaction
-    await queryDatabase('START TRANSACTION');
+    await executeWithRetry(async () => {
+      await queryDatabase('START TRANSACTION');
 
-    // Update user status back to Verified
-    await queryDatabase(
-      'UPDATE users SET status = ? WHERE id = ?',
-      ['Verified', userId]
-    );
+      const userResult = await queryDatabase('SELECT id FROM users WHERE code_id = ?', [code_id]);
+      if (userResult.length === 0) {
+        throw new Error('User not found');
+      }
+      const user_id = userResult[0].id;
 
-    // Add notification for verification
-    await queryDatabase(
-      'INSERT INTO accepted_users (user_id, message, accepted_at, is_read) VALUES (?, ?, NOW(), 0)',
-      [userId, 'Your application remains verified.']
-    );
+      await queryDatabase(
+        'UPDATE users SET status = ? WHERE code_id = ?',
+        ['Declined', code_id]
+      );
 
-    // Commit the transaction
-    await queryDatabase('COMMIT');
+      await queryDatabase(
+        'INSERT INTO terminated_users (user_id, message, terminated_at, is_read) VALUES (?, ?, NOW(), 0)',
+        [user_id, 'Your application has been declined.']
+      );
 
-    res.status(200).json({ message: 'User status updated to Verified' });
+      await queryDatabase('COMMIT');
+    });
+
+    res.status(200).json({ message: 'User status updated to Declined' });
   } catch (error) {
-    // Rollback in case of error
     await queryDatabase('ROLLBACK');
     console.error('Error updating status:', error);
     res.status(500).json({ error: 'Failed to update status' });
   }
 });
+
 const PORT = process.env.PORT || 8081;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
 
-// Graceful shutdown
 process.on('SIGTERM', () => {
   console.log('SIGTERM received. Closing HTTP server...');
   pool.end((err) => {
