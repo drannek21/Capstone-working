@@ -295,6 +295,9 @@ app.post('/getUserDetails', async (req, res) => {
 
     if (userResults.length > 0) {
       const user = userResults[0];
+      
+      // We'll let the frontend handle the default avatar
+      // No need to set a default profilePic here
 
       if (user.status === 'Verified') {
         const classificationResult = await queryDatabase(
@@ -462,11 +465,14 @@ app.post('/updateUserProfile', async (req, res) => {
   const { userId, profilePic } = req.body;
   
   try {
-    if (!userId || !profilePic) {
-      return res.status(400).json({ error: 'Missing required fields: userId or profilePic' });
+    if (!userId) {
+      return res.status(400).json({ error: 'Missing required field: userId' });
     }
     
-    await queryDatabase('UPDATE users SET profilePic = ? WHERE id = ?', [profilePic, userId]);
+    // Only update if profilePic is provided
+    if (profilePic) {
+      await queryDatabase('UPDATE users SET profilePic = ? WHERE id = ?', [profilePic, userId]);
+    }
     
     res.status(200).json({ success: true, message: 'Profile picture updated successfully' });
   } catch (err) {

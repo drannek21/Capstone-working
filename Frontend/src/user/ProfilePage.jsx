@@ -6,7 +6,7 @@ import avatar from "../assets/avatar.jpg";
 import html2canvas from 'html2canvas';
 import dswdLogo from '../assets/dswd-logo.png';
 import axios from 'axios';
-import toast from 'react-hot-toast';
+import { toast, Toaster } from 'react-hot-toast';
 
 const ProfilePage = () => {
   const [activeTab, setActiveTab] = useState("Details");
@@ -26,6 +26,7 @@ const ProfilePage = () => {
   });
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({});
+  const [refreshKey, setRefreshKey] = useState(0);
   const navigate = useNavigate();
 
   const loggedInUserId = localStorage.getItem("UserId");
@@ -33,7 +34,7 @@ const ProfilePage = () => {
   // Update these constants at the top of your component
   const CLOUD_NAME = 'dskj7oxr7';
   const UPLOAD_PRESET = 'soloparent';  // Make sure this matches your Cloudinary upload preset
-  const CLOUDINARY_FOLDER = 'Profile_Pics';
+  const CLOUDINARY_FOLDER = 'soloparent/users';
 
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
 
@@ -63,13 +64,13 @@ const ProfilePage = () => {
           if (previousStatus && previousStatus !== data.status) {
             // Show notification based on new status
             if (data.status === "Verified") {
-              alert("Congratulations! Your application has been approved!");
+              toast.success("Congratulations! Your application has been approved!");
             } else if (data.status === "Unverified" && previousStatus === "Pending") {
-              alert("Your application has been declined. Please check with the admin for more details.");
+              toast.error("Your application has been declined. Please check with the admin for more details.");
             } else if (data.status === "Terminated") {
-              alert("Your Solo Parent application has been terminated. Please contact your Barangay for more information.");
+              toast.error("Your Solo Parent application has been terminated. Please contact your Barangay for more information.");
             } else if (data.status === "Pending Remarks") {
-              alert("Your application is under investigation. Please wait for the admin's response.");
+              toast.info("Your application is under investigation. Please wait for the admin's response.");
             }
           }
           setPreviousStatus(data.status);
@@ -104,6 +105,12 @@ const ProfilePage = () => {
       updateUserStatusToRenewal();
     }
   }, [user?.status]); // Only run when status changes
+
+  // Effect to refresh component when user data changes
+  useEffect(() => {
+    // This will ensure the component refreshes when user data changes
+    setRefreshKey(oldKey => oldKey + 1);
+  }, [user?.profilePic]);
 
   const renderUserDetails = () => {
     if (!user) return null;
@@ -215,24 +222,36 @@ const ProfilePage = () => {
     }
   };
 
-  
-
   // Handle file change when a user selects a file to upload
   const handleFileChange = (e) => {
     const file = e.target.files[0];
-    if (file) {
-      setSelectedFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreviewUrl(reader.result); // Preview the image
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+    
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Please upload only image files (JPG, PNG, GIF, WEBP)');
+      return;
     }
+
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+    if (file.size > maxSize) {
+      toast.error('File size should not exceed 5MB');
+      return;
+    }
+
+    setSelectedFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPreviewUrl(reader.result); // Preview the image
+    };
+    reader.readAsDataURL(file);
   };
 
   // Trigger the file input click event
-  const handleUploadClick = (type) => {
-    const fileInput = document.getElementById(`file-input-${type}`);
+  const handleUploadClick = () => {
+    const fileInput = document.getElementById('profilePicInput');
     if (fileInput) {
       fileInput.click();
     }
@@ -240,62 +259,80 @@ const ProfilePage = () => {
 
   // Handle the profile picture upload to Cloudinary
   const handleUploadSubmit = async () => {
-    if (!selectedFile) return;
-
+    if (!selectedFile || !loggedInUserId) return;
+    
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!validTypes.includes(selectedFile.type)) {
+      toast.error('Please select a valid image file (JPEG, PNG, GIF, WEBP)');
+      return;
+    }
+    
+    // Validate file size (max 5MB)
+    if (selectedFile.size > 5 * 1024 * 1024) {
+      toast.error('File size should not exceed 5MB');
+      return;
+    }
+    
+    setIsUploading(true);
+    const uploadingToastId = toast.loading('Uploading profile picture...');
+    
     try {
-      setIsLoading(true);
       const formData = new FormData();
       formData.append('file', selectedFile);
-      formData.append('upload_preset', UPLOAD_PRESET);
-      formData.append('folder', CLOUDINARY_FOLDER);
-
-      // First, upload to Cloudinary
-      const cloudinaryResponse = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!cloudinaryResponse.ok) {
-        const errorData = await cloudinaryResponse.json();
-        throw new Error(`Cloudinary upload failed: ${errorData.error?.message || 'Unknown error'}`);
+      formData.append('upload_preset', 'soloparent');
+      formData.append('folder', `soloparent/users/${loggedInUserId}/profile`);
+      
+      // Create instance with onUploadProgress
+      const instance = axios.create();
+      
+      const response = await instance.post(
+        'https://api.cloudinary.com/v1_1/dskj7oxr7/image/upload',
+        formData,
+        {
+          onUploadProgress: (progressEvent) => {
+            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            setUploadProgress(percentCompleted);
+          }
+        }
+      );
+      
+      const imageUrl = response.data.secure_url;
+      
+      // Update user profile in database
+      const apiResponse = await axios.post(
+        `${API_BASE_URL}/updateUserProfile`,
+        { userId: loggedInUserId, profilePic: imageUrl }
+      );
+      
+      if (apiResponse.data.success) {
+        // Update local state
+        if (user) {
+          setUser({ ...user, profilePic: imageUrl });
+        }
+        
+        // Update localStorage
+        localStorage.setItem(`profilePic_${loggedInUserId}`, imageUrl);
+        
+        toast.dismiss(uploadingToastId);
+        toast.success('Profile picture updated successfully');
+        setShowUploadModal(false);
+        setSelectedFile(null);
+        setPreviewUrl(null);
+        setUploadProgress(0);
+        
+        // Force refresh to show new image
+        setRefreshKey(oldKey => oldKey + 1);
       }
-
-      const cloudinaryData = await cloudinaryResponse.json();
-      const imageUrl = cloudinaryData.secure_url;
-
-      // Then, update the backend
-      const backendResponse = await fetch(`${API_BASE_URL}/updateUserProfile`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ 
-          userId: loggedInUserId, 
-          profilePic: imageUrl 
-        }),
-      });
-
-      if (!backendResponse.ok) {
-        throw new Error('Failed to update profile in backend');
-      }
-
-      // Update local state and storage
-      localStorage.setItem(`profilePic_${loggedInUserId}`, imageUrl);
-      setUser(prev => ({
-        ...prev,
-        profilePic: imageUrl
-      }));
-
-      setShowUploadModal(false);
-      setSelectedFile(null);
-      setPreviewUrl(null);
-
-      alert("Profile picture updated successfully!");
     } catch (error) {
       console.error('Error uploading profile picture:', error);
-      alert(`Failed to upload profile picture: ${error.message}`);
+      toast.dismiss(uploadingToastId);
+      toast.error('Failed to upload profile picture. Please try again.');
+      
+      // Clear localStorage cache if upload fails
+      localStorage.removeItem(`profilePic_${loggedInUserId}`);
     } finally {
-      setIsLoading(false);
+      setIsUploading(false);
     }
   };
 
@@ -363,7 +400,7 @@ const ProfilePage = () => {
       link.click();
     } catch (error) {
       console.error('Error generating ID:', error);
-      alert('Failed to download ID. Please try again.');
+      toast.error('Failed to download ID. Please try again.');
     }
   };
 
@@ -534,7 +571,7 @@ const ProfilePage = () => {
         formData,
         {
           onUploadProgress: (progressEvent) => {
-            const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
             // Update progress state if needed
           }
         }
@@ -551,6 +588,69 @@ const ProfilePage = () => {
       console.error('Profile image upload error:', error);
       toast.error('Failed to upload profile image');
     }
+  };
+
+  // Get the profile picture URL from user object or localStorage
+  const getProfilePicture = () => {
+    // First check if user has profilePic property
+    if (user?.profilePic) {
+      return user.profilePic;
+    }
+    
+    // Clear localStorage if user doesn't have a profile pic
+    // This ensures we don't use stale cached data
+    localStorage.removeItem(`profilePic_${loggedInUserId}`);
+    
+    // Fallback to default avatar
+    return avatar;
+  };
+  
+  // Get the profile picture URL
+  const profilePicUrl = getProfilePicture();
+  
+  // Modify this function to prevent constant refreshing and handle errors
+  const getImageUrl = (url) => {
+    if (!url || url === 'null' || url === 'undefined' || url === avatar) {
+      return avatar;
+    }
+    return url;
+  };
+
+  // Function to check if an image exists
+  const checkImageExists = async (url) => {
+    if (!url || url === avatar) return false;
+    
+    try {
+      const response = await fetch(url, { method: 'HEAD' });
+      return response.ok;
+    } catch (error) {
+      console.error("Error checking image:", error);
+      return false;
+    }
+  };
+  
+  // Effect to verify profile picture exists
+  useEffect(() => {
+    const verifyProfilePic = async () => {
+      if (profilePicUrl && profilePicUrl !== avatar) {
+        const exists = await checkImageExists(profilePicUrl);
+        if (!exists) {
+          // Image doesn't exist, clear from localStorage
+          localStorage.removeItem(`profilePic_${loggedInUserId}`);
+          // Force a component update
+          setRefreshKey(oldKey => oldKey + 1);
+        }
+      }
+    };
+    
+    verifyProfilePic();
+  }, [profilePicUrl, loggedInUserId]);
+
+  // Add cache-busting parameter to image URLs to prevent browser caching
+  const addCacheBuster = (url) => {
+    if (!url || url === avatar) return url;
+    // Add a timestamp to force browser to reload the image
+    return `${url}?t=${new Date().getTime()}`;
   };
 
   if (isLoading) {
@@ -582,44 +682,25 @@ const ProfilePage = () => {
     Terminated: <FaTimes className="status-icon terminated" />
   };
 
-  // Get the profile picture URL from user object or localStorage
-  // Update the profile picture URL determination
-  const profilePicUrl = user?.profilePic || avatar;
-  
-  // Modify this function to prevent constant refreshing
-  const getImageUrl = (url) => {
-    if (url === avatar) return url;
-    // Only add timestamp when the URL is first created
-    if (!url.includes('?')) {
-      return `${url}?${new Date().getTime()}`;
-    }
-    return url;
-  };
-
   return (
-    <div className="profile-container">
+    <div className="profile-container" key={refreshKey}>
+      <Toaster />
       <div className="profile-header">
         <div className="profile-image-container">
           <img 
-            src={user?.profile_image || avatar} 
+            src={addCacheBuster(getImageUrl(profilePicUrl))} 
             alt="Profile" 
             className="profile-image"
+            onError={(e) => {
+              console.log("Image load error, using default avatar");
+              e.target.onerror = null;
+              e.target.src = avatar;
+              // Clear localStorage if image fails to load
+              localStorage.removeItem(`profilePic_${loggedInUserId}`);
+            }}
           />
-          <div className="profile-image-overlay">
-            <label htmlFor="profile-image-upload">
-              <FaCamera className="camera-icon" />
-              <input
-                id="profile-image-upload"
-                type="file"
-                accept="image/*"
-                style={{ display: 'none' }}
-                onChange={(e) => {
-                  if (e.target.files[0]) {
-                    handleProfileImageUpload(e.target.files[0]);
-                  }
-                }}
-              />
-            </label>
+          <div className="profile-image-overlay" onClick={() => setShowUploadModal(true)}>
+            <FaCamera className="camera-icon" />
           </div>
         </div>
         <div className="profile-info">
@@ -666,12 +747,15 @@ const ProfilePage = () => {
                         <div className="id-photo-container">
                           <div className="id-photo">
                             <img 
-                              src={getImageUrl(profilePicUrl)} 
+                              src={addCacheBuster(getImageUrl(profilePicUrl))} 
                               alt="User" 
                               crossOrigin="anonymous" 
                               onError={(e) => {
+                                console.log("ID photo load error, using default avatar");
                                 e.target.onerror = null;
                                 e.target.src = avatar;
+                                // Clear localStorage if image fails to load
+                                localStorage.removeItem(`profilePic_${loggedInUserId}`);
                               }}
                             />
                           </div>
@@ -1048,13 +1132,23 @@ const ProfilePage = () => {
             <h3>Update Profile Picture</h3>
             <div className="preview-container">
               <img
-                src={previewUrl || profilePicUrl}
+                src={previewUrl || addCacheBuster(getImageUrl(profilePicUrl))}
                 alt="Preview"
                 className="preview-image"
                 onError={(e) => {
+                  console.log("Preview image load error, using default avatar");
+                  e.target.onerror = null;
                   e.target.src = avatar;
+                  // Clear localStorage if image fails to load
+                  localStorage.removeItem(`profilePic_${loggedInUserId}`);
                 }}
               />
+              {isLoading && uploadProgress.profilePic > 0 && (
+                <div className="upload-progress-container">
+                  <div className="upload-progress-bar" style={{ width: `${uploadProgress.profilePic}%` }}></div>
+                  <span className="upload-progress-text">{uploadProgress.profilePic}%</span>
+                </div>
+              )}
             </div>
             <input
               type="file"
@@ -1064,7 +1158,11 @@ const ProfilePage = () => {
               style={{ display: "none" }}
             />
             <div className="modal-buttons">
-              <button className="upload-photo-btn" onClick={handleUploadClick}>
+              <button 
+                className="upload-photo-btn" 
+                onClick={handleUploadClick}
+                disabled={isLoading}
+              >
                 Choose Photo
               </button>
               <button
@@ -1072,7 +1170,7 @@ const ProfilePage = () => {
                 onClick={handleUploadSubmit}
                 disabled={!selectedFile || isLoading}
               >
-                {isLoading ? "Uploading..." : "Save Photo"}
+                {isLoading ? `Uploading...` : "Save Photo"}
               </button>
               <button
                 className="cancel-btn-user"
@@ -1081,6 +1179,7 @@ const ProfilePage = () => {
                   setSelectedFile(null);
                   setPreviewUrl(null);
                 }}
+                disabled={isLoading}
               >
                 Cancel
               </button>
