@@ -84,7 +84,7 @@
 
 @media (max-width: 480px) {
   .contact-card {
-    width: 100%;
+    width: 80%;
     padding: 1rem;
     align-content: center;
   }

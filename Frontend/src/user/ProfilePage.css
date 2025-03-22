@@ -300,7 +300,6 @@
 }
 
 .children-list li strong {
-  
   font-size: 1.1rem;
 }
 
@@ -640,6 +639,7 @@
   .children-table th,
   .children-table td {
     padding: 0.75rem;
+    width: 100%;
     font-size: 0.9rem;
   }
 
@@ -710,6 +710,118 @@
   }
 }
 
+/* ID Tab Children Table Styling */
+.children-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border-radius: 12px;
+  overflow: hidden;
+  table-layout: fixed;
+  display: table;
+  box-sizing: border-box;
+  position: relative;
+}
+
+.children-table th {
+  background: #f8f9fa;
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: #2d3436;
+  border-bottom: 2px solid #e9ecef;
+  position: relative;
+  width: 46%;
+  box-sizing: border-box;
+  min-width: 100px;
+  white-space: nowrap;
+  z-index: 1;
+}
+
+.children-table th:nth-child(2) {
+  width: 20%;
+  box-sizing: border-box;
+  min-width: 50px;
+  white-space: nowrap;
+  z-index: 1;
+}
+
+.children-table th:last-child {
+  width: 40%;
+  box-sizing: border-box;
+  min-width: 150px;
+  white-space: nowrap;
+  z-index: 1;
+}
+
+
+
+.children-table td {
+  padding: 0.75rem;
+  border-bottom: 1px solid #e9ecef;
+  color: #4a5568;
+  vertical-align: middle;
+  width: 33.33%;
+  word-wrap: break-word;
+  box-sizing: border-box;
+  min-width: 100px;
+  white-space: nowrap;
+}
+
+.children-table td:nth-child(2) {
+  width: 33.33%;
+  font-weight: 500;
+  color: #16C47F;
+  box-sizing: border-box;
+  min-width: 50px;
+  white-space: nowrap;
+}
+
+.children-table td:last-child {
+  width: 33.33%;
+  padding-right: 1rem;
+  box-sizing: border-box;
+  min-width: 150px;
+  white-space: nowrap;
+}
+
+.children-table tr:last-child td {
+  border-bottom: none;
+}
+
+.children-table tr:hover {
+  background: rgba(22, 196, 127, 0.05);
+}
+
+.children-table tr:hover td:nth-child(2) {
+  color: #14b374;
+}
+
+.no-children-text {
+  text-align: center;
+  padding: 1.5rem;
+  color: #6c757d;
+  font-style: italic;
+  background: #f8f9fa;
+  border-radius: 12px;
+  border: 1px solid #e9ecef;
+  width: 100%;
+  box-sizing: border-box;
+  white-space: nowrap;
+}
+
+.id-back {
+  width: 100%;
+  padding: 1.5rem;
+  box-sizing: border-box;
+  position: relative;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
 
 /* Digital ID Styles */
 .id-container {
@@ -955,6 +1067,28 @@
 .renewal-button:hover {
   background-color: #b91c1c;
 }
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .digital-id {
+    width: 100%;
+  }
+
+  .id-body {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .id-photo {
+    width: 120px;
+    height: 120px;
+  }
+
+  .id-details {
+    text-align: center;
+  }
+} 
+
 
 /* Responsive Design */
 @media (max-width: 768px) {

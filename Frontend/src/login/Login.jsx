@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import styles from "./Login.module.css";
 
@@ -11,6 +11,17 @@ const Login = () => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+
+  useEffect(() => {
+    // Load saved credentials if rememberMe is true
+    const savedCredentials = localStorage.getItem('savedCredentials');
+    if (savedCredentials) {
+      const { email, password } = JSON.parse(savedCredentials);
+      setFormData({ email, password });
+      setRememberMe(true);
+    }
+  }, []);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -47,6 +58,13 @@ const Login = () => {
           localStorage.setItem("barangay", user.barangay);
         }
 
+        // Save credentials if rememberMe is checked
+        if (rememberMe) {
+          localStorage.setItem('savedCredentials', JSON.stringify(formData));
+        } else {
+          localStorage.removeItem('savedCredentials');
+        }
+
         switch (user.role) {
           case "admin":
             navigate("/admin-dashboard");
@@ -59,10 +77,14 @@ const Login = () => {
         }
       } else {
         setError(data.error || "Login failed. Please try again.");
+        // Clear saved credentials on failed login
+        localStorage.removeItem('savedCredentials');
       }
     } catch (err) {
       console.error("Login error:", err);
       setError("Failed to connect to the server. Please try again later.");
+      // Clear saved credentials on connection error
+      localStorage.removeItem('savedCredentials');
     } finally {
       setLoading(false);
     }
@@ -112,6 +134,17 @@ const Login = () => {
               >
               </button>
             </div>
+          </div>
+          
+          <div className={styles.rememberMe}>
+            <label>
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+              />
+              Remember me
+            </label>
           </div>
           
           <div className={styles.forgotPassword}>

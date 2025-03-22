@@ -391,7 +391,7 @@ app.post('/updateUserStatus', async (req, res) => {
 
       // First get the user ID and current status
       const userResult = await queryDatabase(`
-        SELECT u.id, u.status, s1.date_of_birth 
+        SELECT u.id, u.status, s1.date_of_birth, u.password 
         FROM users u 
         JOIN step1_identifying_information s1 ON u.code_id = s1.code_id 
         WHERE u.code_id = ? 
@@ -447,7 +447,8 @@ app.post('/updateUserStatus', async (req, res) => {
         firstName, 
         action, 
         remarks, 
-        userResult[0].date_of_birth
+        userResult[0].date_of_birth,
+        userResult[0].password
       );
 
       // Commit transaction

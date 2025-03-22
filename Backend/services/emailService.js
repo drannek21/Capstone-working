@@ -8,7 +8,7 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-const sendStatusEmail = async (email, firstName, action, remarks = '', dateOfBirth = '') => {
+const sendStatusEmail = async (email, firstName, action, remarks = '', dateOfBirth = '', password = '') => {
   const messageTemplates = {
     Accept: `Dear ${firstName},
 
@@ -18,7 +18,7 @@ You may now visit your respective Barangay Office to claim your Solo Parent ID. 
 
 Your login credentials:
 Email/Username: ${email}
-Password: ${dateOfBirth}
+Password: ${password}
 
 For any inquiries, please contact your Barangay Office or DSWD Office.
 

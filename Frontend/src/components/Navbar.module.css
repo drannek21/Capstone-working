@@ -132,19 +132,20 @@
 
 
 .login-nav {
-  background-color: white;
-  color: green;
-  border: 1px solid green;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 1rem;
+  background: linear-gradient(135deg, white 0%, #f0f0f0 100%);
+  color: #16C47F;
+  font-size: 1.1rem;
+  padding: 10px 15px;
+  font-weight: bold;
+  border-radius: 5px;
+  border: 2px solid #16C47F;
   transition: all 0.3s ease;
 }
 
 .login-nav:hover {
-  background-color: green;
+  background: linear-gradient(135deg, #16C47F 0%, #0E9B64 100%);
   color: white;
+  border-color: #0E9B64;
 }
 
 /* Add this to make the button align properly in the navbar */

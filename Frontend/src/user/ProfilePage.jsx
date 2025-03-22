@@ -202,11 +202,7 @@ const ProfilePage = () => {
     }
   };
 
-  // Remove this unused function
-  // const handleBirthdateChange = (e) => {
-  //   const birthdate = e.target.value;
-  //   setUser(prev => ({...prev, date_of_birth: birthdate}));
-  // };
+  
 
   // Handle file change when a user selects a file to upload
   const handleFileChange = (e) => {
@@ -308,13 +304,42 @@ const ProfilePage = () => {
         });
       }));
   
-      const canvas = await html2canvas(idCard, {
+      // Create a temporary container to hold the ID card at full size
+      const tempContainer = document.createElement('div');
+      tempContainer.style.position = 'fixed';
+      tempContainer.style.top = '0';
+      tempContainer.style.left = '0';
+      tempContainer.style.width = '750px';
+      tempContainer.style.height = '1500px';
+      tempContainer.style.transform = 'scale(1)';
+      tempContainer.style.transformOrigin = 'top left';
+      tempContainer.style.zIndex = '9999';
+      tempContainer.style.pointerEvents = 'none';
+      
+      // Clone the ID card and append it to the temporary container
+      const idCardClone = idCard.cloneNode(true);
+      tempContainer.appendChild(idCardClone);
+      document.body.appendChild(tempContainer);
+  
+      // Wait for the clone to be rendered
+      await new Promise(resolve => requestAnimationFrame(resolve));
+  
+      // Generate the canvas at full size
+      const canvas = await html2canvas(idCardClone, {
         useCORS: true,
         allowTaint: true,
         backgroundColor: null,
         scale: 2, // Higher quality
+        width: 750,
+        height: 1500,
+        logging: false,
+        ignoreElements: (element) => element.style.display === 'none'
       });
       
+      // Clean up the temporary container
+      tempContainer.remove();
+      
+      // Convert to PNG and trigger download
       const image = canvas.toDataURL('image/png', 1.0);
       const link = document.createElement('a');
       link.href = image;
