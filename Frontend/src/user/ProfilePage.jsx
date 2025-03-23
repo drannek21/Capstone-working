@@ -264,6 +264,7 @@ const ProfilePage = () => {
   const handleDocumentChange = async (e, documentType) => {
     const file = e.target.files[0];
     if (!file) return;
+    
     await uploadDocument(file, documentType);
   };
 
@@ -312,62 +313,54 @@ const ProfilePage = () => {
     confirmDelete(documentType);
   };
 
-  const downloadID = async () => {
-    const idCard = document.getElementById('idCard');
-    if (!idCard) return;
-  
+  const downloadID = async (side) => {
     try {
-      // Wait for images to load
-      const images = idCard.getElementsByTagName('img');
-      await Promise.all([...images].map(img => {
-        if (img.complete) return Promise.resolve();
-        return new Promise(resolve => {
-          img.onload = resolve;
-          img.onerror = resolve;
-        });
-      }));
-  
-      // Create a temporary container to hold the ID card at full size
-      const tempContainer = document.createElement('div');
-      tempContainer.style.position = 'fixed';
-      tempContainer.style.top = '0';
-      tempContainer.style.left = '0';
-      tempContainer.style.width = '750px';
-      tempContainer.style.height = '1500px';
-      tempContainer.style.transform = 'scale(1)';
-      tempContainer.style.transformOrigin = 'top left';
-      tempContainer.style.zIndex = '9999';
-      tempContainer.style.pointerEvents = 'none';
-      
-      // Clone the ID card and append it to the temporary container
-      const idCardClone = idCard.cloneNode(true);
-      tempContainer.appendChild(idCardClone);
-      document.body.appendChild(tempContainer);
-  
-      // Wait for the clone to be rendered
-      await new Promise(resolve => requestAnimationFrame(resolve));
-  
-      // Generate the canvas at full size
-      const canvas = await html2canvas(idCardClone, {
+      // Get the element to capture based on side
+      const targetElement = document.querySelector(side === 'back' ? '.id-back' : '.id-front');
+      if (!targetElement) {
+        console.error('Target element not found');
+        return;
+      }
+
+      // Get the actual dimensions
+      const rect = targetElement.getBoundingClientRect();
+
+      // Capture the current state
+      const canvas = await html2canvas(targetElement, {
         useCORS: true,
         allowTaint: true,
-        backgroundColor: null,
-        scale: 2, // Higher quality
-        width: 750,
-        height: 1500,
+        backgroundColor: 'white',
+        scale: 3,
+        width: rect.width,
+        height: rect.height,
         logging: false,
-        ignoreElements: (element) => element.style.display === 'none'
+        onclone: (clonedDoc) => {
+          const clonedElement = clonedDoc.querySelector(side === 'back' ? '.id-back' : '.id-front');
+          if (clonedElement) {
+            clonedElement.style.transform = 'none';
+            clonedElement.style.position = 'relative';
+            clonedElement.style.display = 'flex';
+            clonedElement.style.opacity = '1';
+            
+            // Make sure all content is visible
+            const header = clonedElement.querySelector('.id-header');
+            const body = clonedElement.querySelector('.id-body');
+            const backContent = clonedElement.querySelector('.back-content');
+            
+            if (header) header.style.display = 'flex';
+            if (body) body.style.display = 'flex';
+            if (backContent) backContent.style.display = 'flex';
+          }
+        }
       });
-      
-      // Clean up the temporary container
-      tempContainer.remove();
-      
-      // Convert to PNG and trigger download
+
+      // Download the image
       const image = canvas.toDataURL('image/png', 1.0);
       const link = document.createElement('a');
       link.href = image;
-      link.download = `${user.name}_SoloParent_ID.png`;
+      link.download = `${user.name}_SoloParent_ID_${side === 'back' ? 'Back' : 'Front'}.png`;
       link.click();
+
     } catch (error) {
       console.error('Error generating ID:', error);
       toast.error('Failed to download ID. Please try again.');
@@ -616,8 +609,8 @@ const ProfilePage = () => {
           <h1>{user.name || "User"}</h1>
           <p className="email">{user.email || "No email"}</p>
           <div className="status-badge">
-            {statusIcon[status] || statusIcon.Unverified}
-            <span>{status}</span>
+            {statusIcon[user.status] || statusIcon.Unverified}
+            <span>{user.status}</span>
           </div>
         </div>
       </div>
@@ -701,90 +694,130 @@ const ProfilePage = () => {
           )}
           {activeTab === "ID" && (
             <div className="id-tab">
-              {status === "Verified" ? (
+              {user?.status === "Verified" ? (
                 <div className="id-container">
-                  <div id="idCard" className="digital-id">
+                  <div className="card-container">
                     {/* Front of ID */}
-                    <div className="id-header">
-                      <img src={dswdLogo} alt="DSWD Logo" className="id-logo" />
-                      <div className="id-title">
-                        <h2>SOLO PARENT IDENTIFICATION CARD</h2>
-                        <p>Republic of the Philippines</p>
-                        <p className="id-subtitle">DSWD Region III</p>
+                    <div className="digital-id">
+                      <div className="id-front">
+                        <div className="id-header">
+                          <img src={dswdLogo} alt="DSWD Logo" className="id-logo" />
+                          <div className="id-title">
+                            <h2>SOLO PARENT IDENTIFICATION CARD</h2>
+                            <p>Republic of the Philippines</p>
+                            <p className="id-subtitle">DSWD Region III</p>
+                          </div>
+                        </div>
+                        <div className="id-body">
+                          <div className="id-photo-container">
+                            <div className="id-photo">
+                              <img 
+                                src={addCacheBuster(getImageUrl(profilePicUrl))} 
+                                alt="User" 
+                                crossOrigin="anonymous" 
+                                onError={(e) => {
+                                  console.log("ID photo load error, using default avatar");
+                                  e.target.onerror = null;
+                                  e.target.src = avatar;
+                                  localStorage.removeItem(`profilePic_${loggedInUserId}`);
+                                }}
+                              />
+                            </div>
+                            <div className="id-validity">
+                              <strong>Category: </strong>
+                              <span>{user.classification}</span>
+                            </div>
+                            <div className={`id-validity ${isIDExpired() ? "expired" : ""}`}>
+                              <strong>Valid Until: </strong>
+                              {user.validUntil ? new Date(user.validUntil).toLocaleDateString() : 'N/A'}
+                            </div>
+                          </div>
+                          <div className="id-details">
+                            <div className="detail-row">
+                              <strong>ID No:</strong>
+                              <span>{String(user.code_id).padStart(6, '0')}</span>
+                            </div>
+                            <div className="detail-row">
+                              <strong>Name:</strong>
+                              <span>{user.name}</span>
+                            </div>
+                            <div className="detail-row">
+                              <strong>Barangay:</strong>
+                              <span>{user.barangay}</span>
+                            </div>
+                            <div className="detail-row">
+                              <strong>Birthdate:</strong>
+                              <span>{user.date_of_birth ? 
+                                new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' })
+                                .format(new Date(user.date_of_birth)) : ''}</span>
+                            </div>
+                            <div className="detail-row">
+                              <strong>Civil Status:</strong>
+                              <span>{user.civil_status}</span>
+                            </div>
+                            <div className="detail-row">
+                              <strong>Contact:</strong>
+                              <span>{user.contact_number}</span>
+                            </div>
+                          </div>
+                        </div>
                       </div>
+                      <button className="download-id-btn" onClick={() => downloadID('front')}>
+                        Download Front
+                      </button>
                     </div>
-                    <div className="id-body">
-                      <div className="id-photo-container">
-                        <div className="id-photo">
-                          <img 
-                            src={addCacheBuster(getImageUrl(profilePicUrl))} 
-                            alt="User" 
-                            crossOrigin="anonymous" 
-                            onError={(e) => {
-                              console.log("ID photo load error, using default avatar");
-                              e.target.onerror = null;
-                              e.target.src = avatar;
-                              // Clear localStorage if image fails to load
-                              localStorage.removeItem(`profilePic_${loggedInUserId}`);
-                            }}
-                          />
+
+                    {/* Back of ID */}
+                    <div className="digital-id">
+                      <div className="id-back">
+                        <div className="id-header">
+                          <img src={dswdLogo} alt="DSWD Logo" className="id-logo" />
+                          <div className="id-title">
+                            <h2>SOLO PARENT IDENTIFICATION CARD</h2>
+                            <p>Republic of the Philippines</p>
+                            <p className="id-subtitle">DSWD Region III</p>
+                          </div>
                         </div>
-                        <div className="id-validity">
-                          <strong>Category: </strong>
-                          <span>{user.classification}</span>
-                        </div>
-                       
-                        <div className={`id-validity ${isIDExpired() ? "expired" : ""}`}>
-                          <strong>Valid Until: </strong>
-                          {user.validUntil ? new Date(user.validUntil).toLocaleDateString() : 'N/A'}
-                        </div>
-                      </div>
-                      <div className="id-details">
-                        <div className="detail-row">
-                          <strong>ID No:</strong>
-                          <span>{String(user.code_id).padStart(6, '0')}</span>
-                        </div>
-                        <div className="detail-row">
-                          <strong>Name:</strong>
-                          <span>{user.name}</span>
-                        </div>
-                        <div className="detail-row">
-                          <strong>Barangay:</strong>
-                          <span>{user.barangay}</span>
-                        </div>
-                        <div className="detail-row">
-                          <strong>Birthdate:</strong>
-                          <span>{user.date_of_birth ? 
-                            new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' })
-                            .format(new Date(user.date_of_birth)) : ''}</span>
-                        </div>
-                        <div className="detail-row">
-                          <strong>Civil Status:</strong>
-                          <span>{user.civil_status}</span>
-                        </div>
-                        <div className="detail-row">
-                          <strong>Contact:</strong>
-                          <span>{user.contact_number}</span>
+                        <div className="back-content">
+                          <div className="terms-section">
+                            <h3>Terms and Conditions</h3>
+                            <ol>
+                              <li>This ID is non-transferable</li>
+                              <li>Report loss/damage to DSWD office</li>
+                              <li>Present this ID when availing benefits</li>
+                              <li>Tampering invalidates this ID</li>
+                            </ol>
+                          </div>
+                          <div className="signature-section">
+                            <div className="signature-line">
+                              <div className="line"></div>
+                              <p>Card Holder's Signature</p>
+                            </div>
+                            <div className="signature-line">
+                              <div className="line"></div>
+                              <p>Authorized DSWD Official</p>
+                            </div>
+                          </div>
                         </div>
                       </div>
+                      <button className="download-id-btn" onClick={() => downloadID('back')}>
+                        Download Back
+                      </button>
                     </div>
                   </div>
-                  <button className="download-id-btn" onClick={downloadID}>
-                    Download ID Card
-                  </button>
                 </div>
-              ) : status === "Terminated" ? (
+              ) : user?.status === "Terminated" ? (
                 <div className="verification-prompt terminated">
                   <h3>ID Not Available</h3>
                   <p>Your Solo Parent ID is no longer available as your application has been terminated.</p>
                   <p>Please contact your Barangay office for more information.</p>
                 </div>
-              ) : status === "pending" ? (
+              ) : user?.status === "Pending" ? (
                 <div className="verification-prompt">
                   <h3>ID is being processed</h3>
                   <p>Please wait while your application is under review.</p>
                 </div>
-              ) : status === "Renewal" ? (
+              ) : user?.status === "Renewal" ? (
                 <div className="verification-prompt">
                   <h3>Renewal Application Under Review</h3>
                   <p>Please wait while your renewal application is being processed.</p>
