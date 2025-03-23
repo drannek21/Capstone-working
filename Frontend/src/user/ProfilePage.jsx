@@ -19,14 +19,16 @@ const ProfilePage = () => {
   const [documents, setDocuments] = useState({
     psa: null,
     itr: null,
-    medical: null,
+    med_cert: null,
     marriage: null,
-    death: null,
     cenomar: null,
+    death_cert: null,
   });
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({});
   const [refreshKey, setRefreshKey] = useState(0);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [documentToDelete, setDocumentToDelete] = useState(null);
   const navigate = useNavigate();
 
   const loggedInUserId = localStorage.getItem("UserId");
@@ -37,6 +39,44 @@ const ProfilePage = () => {
   const CLOUDINARY_FOLDER = 'soloparent/users';
 
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
+
+  // Add this function to check if ID is expired
+  const isIDExpired = () => {
+    if (!user?.validUntil) return false;
+    const expirationDate = new Date(user.validUntil);
+    const today = new Date('2026-03-19');
+    today.setHours(0, 0, 0, 0);
+    expirationDate.setHours(0, 0, 0, 0);
+    return expirationDate <= today;
+  };
+
+  // Add this function to update user status to Renewal
+  const updateUserStatusToRenewal = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/updateUserStatus`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ 
+          userId: loggedInUserId,
+          status: "Renewal"
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update user status');
+      }
+
+      // Update local state
+      setUser(prev => ({
+        ...prev,
+        status: "Renewal"
+      }));
+    } catch (error) {
+      console.error('Error updating user status:', error);
+    }
+  };
 
   // Fetch user details and check for status changes
   useEffect(() => {
@@ -97,14 +137,14 @@ const ProfilePage = () => {
     };
 
     fetchUserDetails();
-  }, [loggedInUserId, navigate]);
+  }, [loggedInUserId, navigate, API_BASE_URL, previousStatus]);
 
   // Check expiration only once when user data is loaded
   useEffect(() => {
     if (user && isIDExpired() && user.status !== "Renewal") {
       updateUserStatusToRenewal();
     }
-  }, [user?.status]); // Only run when status changes
+  }, [user, isIDExpired, updateUserStatusToRenewal]);
 
   // Effect to refresh component when user data changes
   useEffect(() => {
@@ -112,236 +152,166 @@ const ProfilePage = () => {
     setRefreshKey(oldKey => oldKey + 1);
   }, [user?.profilePic]);
 
-  const renderUserDetails = () => {
-    if (!user) return null;
-    
-    if (user.status === "Terminated") {
-      return (
-        <div className="verification-prompt terminated">
-          <h3>Account Terminated</h3>
-          <p>We regret to inform you that your Solo Parent application has been terminated.</p>
-          <p>If you believe this is a mistake or would like to appeal this decision, please contact your Barangay office for assistance.</p>
-          <p>You may need to provide additional documentation or information to support your case.</p>
-        </div>
-      );
-    } else if (user.status === "Pending Remarks") {
-      return (
-        <div className="verification-prompt">
-          <h3>Application Under Investigation</h3>
-          <p>Sorry, your application is currently under investigation by the admin. Please wait for further updates.</p>
-        </div>
-      );
-    } else if (user.status === "Verified") {
-      return (
-        <div className="user-details">
-          <h3>Personal Information</h3>
-          <ul>
-            <li>
-              <span className="label">Gender</span>
-              <span className="value">{user.gender}</span>
-            </li>
-            <li>
-              <span className="label">Birthdate</span>
-              <span className="value">{user.date_of_birth ? new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(new Date(user.date_of_birth)) : ''}</span>
-            </li>
-            <li>
-              <span className="label">Place of Birth</span>
-              <span className="value">{user.place_of_birth}</span>
-            </li>
-            <li>
-              <span className="label">Barangay</span>
-              <span className="value">{user.barangay}</span>
-            </li>
-            <li>
-              <span className="label">Religion</span>
-              <span className="value">{user.religion}</span>
-            </li>
-            <li>
-              <span className="label">Civil Status</span>
-              <span className="value">{user.civil_status}</span>
-            </li>
-            <li>
-              <span className="label">Company</span>
-              <span className="value">{user.company}</span>
-            </li>
-            <li>
-              <span className="label">Monthly Income</span>
-              <span className="value">{user.income}</span>
-            </li>
-            <li>
-              <span className="label">Contact Number</span>
-              <span className="value">{user.contact_number}</span>
-            </li>
-            <li>
-              <span className="label family">Family Composition</span>
-              {user.familyMembers && user.familyMembers.length > 0 ? (
-                <ul className="children-list">
-                  {user.familyMembers
-                    .filter(member => member.relationship === 'Child')
-                    .map((child, index) => (
-                      <li key={index}>
-                        <strong>Child {index + 1}: {child.name}</strong>
-                        <div className="child-details">
-                          <span>Age: {child.age}</span>
-                          <span>Education: {child.educational_attainment}</span>
-                        </div>
-                      </li>
-                    ))}
-                </ul>
-              ) : (
-                <span className="no-children">No children registered</span>
-              )}
-            </li>
-          </ul>
-        </div>
-      );
-    } else if (user.status === "pending") {
-      return (
-        <div className="verification-prompt">
-          <h3>Application Under Review</h3>
-          <p>Your verification application is currently being reviewed. Please wait for the admin's response.</p>
-        </div>
-      );
-    } else if (user.status === "Renewal") {
-      return (
-        <div className="verification-prompt">
-          <h3>Renewal Application Under Review</h3>
-          <p>Your renewal application is currently being processed. Please wait for the admin's response.</p>
-        </div>
-      );
-    } else {
-      return (
-        <div className="verification-prompt">
-          <h3>Verify Your Account</h3>
-          <p>Complete your verification to access all features and benefits.</p>
-          <button className="verify-button" onClick={handleSendApplication}>
-            Start Verification
-          </button>
-        </div>
-      );
-    }
-  };
-
-  // Handle file change when a user selects a file to upload
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    
-    // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp'];
-    if (!allowedTypes.includes(file.type)) {
-      toast.error('Please upload only image files (JPG, PNG, GIF, WEBP)');
-      return;
-    }
-
-    // Validate file size (max 5MB)
-    const maxSize = 5 * 1024 * 1024; // 5MB in bytes
-    if (file.size > maxSize) {
-      toast.error('File size should not exceed 5MB');
-      return;
-    }
-
-    setSelectedFile(file);
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setPreviewUrl(reader.result); // Preview the image
+  // Add this near the top with other useEffect hooks
+  useEffect(() => {
+    const fetchDocuments = async () => {
+      if (!loggedInUserId) return;
+      
+      try {
+        console.log('Fetching documents for user:', loggedInUserId);
+        const response = await axios.get(`${API_BASE_URL}/api/documents/getUserDocuments/${loggedInUserId}`);
+        console.log('Documents response:', response.data);
+        if (response.data.success) {
+          setDocuments(response.data.documents);
+        }
+      } catch (error) {
+        console.error('Error fetching documents:', error);
+        if (error.response) {
+          console.error('Response data:', error.response.data);
+          console.error('Response status:', error.response.status);
+        }
+        toast.error('Failed to load documents');
+      }
     };
-    reader.readAsDataURL(file);
+
+    fetchDocuments();
+  }, [loggedInUserId]);
+
+  // Add this near the top of your component
+  const documentTypes = {
+    psa: 'PSA Birth Certificate',
+    itr: 'Income Tax Return',
+    med_cert: 'Medical Certificate',
+    marriage: 'Marriage Certificate',
+    cenomar: 'CENOMAR',
+    death_cert: 'Death Certificate'
   };
 
-  // Trigger the file input click event
-  const handleUploadClick = () => {
-    const fileInput = document.getElementById('profilePicInput');
-    if (fileInput) {
-      fileInput.click();
-    }
-  };
+  const uploadDocument = async (file, documentType) => {
+    if (!file) return;
 
-  // Handle the profile picture upload to Cloudinary
-  const handleUploadSubmit = async () => {
-    if (!selectedFile || !loggedInUserId) return;
-    
-    // Validate file type
-    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-    if (!validTypes.includes(selectedFile.type)) {
-      toast.error('Please select a valid image file (JPEG, PNG, GIF, WEBP)');
-      return;
-    }
-    
-    // Validate file size (max 5MB)
-    if (selectedFile.size > 5 * 1024 * 1024) {
-      toast.error('File size should not exceed 5MB');
-      return;
-    }
-    
+    const uploadingToastId = toast.loading(`Uploading ${documentTypes[documentType]}...`);
     setIsUploading(true);
-    const uploadingToastId = toast.loading('Uploading profile picture...');
     
     try {
+      // Validate file
+      if (file.size > 5 * 1024 * 1024) { // 5MB
+        throw new Error('File size must be less than 5MB');
+      }
+
+      const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
+      if (!allowedTypes.includes(file.type)) {
+        throw new Error('File must be an image (JPEG/PNG) or PDF');
+      }
+
+      // Prepare form data for Cloudinary
       const formData = new FormData();
-      formData.append('file', selectedFile);
-      formData.append('upload_preset', 'soloparent');
-      formData.append('folder', `soloparent/users/${loggedInUserId}/profile`);
-      
-      // Create instance with onUploadProgress
-      const instance = axios.create();
-      
-      const response = await instance.post(
-        'https://api.cloudinary.com/v1_1/dskj7oxr7/image/upload',
+      formData.append('file', file);
+      formData.append('upload_preset', UPLOAD_PRESET);
+      formData.append('folder', `${CLOUDINARY_FOLDER}/${loggedInUserId}/documents/${documentType}`);
+
+      // Upload to Cloudinary
+      const response = await axios.post(
+        `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/auto/upload`,
         formData,
         {
           onUploadProgress: (progressEvent) => {
             const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-            setUploadProgress(percentCompleted);
+            setUploadProgress(prev => ({
+              ...prev,
+              [documentType]: percentCompleted
+            }));
           }
         }
       );
       
-      const imageUrl = response.data.secure_url;
+      const documentUrl = response.data.secure_url;
       
-      // Update user profile in database
-      const apiResponse = await axios.post(
-        `${API_BASE_URL}/updateUserProfile`,
-        { userId: loggedInUserId, profilePic: imageUrl }
-      );
+      // Save to database
+      await axios.post(`${API_BASE_URL}/api/documents/updateUserDocument`, {
+        userId: loggedInUserId,
+        documentType,
+        documentUrl,
+        displayName: file.name
+      });
       
-      if (apiResponse.data.success) {
-        // Update local state
-        if (user) {
-          setUser({ ...user, profilePic: imageUrl });
+      // Update local state
+      setDocuments(prev => ({
+        ...prev,
+        [documentType]: {
+          url: documentUrl,
+          public_id: response.data.public_id,
+          name: file.name,
+          status: 'uploaded'
         }
-        
-        // Update localStorage
-        localStorage.setItem(`profilePic_${loggedInUserId}`, imageUrl);
-        
-        toast.dismiss(uploadingToastId);
-        toast.success('Profile picture updated successfully');
-        setShowUploadModal(false);
-        setSelectedFile(null);
-        setPreviewUrl(null);
-        setUploadProgress(0);
-        
-        // Force refresh to show new image
-        setRefreshKey(oldKey => oldKey + 1);
-      }
-    } catch (error) {
-      console.error('Error uploading profile picture:', error);
-      toast.dismiss(uploadingToastId);
-      toast.error('Failed to upload profile picture. Please try again.');
+      }));
       
-      // Clear localStorage cache if upload fails
-      localStorage.removeItem(`profilePic_${loggedInUserId}`);
+      toast.dismiss(uploadingToastId);
+      toast.success(`${documentTypes[documentType]} uploaded successfully`);
+    } catch (error) {
+      console.error(`Error uploading ${documentType}:`, error);
+      toast.dismiss(uploadingToastId);
+      toast.error(error.message || `Failed to upload ${documentType}. Please try again.`);
     } finally {
       setIsUploading(false);
+      setUploadProgress(prev => ({
+        ...prev,
+        [documentType]: 0
+      }));
     }
   };
 
-  // Handle application submission for verification
-  const handleSendApplication = () => {
-    navigate("/form", { state: { userId: loggedInUserId } }); // Navigate to the form page
+  const handleDocumentChange = async (e, documentType) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    await uploadDocument(file, documentType);
   };
 
-  // Add this function after the other handler functions and before the render checks
+  const confirmDelete = (documentType) => {
+    setDocumentToDelete(documentType);
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteConfirmed = async () => {
+    const documentType = documentToDelete;
+    if (!documentType || !documents[documentType]) return;
+
+    const deletingToastId = toast.loading(`Deleting ${documentTypes[documentType]}...`);
+    
+    try {
+      // Delete from both database and update state
+      await axios.post(`${API_BASE_URL}/api/documents/deleteDocument`, {
+        userId: loggedInUserId,
+        documentType
+      });
+
+      // Update local state
+      setDocuments(prev => ({
+        ...prev,
+        [documentType]: null
+      }));
+
+      toast.dismiss(deletingToastId);
+      toast.success(`${documentTypes[documentType]} deleted successfully`);
+    } catch (error) {
+      console.error(`Error deleting ${documentType}:`, error);
+      toast.dismiss(deletingToastId);
+      toast.error(`Failed to delete ${documentTypes[documentType]}. Please try again.`);
+    } finally {
+      setShowDeleteModal(false);
+      setDocumentToDelete(null);
+    }
+  };
+
+  const handleDeleteCancelled = () => {
+    setShowDeleteModal(false);
+    setDocumentToDelete(null);
+  };
+
+  const handleRemoveDocument = async (documentType) => {
+    confirmDelete(documentType);
+  };
+
   const downloadID = async () => {
     const idCard = document.getElementById('idCard');
     if (!idCard) return;
@@ -404,193 +374,10 @@ const ProfilePage = () => {
     }
   };
 
-  // Add this function to check if ID is expired
-  const isIDExpired = () => {
-    if (!user.validUntil) return false;
-    const expirationDate = new Date(user.validUntil);
-    const today = new Date('2026-03-19');
-    today.setHours(0, 0, 0, 0);
-    expirationDate.setHours(0, 0, 0, 0);
-    return expirationDate <= today;
+  const handleSendApplication = () => {
+    navigate("/form", { state: { userId: loggedInUserId } }); // Navigate to the form page
   };
 
-  // Add this function to update user status to Renewal
-  const updateUserStatusToRenewal = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/updateUserStatus`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ 
-          userId: loggedInUserId,
-          status: "Renewal"
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update user status');
-      }
-
-      // Update local state
-      setUser(prev => ({
-        ...prev,
-        status: "Renewal"
-      }));
-    } catch (error) {
-      console.error('Error updating user status:', error);
-    }
-  };
-
-  const uploadToCloudinary = async (file, documentType) => {
-    if (!file || !user) return;
-
-    setIsUploading(true);
-    setUploadProgress(prev => ({
-      ...prev,
-      [documentType]: 0
-    }));
-
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('upload_preset', UPLOAD_PRESET);
-      formData.append('cloud_name', CLOUD_NAME);
-      
-      const folderPath = `${user.first_name}_${user.last_name}_${user.id}/documents`;
-      formData.append('folder', folderPath);
-
-      const response = await axios.post(
-        `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/auto/upload`,
-        formData,
-        {
-          onUploadProgress: (progressEvent) => {
-            const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-            setUploadProgress(prev => ({
-              ...prev,
-              [documentType]: progress
-            }));
-          }
-        }
-      );
-
-      setDocuments(prev => ({
-        ...prev,
-        [documentType]: {
-          name: file.name,
-          url: response.data.secure_url,
-          public_id: response.data.public_id,
-          status: 'uploaded'
-        }
-      }));
-
-      try {
-        // Just confirm with backend (no database operations)
-        await axios.post(`${API_BASE_URL}/api/documents/save`);
-      } catch (error) {
-        console.warn('Backend confirmation failed:', error);
-      }
-
-      toast.success(`${documentType.toUpperCase()} uploaded successfully!`);
-
-    } catch (error) {
-      console.error('Upload error:', error);
-      toast.error(`Failed to upload ${documentType}. Please try again.`);
-      
-      setDocuments(prev => ({
-        ...prev,
-        [documentType]: null
-      }));
-    } finally {
-      setIsUploading(false);
-      setUploadProgress(prev => ({
-        ...prev,
-        [documentType]: 0
-      }));
-    }
-  };
-
-  const handleFileUpload = async (e, type) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
-    if (!allowedTypes.includes(file.type)) {
-      toast.error('Please upload only PDF, JPG, or PNG files');
-      return;
-    }
-
-    // Validate file size (max 5MB)
-    const maxSize = 5 * 1024 * 1024; // 5MB in bytes
-    if (file.size > maxSize) {
-      toast.error('File size should not exceed 5MB');
-      return;
-    }
-
-    // Upload to Cloudinary
-    await uploadToCloudinary(file, type);
-  };
-
-  const handleRemoveDocument = async (documentType) => {
-    try {
-      const doc = documents[documentType];
-      if (!doc || !doc.public_id) return;
-
-      // Delete from Cloudinary
-      await axios.post(`${API_BASE_URL}/api/documents/delete`, {
-        userId: user.id,
-        publicId: doc.public_id
-      });
-
-      // Update state
-      setDocuments(prev => ({
-        ...prev,
-        [documentType]: null
-      }));
-
-      toast.success(`${documentType.toUpperCase()} removed successfully!`);
-    } catch (error) {
-      console.error('Remove error:', error);
-      toast.error(`Failed to remove ${documentType}. Please try again.`);
-    }
-  };
-
-  const handleProfileImageUpload = async (file) => {
-    if (!file) return;
-
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('upload_preset', UPLOAD_PRESET);
-      formData.append('cloud_name', CLOUD_NAME);
-      formData.append('folder', 'Profile_Pics');
-
-      const response = await axios.post(
-        `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
-        formData,
-        {
-          onUploadProgress: (progressEvent) => {
-            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-            // Update progress state if needed
-          }
-        }
-      );
-
-      // Update user's profile image
-      setUser(prev => ({
-        ...prev,
-        profile_image: response.data.secure_url
-      }));
-
-      toast.success('Profile image uploaded successfully!');
-    } catch (error) {
-      console.error('Profile image upload error:', error);
-      toast.error('Failed to upload profile image');
-    }
-  };
-
-  // Get the profile picture URL from user object or localStorage
   const getProfilePicture = () => {
     // First check if user has profilePic property
     if (user?.profilePic) {
@@ -653,6 +440,115 @@ const ProfilePage = () => {
     return `${url}?t=${new Date().getTime()}`;
   };
 
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Please upload only image files (JPG, PNG, GIF, WEBP)');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+    if (file.size > maxSize) {
+      toast.error('File size should not exceed 5MB');
+      return;
+    }
+
+    setSelectedFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPreviewUrl(reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleUploadSubmit = async () => {
+    if (!selectedFile || !loggedInUserId) return;
+    
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!validTypes.includes(selectedFile.type)) {
+      toast.error('Please select a valid image file (JPEG, PNG, GIF, WEBP)');
+      return;
+    }
+    
+    // Validate file size (max 5MB)
+    if (selectedFile.size > 5 * 1024 * 1024) {
+      toast.error('File size should not exceed 5MB');
+      return;
+    }
+    
+    setIsUploading(true);
+    const uploadingToastId = toast.loading('Uploading profile picture...');
+    
+    try {
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      formData.append('upload_preset', UPLOAD_PRESET);
+      formData.append('folder', `${CLOUDINARY_FOLDER}/${loggedInUserId}/profile`);
+      
+      const instance = axios.create();
+      
+      const response = await instance.post(
+        `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
+        formData,
+        {
+          onUploadProgress: (progressEvent) => {
+            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            setUploadProgress(prev => ({
+              ...prev,
+              profilePic: percentCompleted
+            }));
+          }
+        }
+      );
+      
+      const imageUrl = response.data.secure_url;
+      
+      // Update user profile in database
+      const apiResponse = await axios.post(
+        `${API_BASE_URL}/updateUserProfile`,
+        { userId: loggedInUserId, profilePic: imageUrl }
+      );
+      
+      if (apiResponse.data.success) {
+        // Update local state
+        if (user) {
+          setUser({ ...user, profilePic: imageUrl });
+        }
+        
+        // Update localStorage
+        localStorage.setItem(`profilePic_${loggedInUserId}`, imageUrl);
+        
+        toast.dismiss(uploadingToastId);
+        toast.success('Profile picture updated successfully');
+        setShowUploadModal(false);
+        setSelectedFile(null);
+        setPreviewUrl(null);
+        setUploadProgress(prev => ({
+          ...prev,
+          profilePic: 0
+        }));
+        
+        // Force refresh to show new image
+        setRefreshKey(oldKey => oldKey + 1);
+      }
+    } catch (error) {
+      console.error('Error uploading profile picture:', error);
+      toast.dismiss(uploadingToastId);
+      toast.error('Failed to upload profile picture. Please try again.');
+      
+      // Clear localStorage cache if upload fails
+      localStorage.removeItem(`profilePic_${loggedInUserId}`);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="loading-container">
@@ -685,6 +581,19 @@ const ProfilePage = () => {
   return (
     <div className="profile-container" key={refreshKey}>
       <Toaster />
+      {showDeleteModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h3>Confirm Delete</h3>
+            <p>Are you sure you want to delete this document?</p>
+            <p>This action cannot be undone.</p>
+            <div className="modal-actions">
+              <button className="cancel-btn" onClick={handleDeleteCancelled}>Cancel</button>
+              <button className="delete-btn" onClick={handleDeleteConfirmed}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="profile-header">
         <div className="profile-image-container">
           <img 
@@ -727,109 +636,136 @@ const ProfilePage = () => {
         </div>
 
         <div className="tab-content">
-          {activeTab === "Details" && renderUserDetails()}
+          {activeTab === "Details" && (
+            <div className="user-details">
+              <h3>Personal Information</h3>
+              <ul>
+                <li>
+                  <span className="label">Gender</span>
+                  <span className="value">{user.gender}</span>
+                </li>
+                <li>
+                  <span className="label">Birthdate</span>
+                  <span className="value">{user.date_of_birth ? new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(new Date(user.date_of_birth)) : ''}</span>
+                </li>
+                <li>
+                  <span className="label">Place of Birth</span>
+                  <span className="value">{user.place_of_birth}</span>
+                </li>
+                <li>
+                  <span className="label">Barangay</span>
+                  <span className="value">{user.barangay}</span>
+                </li>
+                <li>
+                  <span className="label">Religion</span>
+                  <span className="value">{user.religion}</span>
+                </li>
+                <li>
+                  <span className="label">Civil Status</span>
+                  <span className="value">{user.civil_status}</span>
+                </li>
+                <li>
+                  <span className="label">Company</span>
+                  <span className="value">{user.company}</span>
+                </li>
+                <li>
+                  <span className="label">Monthly Income</span>
+                  <span className="value">{user.income}</span>
+                </li>
+                <li>
+                  <span className="label">Contact Number</span>
+                  <span className="value">{user.contact_number}</span>
+                </li>
+                <li>
+                  <span className="label family">Family Composition</span>
+                  {user.familyMembers && user.familyMembers.length > 0 ? (
+                    <ul className="children-list">
+                      {user.familyMembers
+                        .filter(member => member.relationship === 'Child')
+                        .map((child, index) => (
+                          <li key={index}>
+                            <strong>Child {index + 1}: {child.name}</strong>
+                            <div className="child-details">
+                              <span>Age: {child.age}</span>
+                              <span>Education: {child.educational_attainment}</span>
+                            </div>
+                          </li>
+                        ))}
+                    </ul>
+                  ) : (
+                    <span className="no-children">No children registered</span>
+                  )}
+                </li>
+              </ul>
+            </div>
+          )}
           {activeTab === "ID" && (
             <div className="id-tab">
               {status === "Verified" ? (
                 <div className="id-container">
                   <div id="idCard" className="digital-id">
                     {/* Front of ID */}
-                    <div className="id-front">
-                      <div className="id-header">
-                        <img src={dswdLogo} alt="DSWD Logo" className="id-logo" />
-                        <div className="id-title">
-                          <h2>SOLO PARENT IDENTIFICATION CARD</h2>
-                          <p>Republic of the Philippines</p>
-                          <p className="id-subtitle">DSWD Region III</p>
-                        </div>
-                      </div>
-                      <div className="id-body">
-                        <div className="id-photo-container">
-                          <div className="id-photo">
-                            <img 
-                              src={addCacheBuster(getImageUrl(profilePicUrl))} 
-                              alt="User" 
-                              crossOrigin="anonymous" 
-                              onError={(e) => {
-                                console.log("ID photo load error, using default avatar");
-                                e.target.onerror = null;
-                                e.target.src = avatar;
-                                // Clear localStorage if image fails to load
-                                localStorage.removeItem(`profilePic_${loggedInUserId}`);
-                              }}
-                            />
-                          </div>
-                          <div className="id-validity">
-                            <strong>Category: </strong>
-                            <span>{user.classification}</span>
-                          </div>
-                         
-                          <div className={`id-validity ${isIDExpired() ? "expired" : ""}`}>
-                            <strong>Valid Until: </strong>
-                            {user.validUntil ? new Date(user.validUntil).toLocaleDateString() : 'N/A'}
-                          </div>
-                        </div>
-                        <div className="id-details">
-                          <div className="detail-row">
-                            <strong>ID No:</strong>
-                            <span>{String(user.code_id).padStart(6, '0')}</span>
-                          </div>
-                          <div className="detail-row">
-                            <strong>Name:</strong>
-                            <span>{user.name}</span>
-                          </div>
-                          <div className="detail-row">
-                            <strong>Barangay:</strong>
-                            <span>{user.barangay}</span>
-                          </div>
-                          <div className="detail-row">
-                            <strong>Birthdate:</strong>
-                            <span>{user.date_of_birth ? 
-                              new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' })
-                              .format(new Date(user.date_of_birth)) : ''}</span>
-                          </div>
-                          <div className="detail-row">
-                            <strong>Civil Status:</strong>
-                            <span>{user.civil_status}</span>
-                          </div>
-                          <div className="detail-row">
-                            <strong>Contact:</strong>
-                            <span>{user.contact_number}</span>
-                          </div>
-                        </div>
+                    <div className="id-header">
+                      <img src={dswdLogo} alt="DSWD Logo" className="id-logo" />
+                      <div className="id-title">
+                        <h2>SOLO PARENT IDENTIFICATION CARD</h2>
+                        <p>Republic of the Philippines</p>
+                        <p className="id-subtitle">DSWD Region III</p>
                       </div>
                     </div>
-                    
-                    {/* Back of ID */}
-                    <div className="id-back">
-                      <h3>Children Information</h3>
-                      {user.familyMembers && user.familyMembers.length > 0 ? (
-                        <table className="children-table">
-                          <thead>
-                            <tr>
-                              <th>Name</th>
-                              <th>Age</th>
-                              <th>Education</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {user.familyMembers
-                              .filter(member => member.relationship === 'Child')
-                              .map((child, index) => (
-                                <tr key={index}>
-                                  <td>{child.name}</td>
-                                  <td>{child.age}</td>
-                                  <td>{child.educational_attainment}</td>
-                                </tr>
-                              ))}
-                          </tbody>
-                        </table>
-                      ) : (
-                        <p className="no-children-text">No registered children</p>
-                      )}
-                      <div className="id-footer">
-                        <p>Date Issued: {user.accepted_at ? new Date(user.accepted_at).toLocaleDateString() : 'N/A'}</p>
-                        <p>Valid Until: {user.validUntil ? new Date(user.validUntil).toLocaleDateString() : 'N/A'}</p>
+                    <div className="id-body">
+                      <div className="id-photo-container">
+                        <div className="id-photo">
+                          <img 
+                            src={addCacheBuster(getImageUrl(profilePicUrl))} 
+                            alt="User" 
+                            crossOrigin="anonymous" 
+                            onError={(e) => {
+                              console.log("ID photo load error, using default avatar");
+                              e.target.onerror = null;
+                              e.target.src = avatar;
+                              // Clear localStorage if image fails to load
+                              localStorage.removeItem(`profilePic_${loggedInUserId}`);
+                            }}
+                          />
+                        </div>
+                        <div className="id-validity">
+                          <strong>Category: </strong>
+                          <span>{user.classification}</span>
+                        </div>
+                       
+                        <div className={`id-validity ${isIDExpired() ? "expired" : ""}`}>
+                          <strong>Valid Until: </strong>
+                          {user.validUntil ? new Date(user.validUntil).toLocaleDateString() : 'N/A'}
+                        </div>
+                      </div>
+                      <div className="id-details">
+                        <div className="detail-row">
+                          <strong>ID No:</strong>
+                          <span>{String(user.code_id).padStart(6, '0')}</span>
+                        </div>
+                        <div className="detail-row">
+                          <strong>Name:</strong>
+                          <span>{user.name}</span>
+                        </div>
+                        <div className="detail-row">
+                          <strong>Barangay:</strong>
+                          <span>{user.barangay}</span>
+                        </div>
+                        <div className="detail-row">
+                          <strong>Birthdate:</strong>
+                          <span>{user.date_of_birth ? 
+                            new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' })
+                            .format(new Date(user.date_of_birth)) : ''}</span>
+                        </div>
+                        <div className="detail-row">
+                          <strong>Civil Status:</strong>
+                          <span>{user.civil_status}</span>
+                        </div>
+                        <div className="detail-row">
+                          <strong>Contact:</strong>
+                          <span>{user.contact_number}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -870,8 +806,8 @@ const ProfilePage = () => {
               <div className="document-list">
                 {/* PSA Birth Certificate */}
                 <div className="document-group">
-                  <h4>PSA Birth Certificate</h4>
-                  <div className="upload-area" onClick={() => handleUploadClick('psa')}>
+                  <h4>{documentTypes.psa}</h4>
+                  <div className="upload-area" onClick={() => document.getElementById('file-input-psa').click()}>
                     {isUploading && uploadProgress.psa > 0 ? (
                       <div className="upload-progress">
                         <div className="progress-bar" style={{ width: `${uploadProgress.psa}%` }}></div>
@@ -892,7 +828,8 @@ const ProfilePage = () => {
                       type="file" 
                       accept=".pdf,.jpg,.jpeg,.png" 
                       style={{ display: 'none' }}
-                      onChange={(e) => handleFileUpload(e, 'psa')}
+                      onChange={(e) => handleDocumentChange(e, 'psa')}
+                      disabled={isUploading}
                     />
                   </div>
                   {documents.psa && (
@@ -902,14 +839,17 @@ const ProfilePage = () => {
                         <span className="document-status uploaded">Uploaded</span>
                       </div>
                       <div className="document-actions">
-                        <button className="document-upload-btn">
+                        <a href={documents.psa.url} target="_blank" rel="noopener noreferrer" className="view-btn">
+                          View
+                        </a>
+                        <button className="document-upload-btn" onClick={() => document.getElementById('file-input-psa').click()}>
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M12 16L12 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                             <path d="M9 11L12 8L15 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                           </svg>
                           Replace
                         </button>
-                        <button className="cancel-btn" onClick={() => handleRemoveDocument('psa')}>
+                        <button className="cancel-btn" onClick={() => confirmDelete('psa')}>
                           Remove
                         </button>
                       </div>
@@ -919,20 +859,30 @@ const ProfilePage = () => {
 
                 {/* Income Tax Return */}
                 <div className="document-group">
-                  <h4>Income Tax Return (ITR)</h4>
-                  <div className="upload-area" onClick={() => handleUploadClick('itr')}>
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M12 16L12 8" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
-                      <path d="M9 11L12 8L15 11" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      <path d="M8 16H16" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
-                    </svg>
-                    <p>Drag and drop or <span className="browse-link">browse</span></p>
+                  <h4>{documentTypes.itr}</h4>
+                  <div className="upload-area" onClick={() => document.getElementById('file-input-itr').click()}>
+                    {isUploading && uploadProgress.itr > 0 ? (
+                      <div className="upload-progress">
+                        <div className="progress-bar" style={{ width: `${uploadProgress.itr}%` }}></div>
+                        <span>{uploadProgress.itr}%</span>
+                      </div>
+                    ) : (
+                      <>
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M12 16L12 8" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
+                          <path d="M9 11L12 8L15 11" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          <path d="M8 16H16" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
+                        </svg>
+                        <p>Drag and drop or <span className="browse-link">browse</span></p>
+                      </>
+                    )}
                     <input 
                       id="file-input-itr"
                       type="file" 
                       accept=".pdf,.jpg,.jpeg,.png" 
                       style={{ display: 'none' }}
-                      onChange={(e) => handleFileUpload(e, 'itr')}
+                      onChange={(e) => handleDocumentChange(e, 'itr')}
+                      disabled={isUploading}
                     />
                   </div>
                   {documents.itr && (
@@ -942,14 +892,17 @@ const ProfilePage = () => {
                         <span className="document-status uploaded">Uploaded</span>
                       </div>
                       <div className="document-actions">
-                        <button className="document-upload-btn">
+                        <a href={documents.itr.url} target="_blank" rel="noopener noreferrer" className="view-btn">
+                          View
+                        </a>
+                        <button className="document-upload-btn" onClick={() => document.getElementById('file-input-itr').click()}>
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M12 16L12 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                             <path d="M9 11L12 8L15 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                           </svg>
                           Replace
                         </button>
-                        <button className="cancel-btn" onClick={() => handleRemoveDocument('itr')}>
+                        <button className="cancel-btn" onClick={() => confirmDelete('itr')}>
                           Remove
                         </button>
                       </div>
@@ -959,37 +912,50 @@ const ProfilePage = () => {
 
                 {/* Medical Certificate */}
                 <div className="document-group">
-                  <h4>Medical Certificate</h4>
-                  <div className="upload-area" onClick={() => handleUploadClick('medical')}>
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M12 16L12 8" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
-                      <path d="M9 11L12 8L15 11" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      <path d="M8 16H16" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
-                    </svg>
-                    <p>Drag and drop or <span className="browse-link">browse</span></p>
+                  <h4>{documentTypes.med_cert}</h4>
+                  <div className="upload-area" onClick={() => document.getElementById('file-input-medical').click()}>
+                    {isUploading && uploadProgress.med_cert > 0 ? (
+                      <div className="upload-progress">
+                        <div className="progress-bar" style={{ width: `${uploadProgress.med_cert}%` }}></div>
+                        <span>{uploadProgress.med_cert}%</span>
+                      </div>
+                    ) : (
+                      <>
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M12 16L12 8" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
+                          <path d="M9 11L12 8L15 11" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          <path d="M8 16H16" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
+                        </svg>
+                        <p>Drag and drop or <span className="browse-link">browse</span></p>
+                      </>
+                    )}
                     <input 
                       id="file-input-medical"
                       type="file" 
                       accept=".pdf,.jpg,.jpeg,.png" 
                       style={{ display: 'none' }}
-                      onChange={(e) => handleFileUpload(e, 'medical')}
+                      onChange={(e) => handleDocumentChange(e, 'med_cert')}
+                      disabled={isUploading}
                     />
                   </div>
-                  {documents.medical && (
+                  {documents.med_cert && (
                     <div className="document-item">
                       <div className="document-info">
-                        <span className="document-name">{documents.medical.name}</span>
+                        <span className="document-name">{documents.med_cert.name}</span>
                         <span className="document-status uploaded">Uploaded</span>
                       </div>
                       <div className="document-actions">
-                        <button className="document-upload-btn">
+                        <a href={documents.med_cert.url} target="_blank" rel="noopener noreferrer" className="view-btn">
+                          View
+                        </a>
+                        <button className="document-upload-btn" onClick={() => document.getElementById('file-input-medical').click()}>
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M12 16L12 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                             <path d="M9 11L12 8L15 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                           </svg>
                           Replace
                         </button>
-                        <button className="cancel-btn" onClick={() => handleRemoveDocument('medical')}>
+                        <button className="cancel-btn" onClick={() => confirmDelete('med_cert')}>
                           Remove
                         </button>
                       </div>
@@ -1000,20 +966,30 @@ const ProfilePage = () => {
                 {/* Conditional Documents based on Civil Status */}
                 {user.civil_status === 'Married' && (
                   <div className="document-group">
-                    <h4>Marriage Certificate</h4>
-                    <div className="upload-area" onClick={() => handleUploadClick('marriage')}>
-                      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 16L12 8" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
-                        <path d="M9 11L12 8L15 11" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                        <path d="M8 16H16" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
-                      </svg>
-                      <p>Drag and drop or <span className="browse-link">browse</span></p>
+                    <h4>{documentTypes.marriage}</h4>
+                    <div className="upload-area" onClick={() => document.getElementById('file-input-marriage').click()}>
+                      {isUploading && uploadProgress.marriage > 0 ? (
+                        <div className="upload-progress">
+                          <div className="progress-bar" style={{ width: `${uploadProgress.marriage}%` }}></div>
+                          <span>{uploadProgress.marriage}%</span>
+                        </div>
+                      ) : (
+                        <>
+                          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 16L12 8" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
+                            <path d="M9 11L12 8L15 11" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M8 16H16" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
+                          </svg>
+                          <p>Drag and drop or <span className="browse-link">browse</span></p>
+                        </>
+                      )}
                       <input 
                         id="file-input-marriage"
                         type="file" 
                         accept=".pdf,.jpg,.jpeg,.png" 
                         style={{ display: 'none' }}
-                        onChange={(e) => handleFileUpload(e, 'marriage')}
+                        onChange={(e) => handleDocumentChange(e, 'marriage')}
+                        disabled={isUploading}
                       />
                     </div>
                     {documents.marriage && (
@@ -1023,14 +999,17 @@ const ProfilePage = () => {
                           <span className="document-status uploaded">Uploaded</span>
                         </div>
                         <div className="document-actions">
-                          <button className="document-upload-btn">
+                          <a href={documents.marriage.url} target="_blank" rel="noopener noreferrer" className="view-btn">
+                            View
+                          </a>
+                          <button className="document-upload-btn" onClick={() => document.getElementById('file-input-marriage').click()}>
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                               <path d="M12 16L12 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                               <path d="M9 11L12 8L15 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                             </svg>
                             Replace
                           </button>
-                          <button className="cancel-btn" onClick={() => handleRemoveDocument('marriage')}>
+                          <button className="cancel-btn" onClick={() => confirmDelete('marriage')}>
                             Remove
                           </button>
                         </div>
@@ -1041,37 +1020,50 @@ const ProfilePage = () => {
 
                 {user.civil_status === 'Widowed' && (
                   <div className="document-group">
-                    <h4>Death Certificate</h4>
-                    <div className="upload-area" onClick={() => handleUploadClick('death')}>
-                      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 16L12 8" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
-                        <path d="M9 11L12 8L15 11" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                        <path d="M8 16H16" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
-                      </svg>
-                      <p>Drag and drop or <span className="browse-link">browse</span></p>
+                    <h4>{documentTypes.death_cert}</h4>
+                    <div className="upload-area" onClick={() => document.getElementById('file-input-death').click()}>
+                      {isUploading && uploadProgress.death_cert > 0 ? (
+                        <div className="upload-progress">
+                          <div className="progress-bar" style={{ width: `${uploadProgress.death_cert}%` }}></div>
+                          <span>{uploadProgress.death_cert}%</span>
+                        </div>
+                      ) : (
+                        <>
+                          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 16L12 8" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
+                            <path d="M9 11L12 8L15 11" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M8 16H16" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
+                          </svg>
+                          <p>Drag and drop or <span className="browse-link">browse</span></p>
+                        </>
+                      )}
                       <input 
                         id="file-input-death"
                         type="file" 
                         accept=".pdf,.jpg,.jpeg,.png" 
                         style={{ display: 'none' }}
-                        onChange={(e) => handleFileUpload(e, 'death')}
+                        onChange={(e) => handleDocumentChange(e, 'death_cert')}
+                        disabled={isUploading}
                       />
                     </div>
-                    {documents.death && (
+                    {documents.death_cert && (
                       <div className="document-item">
                         <div className="document-info">
-                          <span className="document-name">{documents.death.name}</span>
+                          <span className="document-name">{documents.death_cert.name}</span>
                           <span className="document-status uploaded">Uploaded</span>
                         </div>
                         <div className="document-actions">
-                          <button className="document-upload-btn">
+                          <a href={documents.death_cert.url} target="_blank" rel="noopener noreferrer" className="view-btn">
+                            View
+                          </a>
+                          <button className="document-upload-btn" onClick={() => document.getElementById('file-input-death').click()}>
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                               <path d="M12 16L12 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                               <path d="M9 11L12 8L15 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                             </svg>
                             Replace
                           </button>
-                          <button className="cancel-btn" onClick={() => handleRemoveDocument('death')}>
+                          <button className="cancel-btn" onClick={() => confirmDelete('death_cert')}>
                             Remove
                           </button>
                         </div>
@@ -1082,20 +1074,30 @@ const ProfilePage = () => {
 
                 {(!user.civil_status || user.civil_status === 'Single') && (
                   <div className="document-group">
-                    <h4>CENOMAR</h4>
-                    <div className="upload-area" onClick={() => handleUploadClick('cenomar')}>
-                      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 16L12 8" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
-                        <path d="M9 11L12 8L15 11" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                        <path d="M8 16H16" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
-                      </svg>
-                      <p>Drag and drop or <span className="browse-link">browse</span></p>
+                    <h4>{documentTypes.cenomar}</h4>
+                    <div className="upload-area" onClick={() => document.getElementById('file-input-cenomar').click()}>
+                      {isUploading && uploadProgress.cenomar > 0 ? (
+                        <div className="upload-progress">
+                          <div className="progress-bar" style={{ width: `${uploadProgress.cenomar}%` }}></div>
+                          <span>{uploadProgress.cenomar}%</span>
+                        </div>
+                      ) : (
+                        <>
+                          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 16L12 8" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
+                            <path d="M9 11L12 8L15 11" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M8 16H16" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
+                          </svg>
+                          <p>Drag and drop or <span className="browse-link">browse</span></p>
+                        </>
+                      )}
                       <input 
                         id="file-input-cenomar"
                         type="file" 
                         accept=".pdf,.jpg,.jpeg,.png" 
                         style={{ display: 'none' }}
-                        onChange={(e) => handleFileUpload(e, 'cenomar')}
+                        onChange={(e) => handleDocumentChange(e, 'cenomar')}
+                        disabled={isUploading}
                       />
                     </div>
                     {documents.cenomar && (
@@ -1105,14 +1107,17 @@ const ProfilePage = () => {
                           <span className="document-status uploaded">Uploaded</span>
                         </div>
                         <div className="document-actions">
-                          <button className="document-upload-btn">
+                          <a href={documents.cenomar.url} target="_blank" rel="noopener noreferrer" className="view-btn">
+                            View
+                          </a>
+                          <button className="document-upload-btn" onClick={() => document.getElementById('file-input-cenomar').click()}>
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                               <path d="M12 16L12 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                               <path d="M9 11L12 8L15 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                             </svg>
                             Replace
                           </button>
-                          <button className="cancel-btn" onClick={() => handleRemoveDocument('cenomar')}>
+                          <button className="cancel-btn" onClick={() => confirmDelete('cenomar')}>
                             Remove
                           </button>
                         </div>
@@ -1132,7 +1137,7 @@ const ProfilePage = () => {
             <h3>Update Profile Picture</h3>
             <div className="preview-container">
               <img
-                src={previewUrl || addCacheBuster(getImageUrl(profilePicUrl))}
+                src={previewUrl || addCacheBuster(getImageUrl(profilePicUrl))} 
                 alt="Preview"
                 className="preview-image"
                 onError={(e) => {
@@ -1154,13 +1159,13 @@ const ProfilePage = () => {
               type="file"
               id="profilePicInput"
               accept="image/*"
-              onChange={handleFileChange}
+              onChange={(e) => handleFileChange(e)}
               style={{ display: "none" }}
             />
             <div className="modal-buttons">
               <button 
                 className="upload-photo-btn" 
-                onClick={handleUploadClick}
+                onClick={() => document.getElementById('profilePicInput').click()}
                 disabled={isLoading}
               >
                 Choose Photo

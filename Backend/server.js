@@ -9,6 +9,12 @@ app.use(cors());
 app.use(express.json());
 const { sendStatusEmail } = require('./services/emailService');
 
+// Import routes
+const documentsRouter = require('./routes/documents');
+
+// Use routes
+app.use('/api/documents', documentsRouter);
+
 const pool = mysql.createPool({
   host: 'localhost',
   user: 'root',
@@ -1195,9 +1201,6 @@ app.get('/getUserDocuments/:userId', async (req, res) => {
     res.status(500).json({ success: false, message: 'Failed to fetch documents' });
   }
 });
-
-const documentsRouter = require('./routes/documents');
-app.use('/api/documents', documentsRouter);
 
 const PORT = process.env.PORT || 8081;
 app.listen(PORT, () => {
