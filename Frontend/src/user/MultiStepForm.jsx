@@ -81,35 +81,13 @@ export default function MultiStepForm() {
 
   const prevStep = () => setStep(step - 1);
 
-  const handleSubmit = async () => {
-    try {
-      console.log('Submitting form data:', formData);
-      // First, submit all form data to create the user
-      const response = await axios.post("http://localhost:8081/submitAllSteps", {
-        formData: {
-          ...formData,
-          documents: formData.documents || {} // Include documents if they exist
-        }
-      });
-
-      if (response.data.success) {
-        toast.success("Registration completed successfully!");
-        // Redirect to success page or login
-      } else {
-        toast.error("Registration failed. Please try again.");
-      }
-    } catch (error) {
-      console.error("Error submitting form:", error);
-      console.error("Error details:", error.response?.data);
-      toast.error(error.response?.data?.error || "Failed to submit form");
-    }
-  };
-
   const handleFinalSubmit = async () => {
     try {
-      const submissionData = {
-        formData: {
-          // Step 1: Personal Information
+      console.log('Starting final form submission');
+      
+      // Submit all steps data to create user entry
+      const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/documents/submitAllSteps`, {
+        step1: {
           first_name: formData.first_name,
           middle_name: formData.middle_name,
           last_name: formData.last_name,
@@ -128,53 +106,47 @@ export default function MultiStepForm() {
           contact_number: formData.contact_number,
           email: formData.email,
           pantawid_beneficiary: formData.pantawid_beneficiary,
-          indigenous: formData.indigenous,
-
-          // Step 2: Children
-          children: formData.children.map(child => ({
-            first_name: child.first_name,
-            middle_name: child.middle_name,
-            last_name: child.last_name,
-            birthdate: child.birthdate,
-            age: child.age,
-            educational_attainment: child.educational_attainment
-          })),
-
-          // Step 3: Classification
-          classification: formData.classification,
-
-          // Step 4: Needs/Problems
-          needs_problems: formData.needs_problems,
-
-          // Step 5: Emergency Contact
-          emergency_contact: {
-            emergency_name: formData.emergency_name,
-            emergency_relationship: formData.emergency_relationship,
-            emergency_address: formData.emergency_address,
-            emergency_contact: formData.emergency_contact
-          },
-
-          // Step 6: Documents
-          documents: formData.documents
+          indigenous: formData.indigenous
+        },
+        step2: {
+          children: formData.children || []
+        },
+        step3: {
+          classification: formData.classification
+        },
+        step4: {
+          needs_problems: formData.needs_problems
+        },
+        step5: {
+          emergency_name: formData.emergency_name,
+          emergency_relationship: formData.emergency_relationship,
+          emergency_address: formData.emergency_address,
+          emergency_contact: formData.emergency_contact
         }
-      };
-
-      const response = await fetch("http://localhost:8081/submitAllSteps", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(submissionData),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to submit form');
+      if (!response.data.success) {
+        throw new Error(response.data.error || "Failed to create user");
       }
 
-      const result = await response.json();
-      alert(`Form submitted successfully! Your Code ID is: ${result.codeId}`);
+      const code_id = response.data.code_id;
+      console.log('All steps submitted successfully with code_id:', code_id);
+
+      // Update form data with the new code_id
+      const updatedFormData = {
+        ...formData,
+        code_id: code_id
+      };
+      updateFormData(updatedFormData);
+
+      return {
+        success: true,
+        code_id: code_id
+      };
     } catch (error) {
-      console.error("Error submitting form:", error);
-      alert("An error occurred while submitting the form. Please try again.");
+      console.error('Registration error:', error);
+      toast.error(error.response?.data?.error || "Registration failed. Please try again.");
+      throw error;
     }
   };
 
@@ -183,45 +155,45 @@ export default function MultiStepForm() {
       case 1:
         return (
           <IdentifyingInformation
-            nextStep={nextStep}
-            updateFormData={updateFormData}
             formData={formData}
+            updateFormData={updateFormData}
+            nextStep={nextStep}
           />
         );
       case 2:
         return (
           <FamilyOccupation
-            prevStep={prevStep}
-            nextStep={nextStep}
             formData={formData}
             updateFormData={updateFormData}
+            nextStep={nextStep}
+            prevStep={prevStep}
           />
         );
       case 3:
         return (
           <Classification
-            prevStep={prevStep}
-            nextStep={nextStep}
-            updateFormData={updateFormData}
             formData={formData}
+            updateFormData={updateFormData}
+            nextStep={nextStep}
+            prevStep={prevStep}
           />
         );
       case 4:
         return (
           <NeedsProblems
-            prevStep={prevStep}
-            nextStep={nextStep}
-            updateFormData={updateFormData}
             formData={formData}
+            updateFormData={updateFormData}
+            nextStep={nextStep}
+            prevStep={prevStep}
           />
         );
       case 5:
         return (
           <InCaseOfEmergency
-            prevStep={prevStep}
-            updateFormData={updateFormData}
             formData={formData}
+            updateFormData={updateFormData}
             nextStep={nextStep}
+            prevStep={prevStep}
           />
         );
       case 6:
@@ -230,7 +202,7 @@ export default function MultiStepForm() {
             formData={formData}
             updateFormData={updateFormData}
             prevStep={prevStep}
-            handleSubmit={handleSubmit}
+            handleSubmit={handleFinalSubmit}
           />
         );
       default:
@@ -239,21 +211,17 @@ export default function MultiStepForm() {
   };
 
   return (
-    <div className="multi-step-form-wrapper">
-      <div className="multi-step-form-body">
-        <div>
-          {renderStep()}
-          <div className="pagination">
-            {Array.from({ length: totalSteps }, (_, index) => (
-              <div
-                key={index}
-                className={`pagination-dot ${step === index + 1 ? "active" : ""}`}
-              ></div>
-            ))}
-            <p>Step {step} of {totalSteps}</p>
-          </div>
-        </div>
+    <div className="multistep-form-container">
+      <div className="progress-bar">
+        <div 
+          className="progress" 
+          style={{ width: `${((step - 1) / (totalSteps - 1)) * 100}%` }}
+        ></div>
       </div>
+      <div className="step-indicator">
+        Step {step} of {totalSteps}
+      </div>
+      {renderStep()}
     </div>
   );
 }

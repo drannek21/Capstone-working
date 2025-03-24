@@ -1,8 +1,8 @@
 require('dotenv').config();
 const express = require('express');
-const app = express();
 const cors = require('cors');
-const mysql = require('mysql');
+const bodyParser = require('body-parser');
+const app = express();
 const nodemailer = require('nodemailer');
 
 // Enable CORS for all routes
@@ -10,6 +10,7 @@ app.use(cors());
 app.use(express.json());
 
 const { sendStatusEmail } = require('./services/emailService');
+const { pool, queryDatabase } = require('./database');
 
 // Import routes
 const documentsRouter = require('./routes/documents');
@@ -18,52 +19,6 @@ const usersRouter = require('./routes/users');
 // Use routes
 app.use('/api/documents', documentsRouter);
 app.use('/api/users', usersRouter);
-
-const pool = mysql.createPool({
-  host: 'localhost',
-  user: 'root',
-  password: '',
-  database: 'soloparent',
-  connectionLimit: 10,
-  waitForConnections: true,
-  queueLimit: 0,
-  enableKeepAlive: true,
-  keepAliveInitialDelay: 0
-});
-
-const queryDatabase = (sql, params) => new Promise((resolve, reject) => {
-  pool.getConnection((err, connection) => {
-    if (err) {
-      console.error('Error getting connection:', err);
-      return reject(err);
-    }
-
-    connection.query(sql, params, (err, result) => {
-      connection.release(); 
-      if (err) {
-        console.error('Query error:', err);
-        return reject(err);
-      }
-      resolve(result);
-    });
-  });
-});
-
-app.use((err, req, res, next) => {
-  console.error('Global error handler:', err);
-  res.status(500).json({ 
-    error: 'Internal server error',
-    message: process.env.NODE_ENV === 'development' ? err.message : undefined
-  });
-});
-
-process.on('uncaughtException', (err) => {
-  console.error('Uncaught Exception:', err);
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-});
 
 app.post('/users', async (req, res) => {
   const { email, password, name, barangay, role, status } = req.body;
@@ -1317,6 +1272,14 @@ app.get('/check-tables', async (req, res) => {
     console.error('Error checking tables:', error);
     res.status(500).json({ error: error.message });
   }
+});
+
+app.use((err, req, res, next) => {
+  console.error('Global error handler:', err);
+  res.status(500).json({
+    error: 'Internal server error',
+    details: err.message
+  });
 });
 
 const PORT = process.env.PORT || 8081;

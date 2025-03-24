@@ -1,19 +1,23 @@
 const mysql = require('mysql');
+require('dotenv').config();
 
-// Create MySQL connection pool
-const pool = mysql.createPool({
-  host: 'localhost',
-  user: 'root',
-  password: '',
-  database: 'soloparent',
+const dbConfig = {
+  host: process.env.DB_HOST || 'localhost',
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || '',
+  database: process.env.DB_NAME || 'soloparent',
   connectionLimit: 10,
   waitForConnections: true,
   queueLimit: 0,
   enableKeepAlive: true,
   keepAliveInitialDelay: 0
-});
+};
 
-// Test database connection
+console.log('Database config:', dbConfig);
+
+const pool = mysql.createPool(dbConfig);
+
+// Test the connection
 pool.getConnection((err, connection) => {
   if (err) {
     console.error('Error connecting to database:', err);
@@ -23,7 +27,6 @@ pool.getConnection((err, connection) => {
   connection.release();
 });
 
-// Promisified query function
 const queryDatabase = (sql, params) => new Promise((resolve, reject) => {
   pool.getConnection((err, connection) => {
     if (err) {
@@ -32,7 +35,7 @@ const queryDatabase = (sql, params) => new Promise((resolve, reject) => {
     }
 
     connection.query(sql, params, (err, result) => {
-      connection.release(); 
+      connection.release();
       if (err) {
         console.error('Query error:', err);
         return reject(err);
@@ -42,55 +45,94 @@ const queryDatabase = (sql, params) => new Promise((resolve, reject) => {
   });
 });
 
-// Insert or update document
-const upsertDocument = async (tableName, code_id, file_name, display_name) => {
+const upsertDocument = async (tableName, code_id, file_name, display_name, status = 'Pending') => {
   try {
-    console.log('Upserting document:', { tableName, code_id, file_name, display_name });
+    // Check if document exists
+    const existingDoc = await queryDatabase(
+      `SELECT * FROM ${tableName} WHERE code_id = ? LIMIT 1`,
+      [code_id]
+    );
 
-    // First check if document exists
-    const checkQuery = `SELECT * FROM ${tableName} WHERE code_id = ?`;
-    const existingDoc = await queryDatabase(checkQuery, [code_id]);
-    console.log('Existing document:', existingDoc);
-
-    let result;
-    if (existingDoc && existingDoc.length > 0) {
+    if (existingDoc.length > 0) {
       // Update existing document
-      const updateQuery = `
-        UPDATE ${tableName} 
-        SET file_name = ?, 
-            display_name = ?, 
-            status = 'Uploaded',
-            uploaded_at = CURRENT_TIMESTAMP
-        WHERE code_id = ?
-      `;
-      result = await queryDatabase(updateQuery, [file_name, display_name, code_id]);
-      console.log('Updated existing document:', result);
+      await queryDatabase(
+        `UPDATE ${tableName} 
+         SET file_name = ?, display_name = ?, status = ?
+         WHERE code_id = ?`,
+        [file_name, display_name, status, code_id]
+      );
+      return {
+        action: 'updated',
+        id: existingDoc[0].id
+      };
     } else {
       // Insert new document
-      const insertQuery = `
-        INSERT INTO ${tableName} (code_id, file_name, display_name, status)
-        VALUES (?, ?, ?, 'Uploaded')
-      `;
-      result = await queryDatabase(insertQuery, [code_id, file_name, display_name]);
-      console.log('Inserted new document:', result);
+      const result = await queryDatabase(
+        `INSERT INTO ${tableName} (code_id, file_name, display_name, status)
+         VALUES (?, ?, ?, ?)`,
+        [code_id, file_name, display_name, status]
+      );
+      return {
+        action: 'inserted',
+        id: result.insertId
+      };
     }
-
-    return { 
-      success: true, 
-      id: result.insertId || existingDoc[0]?.id,
-      action: existingDoc.length > 0 ? 'updated' : 'inserted'
-    };
   } catch (error) {
     console.error(`Error upserting document in ${tableName}:`, error);
     throw error;
   }
 };
 
-// Get document status
+const deleteDocument = async (tableName, code_id) => {
+  try {
+    const result = await queryDatabase(
+      `DELETE FROM ${tableName} WHERE code_id = ?`,
+      [code_id]
+    );
+    return result.affectedRows > 0;
+  } catch (error) {
+    console.error(`Error deleting document from ${tableName}:`, error);
+    throw error;
+  }
+};
+
+const getUserDocuments = async (code_id) => {
+  try {
+    const documents = {};
+    const tables = [
+      'psa_documents',
+      'itr_documents',
+      'med_cert_documents',
+      'marriage_documents',
+      'cenomar_documents',
+      'death_cert_documents'
+    ];
+
+    for (const table of tables) {
+      const result = await queryDatabase(
+        `SELECT * FROM ${table} WHERE code_id = ? LIMIT 1`,
+        [code_id]
+      );
+      if (result.length > 0) {
+        documents[table] = result[0];
+      }
+    }
+
+    return documents;
+  } catch (error) {
+    console.error('Error getting user documents:', error);
+    throw error;
+  }
+};
+
 const getDocumentStatus = async (tableName, code_id) => {
   try {
+    if (!code_id) {
+      throw new Error('code_id is required');
+    }
+
     const query = `
-      SELECT id, file_name, display_name, status, rejection_reason, uploaded_at
+      SELECT id, file_name, uploaded_at, display_name, status, rejection_reason
       FROM ${tableName}
       WHERE code_id = ?
       ORDER BY uploaded_at DESC
@@ -105,67 +147,11 @@ const getDocumentStatus = async (tableName, code_id) => {
   }
 };
 
-// Delete document
-const deleteDocument = async (tableName, code_id) => {
-  try {
-    const query = `DELETE FROM ${tableName} WHERE code_id = ?`;
-    const result = await queryDatabase(query, [code_id]);
-    console.log(`Deleted document from ${tableName}:`, result);
-    return { 
-      success: true,
-      affectedRows: result.affectedRows
-    };
-  } catch (error) {
-    console.error(`Error deleting document from ${tableName}:`, error);
-    throw error;
-  }
-};
-
-// Get all documents for a user
-const getUserDocuments = async (code_id) => {
-  try {
-    console.log('Getting documents for code_id:', code_id);
-    const tables = [
-      'psa_documents',
-      'itr_documents',
-      'med_cert_documents',
-      'marriage_documents',
-      'cenomar_documents',
-      'death_cert_documents'
-    ];
-
-    const documents = {};
-    for (const table of tables) {
-      try {
-        const doc = await getDocumentStatus(table, code_id);
-        if (doc) {
-          const docType = table.replace('_documents', '');
-          documents[docType] = {
-            id: doc.id,
-            url: doc.file_name,
-            name: doc.display_name,
-            status: doc.status,
-            uploaded_at: doc.uploaded_at
-          };
-        }
-      } catch (error) {
-        console.error(`Error getting document from ${table}:`, error);
-      }
-    }
-
-    console.log('Retrieved documents:', documents);
-    return documents;
-  } catch (error) {
-    console.error('Error getting user documents:', error);
-    throw error;
-  }
-};
-
 module.exports = {
   pool,
   queryDatabase,
   upsertDocument,
-  getDocumentStatus,
   deleteDocument,
-  getUserDocuments
+  getUserDocuments,
+  getDocumentStatus
 };
