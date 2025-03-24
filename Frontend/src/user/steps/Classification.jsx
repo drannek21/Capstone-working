@@ -13,12 +13,12 @@ export default function Classification({
     defaultValues: formData
   });
   const [showOthersInput, setShowOthersInput] = useState(false);
-  const selectedClassification = watch("Classification");
+  const selectedClassification = watch("classification");
 
   const onSubmit = async (data) => {
-    const selected = classifications.find(c => c.code === data.Classification);
-    const saveValue = selected.code === '013' ? data.OthersDetails : selected.saveValue;
-    updateFormData({ Classification: saveValue });
+    const selected = classifications.find(c => c.code === data.classification);
+    const saveValue = selected.code === '013' ? data.others_details : selected.saveValue;
+    updateFormData({ classification: saveValue });
     nextStep();
   };
 
@@ -54,8 +54,8 @@ export default function Classification({
           Please select your circumstances:
         </label>
         <select
-          {...register("Classification", { required: "This field is required" })}
-          className={`classification-input step-input ${errors.Classification ? 'error' : ''}`}
+          {...register("classification", { required: "This field is required" })}
+          className={`classification-input step-input ${errors.classification ? 'error' : ''}`}
         >
           <option value="">Select your classification</option>
           {classifications.map((classification) => (
@@ -64,9 +64,9 @@ export default function Classification({
             </option>
           ))}
         </select>
-        {errors.Classification && (
+        {errors.classification && (
           <p className="classification-error step-error">
-            {errors.Classification.message}
+            {errors.classification.message}
           </p>
         )}
       </div>
@@ -77,16 +77,16 @@ export default function Classification({
             Please specify your circumstances:
           </label>
           <textarea
-            {...register("OthersDetails", { 
+            {...register("others_details", { 
               required: showOthersInput ? "This field is required" : false 
             })}
-            className={`classification-input step-input ${errors.OthersDetails ? 'error' : ''}`}
+            className={`classification-input step-input ${errors.others_details ? 'error' : ''}`}
             placeholder="Please describe your circumstances"
             rows={4}
           />
-          {errors.OthersDetails && (
+          {errors.others_details && (
             <p className="classification-error step-error">
-              {errors.OthersDetails.message}
+              {errors.others_details.message}
             </p>
           )}
         </div>

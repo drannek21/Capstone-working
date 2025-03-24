@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { queryDatabase, upsertDocument, deleteDocument } = require('../database');
+const { queryDatabase, upsertDocument, deleteDocument, getUserDocuments } = require('../database');
 
 // Map frontend document types to database table names
 const TABLE_NAMES = {
@@ -16,19 +16,30 @@ const TABLE_NAMES = {
 router.post('/updateUserDocument', async (req, res) => {
   try {
     const { userId, documentType, documentUrl, displayName } = req.body;
-    console.log('Received update request:', { userId, documentType, documentUrl, displayName });
+    console.log('Received document update request:', req.body);
     
     if (!userId || !documentType || !documentUrl || !displayName) {
-      return res.status(400).json({ error: 'Missing required fields' });
+      console.error('Missing required fields:', { userId, documentType, documentUrl, displayName });
+      return res.status(400).json({ 
+        error: 'Missing required fields',
+        details: {
+          userId: !userId ? 'missing' : 'present',
+          documentType: !documentType ? 'missing' : 'present',
+          documentUrl: !documentUrl ? 'missing' : 'present',
+          displayName: !displayName ? 'missing' : 'present'
+        }
+      });
     }
 
     // Get the user's code_id first
     const userQuery = 'SELECT code_id FROM users WHERE id = ?';
+    console.log('Executing user query:', userQuery, 'with userId:', userId);
     const userResult = await queryDatabase(userQuery, [userId]);
     console.log('User query result:', userResult);
     
     if (!userResult || userResult.length === 0) {
-      return res.status(404).json({ error: 'User not found' });
+      console.error('User not found:', userId);
+      return res.status(404).json({ error: `User with ID ${userId} not found` });
     }
 
     const code_id = userResult[0].code_id;
@@ -37,14 +48,19 @@ router.post('/updateUserDocument', async (req, res) => {
     // Validate table name
     const tableName = TABLE_NAMES[documentType];
     if (!tableName) {
-      return res.status(400).json({ error: 'Invalid document type' });
+      console.error('Invalid document type:', documentType);
+      return res.status(400).json({ error: `Invalid document type: ${documentType}` });
     }
 
     // Insert into database
     const result = await upsertDocument(tableName, code_id, documentUrl, displayName);
-    console.log('Insert result:', result);
+    console.log('Document upsert result:', result);
 
-    res.json({ success: true, message: 'Document updated successfully' });
+    res.json({ 
+      success: true, 
+      message: `Document ${result.action} successfully`,
+      documentId: result.id
+    });
   } catch (error) {
     console.error('Error updating document:', error);
     res.status(500).json({ error: 'Failed to update document', details: error.message });
@@ -59,49 +75,26 @@ router.get('/getUserDocuments/:userId', async (req, res) => {
 
     // Get user's code_id
     const userQuery = 'SELECT code_id FROM users WHERE id = ?';
+    console.log('Executing user query:', userQuery, 'with userId:', userId);
     const userResult = await queryDatabase(userQuery, [userId]);
     console.log('User query result:', userResult);
     
     if (!userResult || userResult.length === 0) {
-      return res.status(404).json({ error: 'User not found' });
+      console.error('User not found:', userId);
+      return res.status(404).json({ error: `User with ID ${userId} not found` });
     }
 
     const code_id = userResult[0].code_id;
     console.log('Found code_id:', code_id);
-    const documents = {};
 
-    // Get documents from each table
-    for (const [frontendType, tableName] of Object.entries(TABLE_NAMES)) {
-      console.log(`Checking table ${tableName} for documents...`);
-      const query = `
-        SELECT file_name, display_name, status, uploaded_at 
-        FROM ${tableName} 
-        WHERE code_id = ?
-        ORDER BY uploaded_at DESC 
-        LIMIT 1
-      `;
-      
-      try {
-        const result = await queryDatabase(query, [code_id]);
-        console.log(`Results for ${tableName}:`, result);
-        if (result && result.length > 0) {
-          documents[frontendType] = {
-            url: result[0].file_name,
-            name: result[0].display_name,
-            status: result[0].status,
-            uploaded_at: result[0].uploaded_at
-          };
-        }
-      } catch (error) {
-        console.error(`Error querying ${tableName}:`, error);
-      }
-    }
+    // Get all documents for the user
+    const documents = await getUserDocuments(code_id);
+    console.log('Retrieved documents:', documents);
 
-    console.log('Final documents object:', documents);
     res.json({ success: true, documents });
   } catch (error) {
     console.error('Error fetching documents:', error);
-    res.status(500).json({ error: 'Failed to fetch documents' });
+    res.status(500).json({ error: 'Failed to fetch documents', details: error.message });
   }
 });
 
@@ -109,34 +102,46 @@ router.get('/getUserDocuments/:userId', async (req, res) => {
 router.post('/deleteDocument', async (req, res) => {
   try {
     const { userId, documentType } = req.body;
+    console.log('Received delete request:', req.body);
     
     if (!userId || !documentType) {
+      console.error('Missing required fields:', { userId, documentType });
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
     // Get the user's code_id first
     const userQuery = 'SELECT code_id FROM users WHERE id = ?';
+    console.log('Executing user query:', userQuery, 'with userId:', userId);
     const userResult = await queryDatabase(userQuery, [userId]);
+    console.log('User query result:', userResult);
     
     if (!userResult || userResult.length === 0) {
-      return res.status(404).json({ error: 'User not found' });
+      console.error('User not found:', userId);
+      return res.status(404).json({ error: `User with ID ${userId} not found` });
     }
 
     const code_id = userResult[0].code_id;
+    console.log('Found code_id:', code_id);
 
     // Validate table name
     const tableName = TABLE_NAMES[documentType];
     if (!tableName) {
-      return res.status(400).json({ error: 'Invalid document type' });
+      console.error('Invalid document type:', documentType);
+      return res.status(400).json({ error: `Invalid document type: ${documentType}` });
     }
 
     // Delete from database
-    await deleteDocument(tableName, code_id);
+    const result = await deleteDocument(tableName, code_id);
+    console.log('Delete result:', result);
 
-    res.json({ success: true, message: 'Document deleted successfully' });
+    res.json({ 
+      success: true, 
+      message: 'Document deleted successfully',
+      affectedRows: result.affectedRows
+    });
   } catch (error) {
     console.error('Error deleting document:', error);
-    res.status(500).json({ error: 'Failed to delete document' });
+    res.status(500).json({ error: 'Failed to delete document', details: error.message });
   }
 });
 

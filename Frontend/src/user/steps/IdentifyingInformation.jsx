@@ -20,10 +20,10 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
   const handleChange = (e) => {
     const { name, value } = e.target;
 
-    if (name === 'dateOfBirth') {
+    if (name === 'date_of_birth') {
       const age = calculateAge(value);
-      updateFormData({ dateOfBirth: value, age });
-    } else if (name === 'contactNumber') {
+      updateFormData({ date_of_birth: value, age });
+    } else if (name === 'contact_number') {
       let formattedValue = value.replace(/\D/g, '');
       if (!formattedValue.startsWith('09') && formattedValue.length > 0) {
         formattedValue = '09' + formattedValue.substring(formattedValue.length > 2 ? 2 : 0);
@@ -43,16 +43,16 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
   const validateForm = () => {
     const newErrors = {};
 
-    if (!formData.firstName) {
-      newErrors.firstName = "First Name is required.";
+    if (!formData.first_name) {
+      newErrors.first_name = "First Name is required.";
     }
 
-    if (!formData.middleName) {
-      newErrors.middleName = "Middle Name is required.";
+    if (!formData.middle_name) {
+      newErrors.middle_name = "Middle Name is required.";
     }
 
-    if (!formData.lastName) {
-      newErrors.lastName = "Last Name is required.";
+    if (!formData.last_name) {
+      newErrors.last_name = "Last Name is required.";
     }
 
     if (!formData.age || formData.age <= 0 || formData.age > 999) {
@@ -63,12 +63,12 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
       newErrors.gender = "Gender is required.";
     }
 
-    if (!formData.dateOfBirth) {
-      newErrors.dateOfBirth = "Date of Birth is required.";
+    if (!formData.date_of_birth) {
+      newErrors.date_of_birth = "Date of Birth is required.";
     }
 
-    if (!formData.placeOfBirth) {
-      newErrors.placeOfBirth = "Place of Birth is required.";
+    if (!formData.place_of_birth) {
+      newErrors.place_of_birth = "Place of Birth is required.";
     }
 
     if (!formData.barangay) {
@@ -79,8 +79,8 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
       newErrors.education = "Educational Attainment is required.";
     }
 
-    if (!formData.civilStatus) {
-      newErrors.civilStatus = "Civil Status is required.";
+    if (!formData.civil_status) {
+      newErrors.civil_status = "Civil Status is required.";
     }
 
     if (!formData.occupation) {
@@ -100,32 +100,28 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
       newErrors.income = "Monthly Income is required.";
     }
 
-    // Fix the barangay validation
-    if (!formData.barangay) {  // Changed from address to barangay
-      newErrors.barangay = "Barangay is required.";  // Changed from address to barangay
+    if (!formData.employment_status) {
+      newErrors.employment_status = "Employment Status is required.";
     }
 
-    if (!formData.employmentStatus) {
-      newErrors.employmentStatus = "Employment Status is required.";
-    }
-
-    if (!formData.contactNumber || !formData.contactNumber.startsWith('09') || formData.contactNumber.length !== 11) {
-      newErrors.contactNumber = "Contact Number must start with 09 and be exactly 11 digits.";
+    if (!formData.contact_number || !formData.contact_number.startsWith('09') || formData.contact_number.length !== 11) {
+      newErrors.contact_number = "Contact Number must start with 09 and be exactly 11 digits.";
     }
 
     if (!formData.email || !/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = "Valid Email Address is required.";
     }
 
-    if (!formData.pantawidBeneficiary) {
-      newErrors.pantawidBeneficiary = "Pantawid Beneficiary status is required.";
+    if (!formData.pantawid_beneficiary) {
+      newErrors.pantawid_beneficiary = "Pantawid Beneficiary status is required.";
     }
 
     if (!formData.indigenous) {
       newErrors.indigenous = "Indigenous status is required.";
     }
 
-    return newErrors;
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   // Handle form submission with validation
@@ -134,9 +130,8 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
   
     // Run validation
     const formErrors = validateForm();
-    setErrors(formErrors);
   
-    if (Object.keys(formErrors).length === 0) {
+    if (Object.keys(errors).length === 0) {
       // Show success message briefly
       setSuccessMessage("Form validated successfully!");
       setTimeout(() => {
@@ -163,40 +158,40 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
           <label className="identifying-label">First Name</label>
           <input
             type="text"
-            name="firstName"
-            value={formData.firstName || ''}
+            name="first_name"
+            value={formData.first_name || ''}
             onChange={handleChange}
             className="identifying-input"
             placeholder="Enter your first name"
             maxLength={20}
           />
-          {errors.firstName && <span className="error">{errors.firstName}</span>}
+          {errors.first_name && <span className="error">{errors.first_name}</span>}
         </div>
         <div className="form-group">
           <label className="identifying-label">Middle Name</label>
           <input
             type="text"
-            name="middleName"
-            value={formData.middleName || ''}
+            name="middle_name"
+            value={formData.middle_name || ''}
             onChange={handleChange}
             className="identifying-input"
             placeholder="Enter your middle name"
             maxLength={20}
           />
-          {errors.middleName && <span className="error">{errors.middleName}</span>}
+          {errors.middle_name && <span className="error">{errors.middle_name}</span>}
         </div>
         <div className="form-group">
           <label className="identifying-label">Last Name</label>
           <input
             type="text"
-            name="lastName"
-            value={formData.lastName || ''}
+            name="last_name"
+            value={formData.last_name || ''}
             onChange={handleChange}
             className="identifying-input"
             placeholder="Enter your last name"
             maxLength={20}
           />
-          {errors.lastName && <span className="error">{errors.lastName}</span>}
+          {errors.last_name && <span className="error">{errors.last_name}</span>}
         </div>
       </div>
 
@@ -206,13 +201,13 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
           <label className="identifying-label">Date of Birth</label>
           <input
             type="date"
-            name="dateOfBirth"
-            value={formData.dateOfBirth || ''}
+            name="date_of_birth"
+            value={formData.date_of_birth || ''}
             onChange={handleChange}
             className="identifying-input"
             placeholder="Select your birth date"
           />
-          {errors.dateOfBirth && <span className="error">{errors.dateOfBirth}</span>}
+          {errors.date_of_birth && <span className="error">{errors.date_of_birth}</span>}
         </div>
         <div className="form-group">
           <label className="identifying-label">Age</label>
@@ -249,14 +244,14 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
           <label className="identifying-label">Place of Birth</label>
           <input
             type="text"
-            name="placeOfBirth"
-            value={formData.placeOfBirth || ''}
+            name="place_of_birth"
+            value={formData.place_of_birth || ''}
             onChange={handleChange}
             className="identifying-input"
             placeholder="Enter your place of birth"
             maxLength={50}
           />
-          {errors.placeOfBirth && <span className="error">{errors.placeOfBirth}</span>}
+          {errors.place_of_birth && <span className="error">{errors.place_of_birth}</span>}
         </div>
       </div>
 
@@ -274,8 +269,8 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
         <div className="form-group">
           <label className="identifying-label">Barangay</label>
           <select
-            name="barangay"  // Changed from 'address' to 'barangay'
-            value={formData.barangay || ''}  // Changed from address to barangay
+            name="barangay"  
+            value={formData.barangay || ''}  
             onChange={handleChange}
             className="identifying-input"
           >
@@ -308,8 +303,8 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
         <div className="form-group">
           <label className="identifying-label">Civil Status</label>
           <select
-            name="civilStatus"
-            value={formData.civilStatus || ''}
+            name="civil_status"
+            value={formData.civil_status || ''}
             onChange={handleChange}
             className="identifying-input"
           >
@@ -319,7 +314,7 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
             <option value="Divorced">Divorced</option>
             <option value="Widowed">Widowed</option>
           </select>
-          {errors.civilStatus && <span className="error">{errors.civilStatus}</span>}
+          {errors.civil_status && <span className="error">{errors.civil_status}</span>}
         </div>
         <div className="form-group">
           <label className="identifying-label">Occupation</label>
@@ -386,8 +381,8 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
       <div className="form-group">
         <label className="identifying-label">Employment Status</label>
         <select
-          name="employmentStatus"
-          value={formData.employmentStatus || ''}
+          name="employment_status"
+          value={formData.employment_status || ''}
           onChange={handleChange}
           className="identifying-input"
         >
@@ -396,7 +391,7 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
           <option value="Self-employed">Self-employed</option>
           <option value="Not employed">Not employed</option>
         </select>
-        {errors.employmentStatus && <span className="error">{errors.employmentStatus}</span>}
+        {errors.employment_status && <span className="error">{errors.employment_status}</span>}
       </div>
 
       {/* Contact Number & Email */}
@@ -405,13 +400,13 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
           <label className="identifying-label">Contact Number</label>
           <input
             type="text"
-            name="contactNumber"
-            value={formData.contactNumber || ''}
+            name="contact_number"
+            value={formData.contact_number || ''}
             onChange={handleChange}
             className="identifying-input"
             placeholder="09XXXXXXXXX"
           />
-          {errors.contactNumber && <span className="error">{errors.contactNumber}</span>}
+          {errors.contact_number && <span className="error">{errors.contact_number}</span>}
         </div>
         <div className="form-group">
           <label className="identifying-label">Email Address</label>
@@ -432,8 +427,8 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
         <div className="form-group">
           <label className="identifying-label">Pantawid Beneficiary</label>
           <select
-            name="pantawidBeneficiary"
-            value={formData.pantawidBeneficiary || ''}
+            name="pantawid_beneficiary"
+            value={formData.pantawid_beneficiary || ''}
             onChange={handleChange}
             className="identifying-input"
           >
@@ -441,7 +436,7 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
             <option value="Yes">Yes</option>
             <option value="No">No</option>
           </select>
-          {errors.pantawidBeneficiary && <span className="error">{errors.pantawidBeneficiary}</span>}
+          {errors.pantawid_beneficiary && <span className="error">{errors.pantawid_beneficiary}</span>}
         </div>
         <div className="form-group">
           <label className="identifying-label">Indigenous</label>
@@ -463,4 +458,3 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
     </form>
   );
 }
-

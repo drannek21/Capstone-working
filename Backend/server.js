@@ -1,19 +1,23 @@
 require('dotenv').config();
 const express = require('express');
-const mysql = require('mysql');
+const app = express();
 const cors = require('cors');
+const mysql = require('mysql');
 const nodemailer = require('nodemailer');
 
-const app = express();
+// Enable CORS for all routes
 app.use(cors());
 app.use(express.json());
+
 const { sendStatusEmail } = require('./services/emailService');
 
 // Import routes
 const documentsRouter = require('./routes/documents');
+const usersRouter = require('./routes/users');
 
 // Use routes
 app.use('/api/documents', documentsRouter);
+app.use('/api/users', usersRouter);
 
 const pool = mysql.createPool({
   host: 'localhost',
@@ -181,12 +185,12 @@ app.get('/pendingUsers', async (req, res) => {
 
     const familyQuery = `
       SELECT code_id, 
-             family_member_name as name,
-             relationship,
-             occupation as educational_attainment,
+             family_member_name,
+             birthdate,
+             educational_attainment,
              age
       FROM step2_family_occupation
-      WHERE code_id IN (?) AND relationship = 'Child'
+      WHERE code_id IN (?)
     `;
 
     const familyMembers = await queryDatabase(familyQuery, [codeIds]);
@@ -489,6 +493,7 @@ app.post('/updateUserProfile', async (req, res) => {
 
 app.post('/submitAllSteps', async (req, res) => {
   const { formData } = req.body;
+  console.log('Received form data:', JSON.stringify(formData, null, 2));
 
   try {
     const createDate = new Date();
@@ -496,91 +501,169 @@ app.post('/submitAllSteps', async (req, res) => {
     const month = (createDate.getMonth() + 1).toString().padStart(2, '0');
     const newId = Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
     const codeId = `${year}-${month}-${newId}`;
+    console.log('Generated code_id:', codeId);
 
     await queryDatabase('START TRANSACTION');
 
-    await queryDatabase(`
-      INSERT INTO step1_identifying_information (
-        code_id, first_name, middle_name, last_name, age, gender, date_of_birth,
-        place_of_birth, barangay, education, civil_status, occupation, religion,
-        company, income, employment_status, contact_number, email, pantawid_beneficiary,
-        indigenous
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [
-      codeId,
-      formData.firstName || "", 
-      formData.middleName || "", 
-      formData.lastName || "", 
-      formData.age || "", 
-      formData.gender || "", 
-      formData.dateOfBirth || "", 
-      formData.placeOfBirth || "", 
-      formData.barangay || "", 
-      formData.education || "", 
-      formData.civilStatus || "", 
-      formData.occupation || "", 
-      formData.religion || "", 
-      formData.company || "", 
-      formData.income || "", 
-      formData.employmentStatus || "", 
-      formData.contactNumber || "", 
-      formData.email || "", 
-      formData.pantawidBeneficiary || "",
-      formData.indigenous || ""
-    ]);
+    // Insert into step1_identifying_information first to get the code_id
+    console.log('Inserting step 1 data...');
+    try {
+      const step1Query = `
+        INSERT INTO step1_identifying_information (
+          code_id, first_name, middle_name, last_name, age, gender, date_of_birth,
+          place_of_birth, barangay, education, civil_status, occupation, religion,
+          company, income, employment_status, contact_number, email, pantawid_beneficiary,
+          indigenous
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `;
+      const step1Values = [
+        codeId,
+        formData.first_name || "", 
+        formData.middle_name || "", 
+        formData.last_name || "", 
+        formData.age || "", 
+        formData.gender || "", 
+        formData.date_of_birth || "", 
+        formData.place_of_birth || "", 
+        formData.barangay || "", 
+        formData.education || "", 
+        formData.civil_status || "", 
+        formData.occupation || "", 
+        formData.religion || "", 
+        formData.company || "", 
+        formData.income || "", 
+        formData.employment_status || "", 
+        formData.contact_number || "", 
+        formData.email || "", 
+        formData.pantawid_beneficiary || "",
+        formData.indigenous || ""
+      ];
+      console.log('Step 1 query:', step1Query);
+      console.log('Step 1 values:', step1Values);
+      await queryDatabase(step1Query, step1Values);
+      console.log('Successfully inserted step 1 data with code_id:', codeId);
 
-    if (formData.children && Array.isArray(formData.children)) {
-      for (const child of formData.children) {
-        await queryDatabase(
-          'INSERT INTO step2_family_occupation (code_id, family_member_name, relationship, occupation, age) VALUES (?, ?, ?, ?, ?)',
-          [
-            codeId,
-            `${child.firstName} ${child.middleName} ${child.lastName}`.trim(),
-            'Child', 
-            child.educationalAttainment || 'N/A', 
-            child.age || 0
-          ]
-        );
-      }
-    }
-
-    await queryDatabase(
-      'INSERT INTO step3_classification (code_id, classification) VALUES (?, ?)',
-      [codeId, formData.Classification || ""]
-    );
-
-    await queryDatabase(
-      'INSERT INTO step4_needs_problems (code_id, needs_problems) VALUES (?, ?)',
-      [codeId, formData.needsProblems || ""]
-    );
-
-    if (formData.emergencyContact) {
-      await queryDatabase(
-        'INSERT INTO step5_in_case_of_emergency (code_id, emergency_name, emergency_relationship, emergency_address, emergency_contact) VALUES (?, ?, ?, ?, ?)',
-        [
+      // Insert step 2 data (children)
+      if (formData.children && formData.children.length > 0) {
+        console.log('Inserting step 2 data...');
+        const step2Query = `
+          INSERT INTO step2_family_occupation (
+            code_id, family_member_name, age, birthdate, educational_attainment
+          ) VALUES ?
+        `;
+        const childrenValues = formData.children.map(child => [
           codeId,
-          formData.emergencyContact.emergencyName || "",
-          formData.emergencyContact.emergencyRelationship || "",
-          formData.emergencyContact.emergencyAddress || "",
-          formData.emergencyContact.emergencyContact || ""
-        ]
-      );
-    }
+          `${child.first_name} ${child.middle_name} ${child.last_name}`.trim(),
+          parseInt(child.age) || 0,  // Convert to integer since age is int(11)
+          child.birthdate,  // Keep as is since it's a DATE type
+          child.educational_attainment || ""
+        ]);
+        console.log('Step 2 values:', childrenValues);
+        await queryDatabase(step2Query, [childrenValues]);
+      }
 
-    const fullName = `${formData.firstName} ${formData.middleName} ${formData.lastName}`.trim();
-    await queryDatabase(
-      'INSERT INTO users (email, name, password, status, code_id) VALUES (?, ?, ?, ?, ?)',
-      [formData.email, fullName, formData.dateOfBirth, 'Pending', codeId]
-    );
+      // Insert step 3 data (classification)
+      console.log('Inserting step 3 data...');
+      const step3Query = `
+        INSERT INTO step3_classification (
+          code_id, classification
+        ) VALUES (?, ?)
+      `;
+      await queryDatabase(step3Query, [codeId, formData.classification || ""]);
+
+      // Insert step 4 data (needs/problems)
+      console.log('Inserting step 4 data...');
+      const step4Query = `
+        INSERT INTO step4_needs_problems (
+          code_id, needs_problems
+        ) VALUES (?, ?)
+      `;
+      await queryDatabase(step4Query, [codeId, formData.needs_problems || ""]);
+
+      // Insert step 5 data (emergency contact)
+      console.log('Inserting step 5 data...');
+      const step5Query = `
+        INSERT INTO step5_in_case_of_emergency (
+          code_id, emergency_name, emergency_contact,
+          emergency_address, emergency_relationship
+        ) VALUES (?, ?, ?, ?, ?)
+      `;
+      const step5Values = [
+        codeId,
+        formData.emergency_name || "",
+        formData.emergency_contact || "",
+        formData.emergency_address || "",
+        formData.emergency_relationship || ""
+      ];
+      await queryDatabase(step5Query, step5Values);
+
+      // Now process documents using the code_id from step1
+      if (formData.documents) {
+        try {
+          // Create full name once for all documents
+          const fullName = `${formData.first_name} ${formData.middle_name} ${formData.last_name}`.trim();
+          
+          for (const [docType, doc] of Object.entries(formData.documents)) {
+            console.log('Processing document:', docType, doc);
+            const tableName = `${docType}_documents`;
+            const insertQuery = `
+              INSERT INTO ${tableName} (
+                code_id, file_name, display_name, status
+              ) VALUES (?, ?, ?, ?)
+            `;
+            // Get the file name from the URL
+            const fileName = doc.url.split('/').pop();
+            // Create display name using user's full name and document type
+            const displayName = `${fullName} - ${docType}`;
+            const insertValues = [codeId, fileName, displayName, 'Uploaded'];
+            console.log('Document query:', insertQuery);
+            console.log('Document values:', insertValues);
+            await queryDatabase(insertQuery, insertValues);
+          }
+        } catch (err) {
+          console.error('Error processing documents:', err);
+          throw new Error(`Document upload error: ${err.message}`);
+        }
+      }
+
+      // Create user account last
+      console.log('Creating user account...');
+      try {
+        const userQuery = `
+          INSERT INTO users (
+            email, code_id, status
+          ) VALUES (?, ?, 'Pending')
+        `;
+        const userValues = [formData.email, codeId];
+        console.log('User query:', userQuery);
+        console.log('User values:', userValues);
+        await queryDatabase(userQuery, userValues);
+      } catch (err) {
+        console.error('Error creating user:', err);
+        throw new Error(`User creation error: ${err.message}`);
+      }
+
+    } catch (err) {
+      console.error('Error in step 1:', err);
+      throw new Error(`Step 1 error: ${err.message}`);
+    }
 
     await queryDatabase('COMMIT');
+    console.log('Transaction committed successfully');
 
-    res.status(201).json({ message: 'Form submitted successfully. Your verification is now pending.', codeId });
-
-  } catch (err) {
+    res.json({ 
+      success: true, 
+      message: 'Registration completed successfully',
+      code_id: codeId
+    });
+  } catch (error) {
+    console.error('Error in submitAllSteps:', error);
     await queryDatabase('ROLLBACK');
-    console.error('Error saving form data:', err);
-    res.status(500).json({ error: 'Error saving form data: ' + err.message });
+    res.status(500).json({ 
+      error: 'Failed to submit registration', 
+      details: error.message,
+      stack: error.stack
+    });
   }
 });
 
@@ -592,8 +675,8 @@ app.get('/debug/family-occupation', async (req, res) => {
         s1.first_name as parent_first_name,
         s1.last_name as parent_last_name,
         s2.family_member_name,
-        s2.relationship,
-        s2.occupation,
+        s2.educational_attainment,
+        s2.birthdate,
         s2.age
       FROM step1_identifying_information s1
       LEFT JOIN step2_family_occupation s2 ON s1.code_id = s2.code_id
@@ -611,8 +694,8 @@ app.get('/debug/family-occupation', async (req, res) => {
       if (row.family_member_name) { 
         familyData[row.code_id].family_members.push({
           name: row.family_member_name,
-          relationship: row.relationship,
-          occupation: row.occupation,
+          relationship: row.educational_attainment,
+          occupation: row.birthdate,
           age: row.age
         });
       }
@@ -1199,6 +1282,40 @@ app.get('/getUserDocuments/:userId', async (req, res) => {
   } catch (error) {
     console.error('Error fetching documents:', error);
     res.status(500).json({ success: false, message: 'Failed to fetch documents' });
+  }
+});
+
+app.get('/check-tables', async (req, res) => {
+  try {
+    const tables = [
+      'step1_identifying_information',
+      'step2_family_occupation',
+      'step3_classification',
+      'step4_needs_problems',
+      'step5_in_case_of_emergency',
+      'users',
+      'psa_documents',
+      'itr_documents',
+      'med_cert_documents',
+      'marriage_documents',
+      'cenomar_documents',
+      'death_cert_documents'
+    ];
+
+    const results = {};
+    for (const table of tables) {
+      try {
+        const columns = await queryDatabase(`DESCRIBE ${table}`);
+        results[table] = columns;
+      } catch (err) {
+        results[table] = { error: err.message };
+      }
+    }
+
+    res.json(results);
+  } catch (error) {
+    console.error('Error checking tables:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 

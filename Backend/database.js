@@ -13,6 +13,16 @@ const pool = mysql.createPool({
   keepAliveInitialDelay: 0
 });
 
+// Test database connection
+pool.getConnection((err, connection) => {
+  if (err) {
+    console.error('Error connecting to database:', err);
+    return;
+  }
+  console.log('Successfully connected to database');
+  connection.release();
+});
+
 // Promisified query function
 const queryDatabase = (sql, params) => new Promise((resolve, reject) => {
   pool.getConnection((err, connection) => {
@@ -32,41 +42,44 @@ const queryDatabase = (sql, params) => new Promise((resolve, reject) => {
   });
 });
 
-async function showDatabaseStructure() {
-  try {
-    // Get all tables
-    const tables = await queryDatabase('SHOW TABLES FROM soloparent');
-    console.log('Tables in database:');
-    console.log(tables);
-    
-    // For each table, show its structure
-    for (const tableObj of tables) {
-      const tableName = tableObj[`Tables_in_soloparent`];
-      const structure = await queryDatabase(`DESCRIBE ${tableName}`);
-      console.log(`\nStructure of table ${tableName}:`);
-      console.log(structure);
-    }
-  } catch (error) {
-    console.error('Error:', error);
-  }
-}
-
-showDatabaseStructure();
-
 // Insert or update document
 const upsertDocument = async (tableName, code_id, file_name, display_name) => {
   try {
-    // Delete existing document if any
-    const deleteQuery = `DELETE FROM ${tableName} WHERE code_id = ?`;
-    await queryDatabase(deleteQuery, [code_id]);
+    console.log('Upserting document:', { tableName, code_id, file_name, display_name });
 
-    // Insert new document
-    const insertQuery = `
-      INSERT INTO ${tableName} (code_id, file_name, display_name, status)
-      VALUES (?, ?, ?, 'Uploaded')
-    `;
-    const result = await queryDatabase(insertQuery, [code_id, file_name, display_name]);
-    return { success: true, id: result.insertId };
+    // First check if document exists
+    const checkQuery = `SELECT * FROM ${tableName} WHERE code_id = ?`;
+    const existingDoc = await queryDatabase(checkQuery, [code_id]);
+    console.log('Existing document:', existingDoc);
+
+    let result;
+    if (existingDoc && existingDoc.length > 0) {
+      // Update existing document
+      const updateQuery = `
+        UPDATE ${tableName} 
+        SET file_name = ?, 
+            display_name = ?, 
+            status = 'Uploaded',
+            uploaded_at = CURRENT_TIMESTAMP
+        WHERE code_id = ?
+      `;
+      result = await queryDatabase(updateQuery, [file_name, display_name, code_id]);
+      console.log('Updated existing document:', result);
+    } else {
+      // Insert new document
+      const insertQuery = `
+        INSERT INTO ${tableName} (code_id, file_name, display_name, status)
+        VALUES (?, ?, ?, 'Uploaded')
+      `;
+      result = await queryDatabase(insertQuery, [code_id, file_name, display_name]);
+      console.log('Inserted new document:', result);
+    }
+
+    return { 
+      success: true, 
+      id: result.insertId || existingDoc[0]?.id,
+      action: existingDoc.length > 0 ? 'updated' : 'inserted'
+    };
   } catch (error) {
     console.error(`Error upserting document in ${tableName}:`, error);
     throw error;
@@ -77,13 +90,14 @@ const upsertDocument = async (tableName, code_id, file_name, display_name) => {
 const getDocumentStatus = async (tableName, code_id) => {
   try {
     const query = `
-      SELECT file_name, status, rejection_reason, uploaded_at
+      SELECT id, file_name, display_name, status, rejection_reason, uploaded_at
       FROM ${tableName}
       WHERE code_id = ?
       ORDER BY uploaded_at DESC
       LIMIT 1
     `;
     const results = await queryDatabase(query, [code_id]);
+    console.log(`Document status for ${tableName}:`, results[0] || null);
     return results[0] || null;
   } catch (error) {
     console.error(`Error getting document status from ${tableName}:`, error);
@@ -95,10 +109,54 @@ const getDocumentStatus = async (tableName, code_id) => {
 const deleteDocument = async (tableName, code_id) => {
   try {
     const query = `DELETE FROM ${tableName} WHERE code_id = ?`;
-    await queryDatabase(query, [code_id]);
-    return { success: true };
+    const result = await queryDatabase(query, [code_id]);
+    console.log(`Deleted document from ${tableName}:`, result);
+    return { 
+      success: true,
+      affectedRows: result.affectedRows
+    };
   } catch (error) {
     console.error(`Error deleting document from ${tableName}:`, error);
+    throw error;
+  }
+};
+
+// Get all documents for a user
+const getUserDocuments = async (code_id) => {
+  try {
+    console.log('Getting documents for code_id:', code_id);
+    const tables = [
+      'psa_documents',
+      'itr_documents',
+      'med_cert_documents',
+      'marriage_documents',
+      'cenomar_documents',
+      'death_cert_documents'
+    ];
+
+    const documents = {};
+    for (const table of tables) {
+      try {
+        const doc = await getDocumentStatus(table, code_id);
+        if (doc) {
+          const docType = table.replace('_documents', '');
+          documents[docType] = {
+            id: doc.id,
+            url: doc.file_name,
+            name: doc.display_name,
+            status: doc.status,
+            uploaded_at: doc.uploaded_at
+          };
+        }
+      } catch (error) {
+        console.error(`Error getting document from ${table}:`, error);
+      }
+    }
+
+    console.log('Retrieved documents:', documents);
+    return documents;
+  } catch (error) {
+    console.error('Error getting user documents:', error);
     throw error;
   }
 };
@@ -108,5 +166,6 @@ module.exports = {
   queryDatabase,
   upsertDocument,
   getDocumentStatus,
-  deleteDocument
+  deleteDocument,
+  getUserDocuments
 };

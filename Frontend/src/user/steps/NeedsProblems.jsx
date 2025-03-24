@@ -19,11 +19,11 @@ export default function NeedsProblems({ prevStep, nextStep, formData, updateForm
       <div className="needs-input-container">
         <label className="needs-label step-label">Please describe your needs or problems:</label>
         <textarea
-          {...register("needsProblems", { required: "This field is required" })}
-          className={`needs-input step-input ${errors.needsProblems ? 'error' : ''}`}
+          {...register("needs_problems", { required: "This field is required" })}
+          className={`needs-input step-input ${errors.needs_problems ? 'error' : ''}`}
           rows={4}
         />
-        {errors.needsProblems && <p className="needs-error">{errors.needsProblems.message}</p>}
+        {errors.needs_problems && <p className="needs-error">{errors.needs_problems.message}</p>}
       </div>
       <div className="needs-buttons">
         <button type="button" onClick={prevStep}>Back</button>
