@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import axios from "axios";
 import { toast } from "react-hot-toast";
 import IdentifyingInformation from "./steps/IdentifyingInformation";
@@ -24,7 +24,6 @@ export default function MultiStepForm() {
   };
 
   const [step, setStep] = useState(1);
-  const totalSteps = 6; 
   const [formData, setFormData] = useState({
     // Step 1: Personal Information
     first_name: "",
@@ -65,6 +64,9 @@ export default function MultiStepForm() {
     // Step 6: Documents
     documents: {}
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const submissionInProgress = useRef(false);
+  const totalSteps = 6;
 
   const updateFormData = (newData) => {
     // Add age calculation when date of birth is updated
@@ -82,8 +84,28 @@ export default function MultiStepForm() {
   const prevStep = () => setStep(step - 1);
 
   const handleFinalSubmit = async () => {
+    // Prevent duplicate submissions
+    if (submissionInProgress.current) {
+      console.log('Submission already in progress, skipping duplicate request');
+      return {
+        success: false,
+        error: 'Submission already in progress'
+      };
+    }
+
     try {
+      submissionInProgress.current = true;
+      setIsSubmitting(true);
       console.log('Starting final form submission');
+      
+      // If we already have a code_id, return it without resubmitting
+      if (formData.code_id) {
+        console.log('Using existing code_id:', formData.code_id);
+        return {
+          success: true,
+          code_id: formData.code_id
+        };
+      }
       
       // Submit all steps data to create user entry
       const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/documents/submitAllSteps`, {
@@ -145,8 +167,56 @@ export default function MultiStepForm() {
       };
     } catch (error) {
       console.error('Registration error:', error);
-      toast.error(error.response?.data?.error || "Registration failed. Please try again.");
+      
+      // Handle various error responses from the backend
+      if (error.response) {
+        const errorData = error.response.data;
+        console.log('Error response data:', errorData);
+        
+        // Check if the error is due to duplicate entry but an existing code_id was returned
+        if (errorData.existing_code_id) {
+          const code_id = errorData.existing_code_id;
+          console.log('Using existing code_id from error response:', code_id);
+          
+          // Update form data with the existing code_id
+          const updatedFormData = {
+            ...formData,
+            code_id: code_id
+          };
+          updateFormData(updatedFormData);
+          
+          // Show a toast that we're using an existing submission
+          toast.info(errorData.details || 'Using existing submission');
+          
+          return {
+            success: true,
+            code_id: code_id,
+            message: 'Using existing submission'
+          };
+        }
+        
+        // Handle different error codes
+        if (errorData.errorCode === 'ER_DUP_ENTRY') {
+          toast.error(errorData.details || 'A duplicate entry was detected. Please use a different email address.');
+        } else if (errorData.errorCode === 'ER_LOCK_WAIT_TIMEOUT') {
+          toast.error(errorData.details || 'The system is busy. Please try again in a moment.');
+        } else {
+          // Generic error message for other cases
+          toast.error(errorData.error || errorData.details || "Registration failed. Please try again.");
+        }
+      } else {
+        // Network error or other issues
+        toast.error("Registration failed. Please check your connection and try again.");
+      }
+      
+      // Rethrow for DocumentUpload component to handle
       throw error;
+    } finally {
+      // Reset submission status after a delay to prevent rapid resubmissions
+      setTimeout(() => {
+        submissionInProgress.current = false;
+        setIsSubmitting(false);
+      }, 2000);
     }
   };
 

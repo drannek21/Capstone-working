@@ -158,9 +158,57 @@ app.get('/pendingUsers', async (req, res) => {
       familyByUser[member.code_id].push(member);
     });
 
+    // Fetch documents for each user from all document tables
+    const documentTables = [
+      'psa_documents',
+      'itr_documents', 
+      'med_cert_documents', 
+      'marriage_documents', 
+      'cenomar_documents', 
+      'death_cert_documents',
+      'barangay_cert_documents'
+    ];
+    
+    let allDocuments = [];
+    
+    // Query each document table and combine results
+    for (const table of documentTables) {
+      const documentsQuery = `
+        SELECT code_id,
+               file_name,
+               uploaded_at,
+               display_name,
+               status,
+               '${table}' as document_type,
+               CASE 
+                 WHEN file_name LIKE 'http%' THEN file_name 
+                 ELSE CONCAT('http://localhost:8081/uploads/', file_name) 
+               END as file_url
+        FROM ${table}
+        WHERE code_id IN (?)
+      `;
+
+      try {
+        const docs = await queryDatabase(documentsQuery, [codeIds]);
+        allDocuments = [...allDocuments, ...docs];
+      } catch (err) {
+        console.error(`Error fetching from ${table}:`, err);
+        // Continue with other tables even if one fails
+      }
+    }
+
+    const documentsByUser = {};
+    allDocuments.forEach(doc => {
+      if (!documentsByUser[doc.code_id]) {
+        documentsByUser[doc.code_id] = [];
+      }
+      documentsByUser[doc.code_id].push(doc);
+    });
+
     const usersWithFamily = users.map(user => ({
       ...user,
-      familyMembers: familyByUser[user.code_id] || []
+      familyMembers: familyByUser[user.code_id] || [],
+      documents: documentsByUser[user.code_id] || []
     }));
 
     res.status(200).json(usersWithFamily);
@@ -264,6 +312,45 @@ app.post('/getUserDetails', async (req, res) => {
       // We'll let the frontend handle the default avatar
       // No need to set a default profilePic here
 
+      // Fetch documents from all document tables
+      const documentTables = [
+        'psa_documents',
+        'itr_documents', 
+        'med_cert_documents', 
+        'marriage_documents', 
+        'cenomar_documents', 
+        'death_cert_documents',
+        'barangay_cert_documents'
+      ];
+      
+      let allDocuments = [];
+      
+      // Query each document table and combine results
+      for (const table of documentTables) {
+        const documentsQuery = `
+          SELECT code_id,
+                 file_name,
+                 uploaded_at,
+                 display_name,
+                 status,
+                 '${table}' as document_type,
+                 CASE 
+                   WHEN file_name LIKE 'http%' THEN file_name 
+                   ELSE CONCAT('http://localhost:8081/uploads/', file_name) 
+                 END as file_url
+          FROM ${table}
+          WHERE code_id = ?
+        `;
+
+        try {
+          const docs = await queryDatabase(documentsQuery, [user.code_id]);
+          allDocuments = [...allDocuments, ...docs];
+        } catch (err) {
+          console.error(`Error fetching from ${table}:`, err);
+          // Continue with other tables even if one fails
+        }
+      }
+
       if (user.status === 'Verified') {
         const classificationResult = await queryDatabase(
           'SELECT classification FROM step3_classification WHERE code_id = ?', 
@@ -275,8 +362,10 @@ app.post('/getUserDetails', async (req, res) => {
           [userId]
         );
 
+        console.log('Valid date result:', validDateResult);
+
         const familyResults = await queryDatabase(
-          `SELECT family_member_name as name, relationship, occupation as educational_attainment, age
+          `SELECT family_member_name, birthdate, educational_attainment, age
            FROM step2_family_occupation
            WHERE code_id = ?`, 
           [user.code_id]
@@ -286,12 +375,17 @@ app.post('/getUserDetails', async (req, res) => {
           ...user,
           classification: classificationResult.length > 0 ? classificationResult[0].classification : null,
           validUntil: validDateResult.length > 0 ? validDateResult[0].accepted_at : null,
-          familyMembers: familyResults || [] 
+          familyMembers: familyResults || [],
+          documents: allDocuments || []
         };
 
+        console.log('User details with validUntil:', userDetails);
         return res.status(200).json(userDetails);
       } else {
-        return res.status(200).json(user);
+        return res.status(200).json({
+          ...user,
+          documents: allDocuments || []
+        });
       }
     } else {
       res.status(404).json({ error: 'User not found' });
@@ -352,13 +446,22 @@ app.post('/updateUserStatus', async (req, res) => {
         throw new Error('User not found');
       }
 
-      const currentStatus = userResult[0].status;
       const userId = userResult[0].id;
+      const currentStatus = userResult[0].status;
 
-      await queryDatabase('UPDATE users SET status = ? WHERE code_id = ?', [status, code_id]);
-      console.log('User status updated successfully for code_id:', code_id);
+      // Update user status
+      await queryDatabase('UPDATE users SET status = ? WHERE id = ?', [status, userId]);
+      console.log('User status updated successfully for user ID:', userId);
 
-      if (status === "Declined" && remarks) {
+      // Handle different status updates
+      if (status === "Renewal") {
+        const message = 'Your ID has expired. Please submit your renewal application.';
+        await queryDatabase(
+          'INSERT INTO accepted_users (user_id, message, accepted_at, is_read) VALUES (?, ?, NOW(), 0)', 
+          [userId, message]
+        );
+        console.log('Renewal notification created for user_id:', userId);
+      } else if (status === "Declined" && remarks) {
         const existingDeclined = await queryDatabase(
           'SELECT * FROM declined_users WHERE user_id = ? AND is_read = 0',
           [userId]
@@ -371,10 +474,8 @@ app.post('/updateUserStatus', async (req, res) => {
           );
           console.log('Declined user record created for user_id:', userId);
         }
-      }
-
-      if (status === "Verified" || status === "Created") {
-        const message = currentStatus === "Renewal" ? 'You have renewed' : 'Your application has been accepted.';
+      } else if (status === "Verified" || status === "Created") {
+        const message = 'Your application has been accepted.';
         const existingAccepted = await queryDatabase(
           'SELECT * FROM accepted_users WHERE user_id = ? AND message = ? AND is_read = 0',
           [userId, message]
@@ -443,182 +544,6 @@ app.post('/updateUserProfile', async (req, res) => {
   } catch (err) {
     console.error('Error updating profile picture:', err);
     res.status(500).json({ error: 'Database error while updating profile picture' });
-  }
-});
-
-app.post('/submitAllSteps', async (req, res) => {
-  const { formData } = req.body;
-  console.log('Received form data:', JSON.stringify(formData, null, 2));
-
-  try {
-    const createDate = new Date();
-    const year = createDate.getFullYear();
-    const month = (createDate.getMonth() + 1).toString().padStart(2, '0');
-    const newId = Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
-    const codeId = `${year}-${month}-${newId}`;
-    console.log('Generated code_id:', codeId);
-
-    await queryDatabase('START TRANSACTION');
-
-    // Insert into step1_identifying_information first to get the code_id
-    console.log('Inserting step 1 data...');
-    try {
-      const step1Query = `
-        INSERT INTO step1_identifying_information (
-          code_id, first_name, middle_name, last_name, age, gender, date_of_birth,
-          place_of_birth, barangay, education, civil_status, occupation, religion,
-          company, income, employment_status, contact_number, email, pantawid_beneficiary,
-          indigenous
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `;
-      const step1Values = [
-        codeId,
-        formData.first_name || "", 
-        formData.middle_name || "", 
-        formData.last_name || "", 
-        formData.age || "", 
-        formData.gender || "", 
-        formData.date_of_birth || "", 
-        formData.place_of_birth || "", 
-        formData.barangay || "", 
-        formData.education || "", 
-        formData.civil_status || "", 
-        formData.occupation || "", 
-        formData.religion || "", 
-        formData.company || "", 
-        formData.income || "", 
-        formData.employment_status || "", 
-        formData.contact_number || "", 
-        formData.email || "", 
-        formData.pantawid_beneficiary || "",
-        formData.indigenous || ""
-      ];
-      console.log('Step 1 query:', step1Query);
-      console.log('Step 1 values:', step1Values);
-      await queryDatabase(step1Query, step1Values);
-      console.log('Successfully inserted step 1 data with code_id:', codeId);
-
-      // Insert step 2 data (children)
-      if (formData.children && formData.children.length > 0) {
-        console.log('Inserting step 2 data...');
-        const step2Query = `
-          INSERT INTO step2_family_occupation (
-            code_id, family_member_name, age, birthdate, educational_attainment
-          ) VALUES ?
-        `;
-        const childrenValues = formData.children.map(child => [
-          codeId,
-          `${child.first_name} ${child.middle_name} ${child.last_name}`.trim(),
-          parseInt(child.age) || 0,  // Convert to integer since age is int(11)
-          child.birthdate,  // Keep as is since it's a DATE type
-          child.educational_attainment || ""
-        ]);
-        console.log('Step 2 values:', childrenValues);
-        await queryDatabase(step2Query, [childrenValues]);
-      }
-
-      // Insert step 3 data (classification)
-      console.log('Inserting step 3 data...');
-      const step3Query = `
-        INSERT INTO step3_classification (
-          code_id, classification
-        ) VALUES (?, ?)
-      `;
-      await queryDatabase(step3Query, [codeId, formData.classification || ""]);
-
-      // Insert step 4 data (needs/problems)
-      console.log('Inserting step 4 data...');
-      const step4Query = `
-        INSERT INTO step4_needs_problems (
-          code_id, needs_problems
-        ) VALUES (?, ?)
-      `;
-      await queryDatabase(step4Query, [codeId, formData.needs_problems || ""]);
-
-      // Insert step 5 data (emergency contact)
-      console.log('Inserting step 5 data...');
-      const step5Query = `
-        INSERT INTO step5_in_case_of_emergency (
-          code_id, emergency_name, emergency_contact,
-          emergency_address, emergency_relationship
-        ) VALUES (?, ?, ?, ?, ?)
-      `;
-      const step5Values = [
-        codeId,
-        formData.emergency_name || "",
-        formData.emergency_contact || "",
-        formData.emergency_address || "",
-        formData.emergency_relationship || ""
-      ];
-      await queryDatabase(step5Query, step5Values);
-
-      // Now process documents using the code_id from step1
-      if (formData.documents) {
-        try {
-          // Create full name once for all documents
-          const fullName = `${formData.first_name} ${formData.middle_name} ${formData.last_name}`.trim();
-          
-          for (const [docType, doc] of Object.entries(formData.documents)) {
-            console.log('Processing document:', docType, doc);
-            const tableName = `${docType}_documents`;
-            const insertQuery = `
-              INSERT INTO ${tableName} (
-                code_id, file_name, display_name, status
-              ) VALUES (?, ?, ?, ?)
-            `;
-            // Get the file name from the URL
-            const fileName = doc.url.split('/').pop();
-            // Create display name using user's full name and document type
-            const displayName = `${fullName} - ${docType}`;
-            const insertValues = [codeId, fileName, displayName, 'Uploaded'];
-            console.log('Document query:', insertQuery);
-            console.log('Document values:', insertValues);
-            await queryDatabase(insertQuery, insertValues);
-          }
-        } catch (err) {
-          console.error('Error processing documents:', err);
-          throw new Error(`Document upload error: ${err.message}`);
-        }
-      }
-
-      // Create user account last
-      console.log('Creating user account...');
-      try {
-        const userQuery = `
-          INSERT INTO users (
-            email, code_id, status
-          ) VALUES (?, ?, 'Pending')
-        `;
-        const userValues = [formData.email, codeId];
-        console.log('User query:', userQuery);
-        console.log('User values:', userValues);
-        await queryDatabase(userQuery, userValues);
-      } catch (err) {
-        console.error('Error creating user:', err);
-        throw new Error(`User creation error: ${err.message}`);
-      }
-
-    } catch (err) {
-      console.error('Error in step 1:', err);
-      throw new Error(`Step 1 error: ${err.message}`);
-    }
-
-    await queryDatabase('COMMIT');
-    console.log('Transaction committed successfully');
-
-    res.json({ 
-      success: true, 
-      message: 'Registration completed successfully',
-      code_id: codeId
-    });
-  } catch (error) {
-    console.error('Error in submitAllSteps:', error);
-    await queryDatabase('ROLLBACK');
-    res.status(500).json({ 
-      error: 'Failed to submit registration', 
-      details: error.message,
-      stack: error.stack
-    });
   }
 });
 
@@ -872,54 +797,91 @@ app.put('/notifications/mark-all-as-read/:userId', async (req, res) => {
   }
 });
 
-app.get('/renewalUsers/:adminId', async (req, res) => {
+app.get('/allRenewalUsers', async (req, res) => {
   try {
-    const { adminId } = req.params;
-    
-    const adminResult = await queryDatabase('SELECT barangay FROM admin WHERE id = ?', [adminId]);
-    
-    if (adminResult.length === 0) {
-      return res.status(404).json({ error: 'Admin not found' });
-    }
-
-    const adminBarangay = adminResult[0].barangay;
-
+    // First get all renewal users
     const users = await queryDatabase(`
-      SELECT u.id AS userId, u.email, u.name, u.status, s1.barangay,
-             s1.first_name, s1.middle_name, s1.last_name, s1.age, s1.gender, 
-             s1.date_of_birth, s1.place_of_birth, s1.education, 
-             s1.civil_status, s1.occupation, s1.religion, s1.company, 
-             s1.income, s1.employment_status, s1.contact_number, s1.email, 
-             s1.pantawid_beneficiary, s1.indigenous, s1.code_id,
-             s3.classification,
-             s4.needs_problems,
-             s5.emergency_name, s5.emergency_relationship, 
-             s5.emergency_address, s5.emergency_contact
-
+      SELECT u.id AS userId, u.code_id, s1.first_name, s1.middle_name, s1.last_name, s1.barangay
       FROM users u
       JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
-      LEFT JOIN step3_classification s3 ON u.code_id = s3.code_id
-      LEFT JOIN step4_needs_problems s4 ON u.code_id = s4.code_id
-      LEFT JOIN step5_in_case_of_emergency s5 ON u.code_id = s5.code_id
-      WHERE u.status = 'Renewal' AND s1.barangay = ?
-    `, [adminBarangay]);
+      WHERE u.status = 'Renewal'
+    `);
 
-    const usersWithChildren = await Promise.all(users.map(async (user) => {
-      const children = await queryDatabase(`
-        SELECT first_name, middle_name, last_name, birthdate, age, educational_attainment
-        FROM user_details_step2
+    // Get documents for each user
+    const usersWithDocuments = await Promise.all(users.map(async (user) => {
+      const documentsQuery = `
+        SELECT code_id,
+               file_name,
+               uploaded_at,
+               display_name,
+               status,
+               'barangay_cert_documents' as document_type,
+               CASE 
+                 WHEN file_name LIKE 'http%' THEN file_name 
+                 ELSE CONCAT('http://localhost:8081/uploads/', file_name) 
+               END as file_url
+        FROM barangay_cert_documents
         WHERE code_id = ?
-      `, [user.code_id]);
-      return {
-        ...user,
-        children: children
-      };
+      `;
+
+      try {
+        const documents = await queryDatabase(documentsQuery, [user.code_id]);
+        return {
+          ...user,
+          documents: documents
+        };
+      } catch (err) {
+        console.error(`Error fetching documents for user ${user.code_id}:`, err);
+        return {
+          ...user,
+          documents: []
+        };
+      }
     }));
 
-    res.status(200).json(usersWithChildren);
+    res.status(200).json(usersWithDocuments);
   } catch (err) {
     console.error('Error fetching renewal users:', err);
     res.status(500).json({ error: 'Error fetching renewal users' });
+  }
+});
+
+app.post('/superadminUpdateStatus', async (req, res) => {
+  const { userId, status, remarks } = req.body;
+  
+  try {
+    // Get the user info first to get code_id and email
+    const userInfo = await queryDatabase(`
+      SELECT u.code_id, u.email, s1.first_name 
+      FROM users u 
+      JOIN step1_identifying_information s1 ON u.code_id = s1.code_id 
+      WHERE u.id = ?
+    `, [userId]);
+    
+    if (!userInfo || userInfo.length === 0) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    
+    // Update user status
+    await queryDatabase('UPDATE users SET status = ? WHERE id = ?', [status, userId]);
+    
+    // Add to accepted_users or declined_users based on status
+    if (status === "Verified") {
+      await queryDatabase(
+        'INSERT INTO accepted_users (user_id, message, accepted_at, is_read) VALUES (?, ?, NOW(), 0)', 
+        [userId, remarks || "Your renewal has been approved by a superadmin"]
+      );
+    } else if (status === "Declined" && remarks) {
+      await queryDatabase(
+        'INSERT INTO declined_users (user_id, remarks, declined_at, is_read) VALUES (?, ?, NOW(), 0)', 
+        [userId, remarks]
+      );
+    }
+    
+    res.json({ success: true, message: 'Status updated successfully' });
+  } catch (err) {
+    console.error('Error updating user status by superadmin:', err);
+    res.status(500).json({ success: false, message: 'Failed to update user status' });
   }
 });
 
@@ -1271,6 +1233,37 @@ app.get('/check-tables', async (req, res) => {
   } catch (error) {
     console.error('Error checking tables:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/getUserDocuments', async (req, res) => {
+  const { code_id } = req.query;
+
+  try {
+    if (!code_id) {
+      return res.status(400).json({ error: 'code_id is required' });
+    }
+
+    const documentsQuery = `
+      SELECT code_id,
+             file_name,
+             uploaded_at,
+             display_name,
+             status,
+             'barangay_cert_documents' as document_type,
+             CASE 
+               WHEN file_name LIKE 'http%' THEN file_name 
+               ELSE CONCAT('http://localhost:8081/uploads/', file_name) 
+             END as file_url
+      FROM barangay_cert_documents
+      WHERE code_id = ?
+    `;
+
+    const documents = await queryDatabase(documentsQuery, [code_id]);
+    res.json(documents);
+  } catch (err) {
+    console.error('Error fetching barangay certificates:', err);
+    res.status(500).json({ error: 'Error fetching barangay certificates' });
   }
 });
 

@@ -16,14 +16,7 @@ const ProfilePage = () => {
   const [previewUrl, setPreviewUrl] = useState(null);
   const [previousStatus, setPreviousStatus] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [documents, setDocuments] = useState({
-    psa: null,
-    itr: null,
-    med_cert: null,
-    marriage: null,
-    cenomar: null,
-    death_cert: null,
-  });
+  const [documents, setDocuments] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({});
   const [refreshKey, setRefreshKey] = useState(0);
@@ -53,14 +46,18 @@ const ProfilePage = () => {
   // Add this function to update user status to Renewal
   const updateUserStatusToRenewal = async () => {
     try {
+      console.log('Updating user status to Renewal...');
       const response = await fetch(`${API_BASE_URL}/updateUserStatus`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ 
-          userId: loggedInUserId,
-          status: "Renewal"
+          code_id: user.code_id,  // Add code_id
+          status: "Renewal",
+          email: user.email,
+          firstName: user.first_name,
+          action: "renewal"
         }),
       });
 
@@ -68,13 +65,19 @@ const ProfilePage = () => {
         throw new Error('Failed to update user status');
       }
 
+      const data = await response.json();
+      console.log('Status update response:', data);
+
       // Update local state
       setUser(prev => ({
         ...prev,
         status: "Renewal"
       }));
+
+      toast.success('Your ID has expired. Please submit your renewal application.');
     } catch (error) {
       console.error('Error updating user status:', error);
+      toast.error('Failed to update status to renewal');
     }
   };
 
@@ -159,17 +162,23 @@ const ProfilePage = () => {
       
       try {
         console.log('Fetching documents for user:', loggedInUserId);
-        const response = await axios.get(`${API_BASE_URL}/api/documents/getUserDocuments/${loggedInUserId}`);
-        console.log('Documents response:', response.data);
-        if (response.data.success) {
+        
+        // Fetch user details which now includes documents
+        const response = await axios.post(`${API_BASE_URL}/getUserDetails`, {
+          userId: loggedInUserId
+        });
+        
+        console.log('User details response:', response.data);
+        
+        if (response.data && Array.isArray(response.data.documents)) {
+          console.log('Setting documents state with:', response.data.documents);
           setDocuments(response.data.documents);
+        } else {
+          console.log('No documents found in response:', response.data);
+          setDocuments([]);
         }
       } catch (error) {
         console.error('Error fetching documents:', error);
-        if (error.response) {
-          console.error('Response data:', error.response.data);
-          console.error('Response status:', error.response.status);
-        }
         toast.error('Failed to load documents');
       }
     };
@@ -184,7 +193,8 @@ const ProfilePage = () => {
     med_cert: 'Medical Certificate',
     marriage: 'Marriage Certificate',
     cenomar: 'CENOMAR',
-    death_cert: 'Death Certificate'
+    death_cert: 'Death Certificate',
+    barangay_cert: 'Barangay Certificate'  // Add barangay certificate type
   };
 
   const uploadDocument = async (file, documentType) => {
@@ -227,24 +237,42 @@ const ProfilePage = () => {
       
       const documentUrl = response.data.secure_url;
       
-      // Save to database
-      await axios.post(`${API_BASE_URL}/api/documents/updateUserDocument`, {
-        userId: loggedInUserId,
-        documentType,
-        documentUrl,
-        displayName: file.name
-      });
+      // For barangay certificate, use a different endpoint
+      if (documentType === 'barangay_cert') {
+        console.log('Uploading barangay certificate with data:', {
+          code_id: user.code_id,
+          file_name: documentUrl,
+          display_name: file.name
+        });
+        
+        const barangayCertResponse = await axios.post(`${API_BASE_URL}/api/documents/barangay_cert`, {
+          code_id: user.code_id,
+          file_name: documentUrl,
+          display_name: file.name
+        });
+        
+        console.log('Barangay certificate upload response:', barangayCertResponse.data);
+      } else {
+        // For other documents, use the existing endpoint
+        await axios.post(`${API_BASE_URL}/api/documents/updateUserDocument`, {
+          userId: loggedInUserId,
+          documentType,
+          documentUrl,
+          displayName: file.name
+        });
+      }
       
       // Update local state
-      setDocuments(prev => ({
+      setDocuments(prev => [
         ...prev,
-        [documentType]: {
+        {
           url: documentUrl,
           public_id: response.data.public_id,
           name: file.name,
-          status: 'uploaded'
+          status: 'uploaded',
+          document_type: `${documentType}_documents`
         }
-      }));
+      ]);
       
       toast.dismiss(uploadingToastId);
       toast.success(`${documentTypes[documentType]} uploaded successfully`);
@@ -275,7 +303,7 @@ const ProfilePage = () => {
 
   const handleDeleteConfirmed = async () => {
     const documentType = documentToDelete;
-    if (!documentType || !documents[documentType]) return;
+    if (!documentType || !documents.find(doc => doc.document_type === `${documentType}_documents`)) return;
 
     const deletingToastId = toast.loading(`Deleting ${documentTypes[documentType]}...`);
     
@@ -287,10 +315,7 @@ const ProfilePage = () => {
       });
 
       // Update local state
-      setDocuments(prev => ({
-        ...prev,
-        [documentType]: null
-      }));
+      setDocuments(prev => prev.filter(doc => doc.document_type !== `${documentType}_documents`));
 
       toast.dismiss(deletingToastId);
       toast.success(`${documentTypes[documentType]} deleted successfully`);
@@ -542,6 +567,27 @@ const ProfilePage = () => {
     }
   };
 
+  // Function to ensure document URL is valid
+  const getValidDocumentUrl = (doc) => {
+    if (!doc) return null;
+    
+    // Check if file_url exists and is a string
+    let url = doc.file_url || '';
+    
+    // If it's not a string, return null
+    if (typeof url !== 'string') return null;
+    
+    // If it's an empty string, return null
+    if (url.trim() === '') return null;
+    
+    // Ensure URL has proper protocol
+    if (url && !url.startsWith('http')) {
+      url = `http://${url}`;
+    }
+    
+    return url;
+  };
+
   if (isLoading) {
     return (
       <div className="loading-container">
@@ -673,20 +719,18 @@ const ProfilePage = () => {
                   <span className="label family">Family Composition</span>
                   {user.familyMembers && user.familyMembers.length > 0 ? (
                     <ul className="children-list">
-                      {user.familyMembers
-                        .filter(member => member.relationship === 'Child')
-                        .map((child, index) => (
-                          <li key={index}>
-                            <strong>Child {index + 1}: {child.name}</strong>
-                            <div className="child-details">
-                              <span>Age: {child.age}</span>
-                              <span>Education: {child.educational_attainment}</span>
-                            </div>
-                          </li>
-                        ))}
+                      {user.familyMembers.map((member, index) => (
+                        <li key={index}>
+                          <strong>Family Member {index + 1}: {member.family_member_name}</strong>
+                          <div className="child-details">
+                            <span>Age: {member.age}</span>
+                            <span>Education: {member.educational_attainment}</span>
+                          </div>
+                        </li>
+                      ))}
                     </ul>
                   ) : (
-                    <span className="no-children">No children registered</span>
+                    <span className="no-children">No family members registered</span>
                   )}
                 </li>
               </ul>
@@ -835,330 +879,169 @@ const ProfilePage = () => {
           )}
           {activeTab === "Documents" && (
             <div className="documents-section">
-              <h3>Required Documents</h3>
-              <div className="document-list">
-                {/* PSA Birth Certificate */}
-                <div className="document-group">
-                  <h4>{documentTypes.psa}</h4>
-                  <div className="upload-area" onClick={() => document.getElementById('file-input-psa').click()}>
-                    {isUploading && uploadProgress.psa > 0 ? (
-                      <div className="upload-progress">
-                        <div className="progress-bar" style={{ width: `${uploadProgress.psa}%` }}></div>
-                        <span>{uploadProgress.psa}%</span>
-                      </div>
-                    ) : (
-                      <>
-                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M12 16L12 8" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
-                          <path d="M9 11L12 8L15 11" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                          <path d="M8 16H16" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
-                        </svg>
-                        <p>Drag and drop or <span className="browse-link">browse</span></p>
-                      </>
-                    )}
-                    <input 
-                      id="file-input-psa"
-                      type="file" 
-                      accept=".pdf,.jpg,.jpeg,.png" 
-                      style={{ display: 'none' }}
-                      onChange={(e) => handleDocumentChange(e, 'psa')}
-                      disabled={isUploading}
-                    />
+              <h3>Submitted Documents</h3>
+              
+              {user.status === "Renewal" ? (
+                <div className="renewal-documents">
+                  <div className="renewal-message">
+                    <h4>Renewal Application</h4>
+                    <p>Please upload your Barangay Certificate to complete your renewal application.</p>
                   </div>
-                  {documents.psa && (
-                    <div className="document-item">
-                      <div className="document-info">
-                        <span className="document-name">{documents.psa.name}</span>
-                        <span className="document-status uploaded">Uploaded</span>
-                      </div>
-                      <div className="document-actions">
-                        <a href={documents.psa.url} target="_blank" rel="noopener noreferrer" className="view-btn">
-                          View
-                        </a>
-                        <button className="document-upload-btn" onClick={() => document.getElementById('file-input-psa').click()}>
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M12 16L12 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                            <path d="M9 11L12 8L15 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
-                          Replace
-                        </button>
-                        <button className="cancel-btn" onClick={() => confirmDelete('psa')}>
-                          Remove
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                  <div className="documents-table-container">
+                    <table className="documents-table">
+                      <thead>
+                        <tr>
+                          <th>Document Type</th>
+                          <th>Status</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td>Barangay Certificate</td>
+                          <td className="status-cell">
+                            {documents.find(doc => doc.document_type === 'barangay_cert_documents') ? (
+                              <span className="status-submitted">
+                                <i className="fas fa-check-circle"></i> Submitted
+                              </span>
+                            ) : (
+                              <span className="status-pending">Not submitted yet</span>
+                            )}
+                          </td>
+                          <td>
+                            {documents.find(doc => doc.document_type === 'barangay_cert_documents') ? (
+                              <button 
+                                className="btn view-btn"
+                                onClick={() => window.open(getValidDocumentUrl(documents.find(doc => doc.document_type === 'barangay_cert_documents')), '_blank')}
+                              >
+                                <i className="fas fa-eye"></i> View
+                              </button>
+                            ) : (
+                              <label className="btn upload-btn">
+                                <i className="fas fa-upload"></i> Upload
+                                <input
+                                  type="file"
+                                  accept="image/*,.pdf"
+                                  onChange={(e) => handleDocumentChange(e, 'barangay_cert')}
+                                  style={{ display: 'none' }}
+                                />
+                              </label>
+                            )}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-
-                {/* Income Tax Return */}
-                <div className="document-group">
-                  <h4>{documentTypes.itr}</h4>
-                  <div className="upload-area" onClick={() => document.getElementById('file-input-itr').click()}>
-                    {isUploading && uploadProgress.itr > 0 ? (
-                      <div className="upload-progress">
-                        <div className="progress-bar" style={{ width: `${uploadProgress.itr}%` }}></div>
-                        <span>{uploadProgress.itr}%</span>
-                      </div>
-                    ) : (
-                      <>
-                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M12 16L12 8" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
-                          <path d="M9 11L12 8L15 11" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                          <path d="M8 16H16" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
-                        </svg>
-                        <p>Drag and drop or <span className="browse-link">browse</span></p>
-                      </>
-                    )}
-                    <input 
-                      id="file-input-itr"
-                      type="file" 
-                      accept=".pdf,.jpg,.jpeg,.png" 
-                      style={{ display: 'none' }}
-                      onChange={(e) => handleDocumentChange(e, 'itr')}
-                      disabled={isUploading}
-                    />
-                  </div>
-                  {documents.itr && (
-                    <div className="document-item">
-                      <div className="document-info">
-                        <span className="document-name">{documents.itr.name}</span>
-                        <span className="document-status uploaded">Uploaded</span>
-                      </div>
-                      <div className="document-actions">
-                        <a href={documents.itr.url} target="_blank" rel="noopener noreferrer" className="view-btn">
-                          View
-                        </a>
-                        <button className="document-upload-btn" onClick={() => document.getElementById('file-input-itr').click()}>
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M12 16L12 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                            <path d="M9 11L12 8L15 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
-                          Replace
-                        </button>
-                        <button className="cancel-btn" onClick={() => confirmDelete('itr')}>
-                          Remove
-                        </button>
-                      </div>
-                    </div>
-                  )}
+              ) : user.status === "Verified" ? (
+                <div className="documents-table-container">
+                  <table className="documents-table">
+                    <thead>
+                      <tr>
+                        <th>Document Type</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {documents.map((doc) => {
+                        const docType = doc.document_type.replace('_documents', '');
+                        const displayName = documentTypes[docType] || docType;
+                        const documentUrl = getValidDocumentUrl(doc);
+                        
+                        return (
+                          <tr key={doc.document_type}>
+                            <td>{displayName}</td>
+                            <td className="status-cell">
+                              {documentUrl ? (
+                                <span className="status-submitted">
+                                  <i className="fas fa-check-circle"></i> Submitted
+                                </span>
+                              ) : (
+                                <span className="status-pending">Not submitted yet</span>
+                              )}
+                            </td>
+                            <td>
+                              {documentUrl && (
+                                <button 
+                                  className="btn view-btn"
+                                  onClick={() => window.open(documentUrl, '_blank')}
+                                >
+                                  <i className="fas fa-eye"></i> View
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
-
-                {/* Medical Certificate */}
-                <div className="document-group">
-                  <h4>{documentTypes.med_cert}</h4>
-                  <div className="upload-area" onClick={() => document.getElementById('file-input-medical').click()}>
-                    {isUploading && uploadProgress.med_cert > 0 ? (
-                      <div className="upload-progress">
-                        <div className="progress-bar" style={{ width: `${uploadProgress.med_cert}%` }}></div>
-                        <span>{uploadProgress.med_cert}%</span>
-                      </div>
-                    ) : (
-                      <>
-                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M12 16L12 8" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
-                          <path d="M9 11L12 8L15 11" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                          <path d="M8 16H16" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
-                        </svg>
-                        <p>Drag and drop or <span className="browse-link">browse</span></p>
-                      </>
-                    )}
-                    <input 
-                      id="file-input-medical"
-                      type="file" 
-                      accept=".pdf,.jpg,.jpeg,.png" 
-                      style={{ display: 'none' }}
-                      onChange={(e) => handleDocumentChange(e, 'med_cert')}
-                      disabled={isUploading}
-                    />
+              ) : user.status === "Renewal" ? (
+                <div className="resubmit-documents">
+                  <div className="resubmit-message">
+                    <h4>Resubmission Required</h4>
+                    <p>Please upload your documents again as requested.</p>
                   </div>
-                  {documents.med_cert && (
-                    <div className="document-item">
-                      <div className="document-info">
-                        <span className="document-name">{documents.med_cert.name}</span>
-                        <span className="document-status uploaded">Uploaded</span>
-                      </div>
-                      <div className="document-actions">
-                        <a href={documents.med_cert.url} target="_blank" rel="noopener noreferrer" className="view-btn">
-                          View
-                        </a>
-                        <button className="document-upload-btn" onClick={() => document.getElementById('file-input-medical').click()}>
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M12 16L12 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                            <path d="M9 11L12 8L15 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
-                          Replace
-                        </button>
-                        <button className="cancel-btn" onClick={() => confirmDelete('med_cert')}>
-                          Remove
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                  <div className="documents-table-container">
+                    <table className="documents-table">
+                      <thead>
+                        <tr>
+                          <th>Document Type</th>
+                          <th>Status</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {documents.map((doc) => {
+                          const docType = doc.document_type.replace('_documents', '');
+                          const displayName = documentTypes[docType] || docType;
+                          const documentUrl = getValidDocumentUrl(doc);
+                          
+                          return (
+                            <tr key={doc.document_type}>
+                              <td>{displayName}</td>
+                              <td className="status-cell">
+                                {documentUrl ? (
+                                  <span className="status-submitted">
+                                    <i className="fas fa-check-circle"></i> Submitted
+                                  </span>
+                                ) : (
+                                  <span className="status-pending">Not submitted yet</span>
+                                )}
+                              </td>
+                              <td>
+                                {documentUrl ? (
+                                  <button 
+                                    className="btn view-btn"
+                                    onClick={() => window.open(documentUrl, '_blank')}
+                                  >
+                                    <i className="fas fa-eye"></i> View
+                                  </button>
+                                ) : (
+                                  <label className="btn upload-btn">
+                                    <i className="fas fa-upload"></i> Upload
+                                    <input
+                                      type="file"
+                                      accept="image/*,.pdf"
+                                      onChange={(e) => handleDocumentChange(e, docType)}
+                                      style={{ display: 'none' }}
+                                    />
+                                  </label>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-
-                {/* Conditional Documents based on Civil Status */}
-                {user.civil_status === 'Married' && (
-                  <div className="document-group">
-                    <h4>{documentTypes.marriage}</h4>
-                    <div className="upload-area" onClick={() => document.getElementById('file-input-marriage').click()}>
-                      {isUploading && uploadProgress.marriage > 0 ? (
-                        <div className="upload-progress">
-                          <div className="progress-bar" style={{ width: `${uploadProgress.marriage}%` }}></div>
-                          <span>{uploadProgress.marriage}%</span>
-                        </div>
-                      ) : (
-                        <>
-                          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M12 16L12 8" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
-                            <path d="M9 11L12 8L15 11" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                            <path d="M8 16H16" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
-                          </svg>
-                          <p>Drag and drop or <span className="browse-link">browse</span></p>
-                        </>
-                      )}
-                      <input 
-                        id="file-input-marriage"
-                        type="file" 
-                        accept=".pdf,.jpg,.jpeg,.png" 
-                        style={{ display: 'none' }}
-                        onChange={(e) => handleDocumentChange(e, 'marriage')}
-                        disabled={isUploading}
-                      />
-                    </div>
-                    {documents.marriage && (
-                      <div className="document-item">
-                        <div className="document-info">
-                          <span className="document-name">{documents.marriage.name}</span>
-                          <span className="document-status uploaded">Uploaded</span>
-                        </div>
-                        <div className="document-actions">
-                          <a href={documents.marriage.url} target="_blank" rel="noopener noreferrer" className="view-btn">
-                            View
-                          </a>
-                          <button className="document-upload-btn" onClick={() => document.getElementById('file-input-marriage').click()}>
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <path d="M12 16L12 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                              <path d="M9 11L12 8L15 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                            Replace
-                          </button>
-                          <button className="cancel-btn" onClick={() => confirmDelete('marriage')}>
-                            Remove
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {user.civil_status === 'Widowed' && (
-                  <div className="document-group">
-                    <h4>{documentTypes.death_cert}</h4>
-                    <div className="upload-area" onClick={() => document.getElementById('file-input-death').click()}>
-                      {isUploading && uploadProgress.death_cert > 0 ? (
-                        <div className="upload-progress">
-                          <div className="progress-bar" style={{ width: `${uploadProgress.death_cert}%` }}></div>
-                          <span>{uploadProgress.death_cert}%</span>
-                        </div>
-                      ) : (
-                        <>
-                          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M12 16L12 8" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
-                            <path d="M9 11L12 8L15 11" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                            <path d="M8 16H16" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
-                          </svg>
-                          <p>Drag and drop or <span className="browse-link">browse</span></p>
-                        </>
-                      )}
-                      <input 
-                        id="file-input-death"
-                        type="file" 
-                        accept=".pdf,.jpg,.jpeg,.png" 
-                        style={{ display: 'none' }}
-                        onChange={(e) => handleDocumentChange(e, 'death_cert')}
-                        disabled={isUploading}
-                      />
-                    </div>
-                    {documents.death_cert && (
-                      <div className="document-item">
-                        <div className="document-info">
-                          <span className="document-name">{documents.death_cert.name}</span>
-                          <span className="document-status uploaded">Uploaded</span>
-                        </div>
-                        <div className="document-actions">
-                          <a href={documents.death_cert.url} target="_blank" rel="noopener noreferrer" className="view-btn">
-                            View
-                          </a>
-                          <button className="document-upload-btn" onClick={() => document.getElementById('file-input-death').click()}>
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <path d="M12 16L12 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                              <path d="M9 11L12 8L15 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                            Replace
-                          </button>
-                          <button className="cancel-btn" onClick={() => confirmDelete('death_cert')}>
-                            Remove
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {(!user.civil_status || user.civil_status === 'Single') && (
-                  <div className="document-group">
-                    <h4>{documentTypes.cenomar}</h4>
-                    <div className="upload-area" onClick={() => document.getElementById('file-input-cenomar').click()}>
-                      {isUploading && uploadProgress.cenomar > 0 ? (
-                        <div className="upload-progress">
-                          <div className="progress-bar" style={{ width: `${uploadProgress.cenomar}%` }}></div>
-                          <span>{uploadProgress.cenomar}%</span>
-                        </div>
-                      ) : (
-                        <>
-                          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M12 16L12 8" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
-                            <path d="M9 11L12 8L15 11" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                            <path d="M8 16H16" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
-                          </svg>
-                          <p>Drag and drop or <span className="browse-link">browse</span></p>
-                        </>
-                      )}
-                      <input 
-                        id="file-input-cenomar"
-                        type="file" 
-                        accept=".pdf,.jpg,.jpeg,.png" 
-                        style={{ display: 'none' }}
-                        onChange={(e) => handleDocumentChange(e, 'cenomar')}
-                        disabled={isUploading}
-                      />
-                    </div>
-                    {documents.cenomar && (
-                      <div className="document-item">
-                        <div className="document-info">
-                          <span className="document-name">{documents.cenomar.name}</span>
-                          <span className="document-status uploaded">Uploaded</span>
-                        </div>
-                        <div className="document-actions">
-                          <a href={documents.cenomar.url} target="_blank" rel="noopener noreferrer" className="view-btn">
-                            View
-                          </a>
-                          <button className="document-upload-btn" onClick={() => document.getElementById('file-input-cenomar').click()}>
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <path d="M12 16L12 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                              <path d="M9 11L12 8L15 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                            Replace
-                          </button>
-                          <button className="cancel-btn" onClick={() => confirmDelete('cenomar')}>
-                            Remove
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+              ) : (
+                <div className="no-documents-message">
+                  <p>No documents available for your current status.</p>
+                </div>
+              )}
             </div>
           )}
         </div>

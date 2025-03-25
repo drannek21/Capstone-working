@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, NavLink } from "react-router-dom";
-import { FiMenu, FiX, FiHome, FiRefreshCw, FiUsers, FiLogOut } from 'react-icons/fi';
+import { FiMenu, FiX, FiHome, FiUsers, FiLogOut } from 'react-icons/fi';
 import "./AdminSideBar.css";
 
 const AdminSideBar = () => {
@@ -57,16 +57,6 @@ const AdminSideBar = () => {
                         >
                             <FiHome className="nav-icon" />
                             <span>Dashboard</span>
-                        </NavLink>
-                    </li>
-                    <li>
-                        <NavLink 
-                            to="/admin-dashboard/renewal"
-                            className={({ isActive }) => isActive ? 'active' : ''}
-                            onClick={() => window.innerWidth < 768 && setIsOpen(false)}
-                        >
-                            <FiRefreshCw className="nav-icon" />
-                            <span>Renewal</span>
                         </NavLink>
                     </li>
                     <li>

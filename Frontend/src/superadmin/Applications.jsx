@@ -54,6 +54,11 @@ const Applications = () => {
       // Log the response to check data structure
       console.log('Fetched Applications:', response.data);
       
+      // Check if documents are included in the response
+      if (response.data.length > 0) {
+        console.log('Sample documents data:', response.data[0].documents || 'No documents');
+      }
+      
       // Ensure each application has the correct userId field
       const formattedData = response.data.map(app => {
         // Make sure we keep the userId from the database response
@@ -202,7 +207,7 @@ const Applications = () => {
 
     // If horizontal swipe is greater than vertical and more than 50px
     if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
-      if (deltaX > 0 && stepPage < 5) {
+      if (deltaX > 0 && stepPage < 6) {
         setStepPage(prev => prev + 1);
       } else if (deltaX < 0 && stepPage > 1) {
         setStepPage(prev => prev - 1);
@@ -310,12 +315,12 @@ const Applications = () => {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="modal-header">
-              <h3>Application Details (Step {stepPage}/5)</h3>
+              <h3>Application Details (Step {stepPage}/6)</h3>
             </div>
             <div className="modal-content">
               {/* Add step indicators for mobile */}
               <div className="step-indicators">
-                {[1, 2, 3, 4, 5].map(step => (
+                {[1, 2, 3, 4, 5, 6].map(step => (
                   <div
                     key={step}
                     className={`step-dot ${stepPage === step ? 'active' : ''}`}
@@ -416,18 +421,18 @@ const Applications = () => {
                           <div className="details-grid">
                             <div className="detail-item">
                               <span className="label">Name</span>
-                              <span className="value">{member.name}</span>
+                              <span className="value">{member.family_member_name}</span>
                             </div>
                             <div className="detail-item">
-                              <span className="label">Relationship</span>
-                              <span className="value">{member.relationship}</span>
+                              <span className="label">Birthdate</span>
+                              <span className="value">{formatDate(member.birthdate)}</span>
                             </div>
                             <div className="detail-item">
                               <span className="label">Age</span>
                               <span className="value">{member.age}</span>
                             </div>
                             <div className="detail-item">
-                              <span className="label">Occupation</span>
+                              <span className="label">Educational Attainment</span>
                               <span className="value">{member.educational_attainment}</span>
                             </div>
                           </div>
@@ -502,6 +507,50 @@ const Applications = () => {
                   </div>
                 </div>
               )}
+              {stepPage === 6 && (
+                <div className="detail-section">
+                  <h4>Documents</h4>
+                  {selectedApplication.documents && selectedApplication.documents.length > 0 ? (
+                    <div className="documents-list">
+                      {selectedApplication.documents.map((doc, index) => {
+                        // Extract document type from table name
+                        const displayType = doc.document_type ? 
+                          doc.document_type.replace('_documents', '').toUpperCase() : 'Document';
+                        
+                        return (
+                          <div key={index} className="document-item">
+                            <div className="document-header">
+                              <h5>{displayType}</h5>
+                            </div>
+                            <div className="document-preview">
+                              <img 
+                                src={doc.file_url} 
+                                alt={doc.display_name || displayType}
+                                className="document-thumbnail"
+                                onClick={() => window.open(doc.file_url, '_blank')}
+                                onError={(e) => {
+                                  e.target.onerror = null;
+                                  e.target.src = "https://placehold.co/200x200/e2e8f0/64748b?text=Image+Not+Found";
+                                }}
+                              />
+                            </div>
+                            <div className="document-actions">
+                              <button 
+                                className="btn view-btn full-width"
+                                onClick={() => window.open(doc.file_url, '_blank')}
+                              >
+                                <i className="fas fa-eye"></i> View Full Size
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p>No documents available.</p>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Mobile-friendly footer */}
@@ -517,7 +566,7 @@ const Applications = () => {
                 )}
               </div>
               <div className="modal-footer-right">
-                {stepPage < 5 ? (
+                {stepPage < 6 ? (
                   <button 
                     className="btn accept-btn mobile-nav-btn"
                     onClick={() => setStepPage(stepPage + 1)}

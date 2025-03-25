@@ -317,3 +317,27 @@
 .document-item:nth-child(6) {
   animation-delay: 0.5s;
 }
+
+/* Document Requirements Note */
+.document-requirements-note {
+  margin: 1.5rem 0;
+  padding: 1.25rem;
+  background-color: #f0f9ff;
+  border-left: 4px solid #0ea5e9;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.document-requirements-note h3 {
+  color: #0c4a6e;
+  font-size: 1.1rem;
+  margin-bottom: 0.75rem;
+  font-weight: 600;
+}
+
+.document-requirements-note p {
+  color: #334155;
+  line-height: 1.5;
+  margin: 0;
+  font-size: 0.95rem;
+}

@@ -75,3 +75,16 @@ CREATE TABLE death_cert_documents (
     FOREIGN KEY (code_id) REFERENCES users(code_id) ON DELETE CASCADE,
     INDEX idx_code_id (code_id)
 );
+
+-- Barangay Certificate Documents Table
+CREATE TABLE barangay_cert_documents (
+    barangay_cert_id INT PRIMARY KEY AUTO_INCREMENT,
+    code_id VARCHAR(50) NOT NULL,
+    file_name VARCHAR(255) NOT NULL,
+    display_name VARCHAR(255) NOT NULL,
+    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    status ENUM('Uploaded', 'Pending', 'Approved', 'Rejected') DEFAULT 'Uploaded',
+    rejection_reason TEXT,
+    FOREIGN KEY (code_id) REFERENCES users(code_id) ON DELETE CASCADE,
+    INDEX idx_code_id (code_id)
+);

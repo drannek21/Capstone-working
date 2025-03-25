@@ -46,40 +46,101 @@ const queryDatabase = (sql, params) => new Promise((resolve, reject) => {
 });
 
 const upsertDocument = async (tableName, code_id, file_name, display_name, status = 'Pending') => {
+  let connection;
   try {
-    // Check if document exists
-    const existingDoc = await queryDatabase(
-      `SELECT * FROM ${tableName} WHERE code_id = ? LIMIT 1`,
-      [code_id]
-    );
+    // Get connection and start transaction
+    connection = await new Promise((resolve, reject) => {
+      pool.getConnection((err, conn) => {
+        if (err) reject(err);
+        else resolve(conn);
+      });
+    });
 
+    await new Promise((resolve, reject) => {
+      connection.beginTransaction(err => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+
+    // Check if document exists
+    const existingDocQuery = `SELECT * FROM ${tableName} WHERE code_id = ? LIMIT 1`;
+    const existingDoc = await new Promise((resolve, reject) => {
+      connection.query(existingDocQuery, [code_id], (err, result) => {
+        if (err) reject(err);
+        else resolve(result);
+      });
+    });
+
+    let result;
     if (existingDoc.length > 0) {
       // Update existing document
-      await queryDatabase(
-        `UPDATE ${tableName} 
-         SET file_name = ?, display_name = ?, status = ?
-         WHERE code_id = ?`,
-        [file_name, display_name, status, code_id]
-      );
+      const updateQuery = `
+        UPDATE ${tableName} 
+        SET file_name = ?, display_name = ?, status = ?
+        WHERE code_id = ?`;
+      
+      result = await new Promise((resolve, reject) => {
+        connection.query(updateQuery, [file_name, display_name, status, code_id], (err, result) => {
+          if (err) reject(err);
+          else resolve(result);
+        });
+      });
+      
+      await new Promise((resolve, reject) => {
+        connection.commit(err => {
+          if (err) {
+            connection.rollback(() => reject(err));
+          } else {
+            resolve();
+          }
+        });
+      });
+      
       return {
         action: 'updated',
         id: existingDoc[0].id
       };
     } else {
       // Insert new document
-      const result = await queryDatabase(
-        `INSERT INTO ${tableName} (code_id, file_name, display_name, status)
-         VALUES (?, ?, ?, ?)`,
-        [code_id, file_name, display_name, status]
-      );
+      const insertQuery = `
+        INSERT INTO ${tableName} (code_id, file_name, display_name, status)
+        VALUES (?, ?, ?, ?)`;
+      
+      result = await new Promise((resolve, reject) => {
+        connection.query(insertQuery, [code_id, file_name, display_name, status], (err, result) => {
+          if (err) reject(err);
+          else resolve(result);
+        });
+      });
+      
+      await new Promise((resolve, reject) => {
+        connection.commit(err => {
+          if (err) {
+            connection.rollback(() => reject(err));
+          } else {
+            resolve();
+          }
+        });
+      });
+      
       return {
         action: 'inserted',
         id: result.insertId
       };
     }
   } catch (error) {
+    if (connection) {
+      await new Promise(resolve => {
+        connection.rollback(() => resolve());
+      });
+    }
     console.error(`Error upserting document in ${tableName}:`, error);
     throw error;
+  } finally {
+    if (connection) {
+      connection.release();
+    }
   }
 };
 

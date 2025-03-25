@@ -6,6 +6,7 @@ import Applications from './Applications';
 import './SuperAdminDashboard.css';
 import UserManagement from './UserManagement';
 import Remarks from './Remarks';
+import Renewal from './Renewal';
 
 const SuperAdminDashboard = () => {
   return (
@@ -18,6 +19,7 @@ const SuperAdminDashboard = () => {
           <Route path="applications" element={<Applications />} />
           <Route path="user-management" element={<UserManagement />} />
           <Route path="remarks" element={<Remarks />} />
+          <Route path="renewal" element={<Renewal />} />
         </Routes>
 
         </div>

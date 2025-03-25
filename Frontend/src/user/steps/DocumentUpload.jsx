@@ -163,20 +163,42 @@ const DocumentUpload = ({ formData, updateFormData, prevStep, handleSubmit }) =>
       return;
     }
 
+    // Prevent duplicate submissions
+    if (isUploading) {
+      console.log("Upload already in progress, preventing duplicate submission");
+      return;
+    }
+
     setIsUploading(true);
 
     try {
       // First, ensure we have a valid code_id by submitting the form data
       let code_id;
       
-      // Check if we need to submit the form first to get a code_id
-      if (!formData.code_id) {
+      // Check if we already have a valid code_id
+      if (formData.code_id && formData.code_id !== 'default_user_id') {
+        // Use existing code_id from form data
+        code_id = formData.code_id;
+        console.log("Using existing code_id:", code_id);
+      } else {
         try {
           // Call handleSubmit to submit the form data first
           const submitResult = await handleSubmit();
           
+          // Check if submission was successful
+          if (!submitResult || !submitResult.success) {
+            console.log("Form submission was not successful:", submitResult);
+            // If submission is already in progress, wait and try again
+            if (submitResult && submitResult.error === 'Submission already in progress') {
+              toast.info("Submission is being processed, please wait...");
+              setIsUploading(false);
+              return;
+            }
+            throw new Error("Failed to submit form");
+          }
+          
           // Extract the code_id from the result
-          if (submitResult && submitResult.code_id) {
+          if (submitResult.code_id) {
             code_id = submitResult.code_id;
             console.log("Generated code_id from form submission:", code_id);
           } else {
@@ -188,10 +210,6 @@ const DocumentUpload = ({ formData, updateFormData, prevStep, handleSubmit }) =>
           setIsUploading(false);
           return;
         }
-      } else {
-        // Use existing code_id from form data
-        code_id = formData.code_id;
-        console.log("Using existing code_id:", code_id);
       }
       
       // Validate that we have a code_id
@@ -239,11 +257,6 @@ const DocumentUpload = ({ formData, updateFormData, prevStep, handleSubmit }) =>
           code_id: code_id // Ensure code_id is in the form data
         });
         
-        // If we haven't already submitted the form, do it now
-        if (!formData.code_id) {
-          handleSubmit();
-        }
-        
         toast.success("Document upload complete!");
       } else {
         toast.error("No documents were uploaded successfully");
@@ -252,7 +265,10 @@ const DocumentUpload = ({ formData, updateFormData, prevStep, handleSubmit }) =>
       console.error("Error in registration submission:", error);
       toast.error(`Registration submission failed: ${error.message}`);
     } finally {
-      setIsUploading(false);
+      // Add a small delay before setting isUploading to false to prevent rapid resubmissions
+      setTimeout(() => {
+        setIsUploading(false);
+      }, 1000);
     }
   };
 
@@ -278,13 +294,37 @@ const DocumentUpload = ({ formData, updateFormData, prevStep, handleSubmit }) =>
     // Debug log when component mounts or props change
     console.log('DocumentUpload component props:', {
       hasFormData: !!formData,
+      civilStatus: formData.civil_status,
       hasUpdateFormData: typeof updateFormData === 'function',
       hasPrevStep: typeof prevStep === 'function',
       hasHandleSubmit: typeof handleSubmit === 'function',
       selectedFilesCount: Object.keys(selectedFiles).length,
       isUploading
     });
-  }, [formData, updateFormData, prevStep, handleSubmit, selectedFiles, isUploading]);
+    
+    // Log which document types will be displayed based on civil status
+    if (formData.civil_status) {
+      const displayedDocTypes = Object.keys(documentTypes).filter(type => {
+        if (formData.civil_status === "Single" && (type === "marriage" || type === "death_cert")) {
+          return false;
+        }
+        if (formData.civil_status === "Married" && (type === "cenomar" || type === "death_cert")) {
+          return false;
+        }
+        if (formData.civil_status === "Widowed" && type === "cenomar") {
+          return false;
+        }
+        if (formData.civil_status === "Divorced" && (type === "death_cert" || type === "cenomar")) {
+          return false;
+        }
+        return true;
+      });
+      
+      console.log(`Documents displayed for ${formData.civil_status} status:`, 
+        displayedDocTypes.map(type => documentTypes[type])
+      );
+    }
+  }, [formData, updateFormData, prevStep, handleSubmit, selectedFiles, isUploading, documentTypes]);
 
   return (
     <div className="document-upload-container">
@@ -295,73 +335,111 @@ const DocumentUpload = ({ formData, updateFormData, prevStep, handleSubmit }) =>
         <span className="file-upload-hint">Accepted formats: JPG, PNG, or PDF (max 5MB each)</span>
       </p>
 
+      {/* Display document requirements based on civil status */}
+      <div className="document-requirements-note">
+        <h3>Required Documents for {formData.civil_status || 'Your Application'}</h3>
+        <p>
+          {formData.civil_status === "Single" && 
+            "Your required documents include: PSA Birth Certificate, Income Tax Return, Medical Certificate, and CENOMAR."
+          }
+          {formData.civil_status === "Married" && 
+            "Your required documents include: PSA Birth Certificate, Income Tax Return, Medical Certificate, and Marriage Certificate."
+          }
+          {formData.civil_status === "Widowed" && 
+            "Your required documents include: PSA Birth Certificate, Income Tax Return, Medical Certificate, Marriage Certificate, and Death Certificate. CENOMAR is not required."
+          }
+          {formData.civil_status === "Divorced" && 
+            "Your required documents include: PSA Birth Certificate, Income Tax Return, Medical Certificate, and Marriage Certificate. CENOMAR and Death Certificate are not required."
+          }
+          {!formData.civil_status && 
+            "Document requirements vary based on your civil status. Please complete Step 1 first."
+          }
+        </p>
+      </div>
+
       <div className="document-list">
-        {Object.entries(documentTypes).map(([type, label]) => (
-          <div key={type} className="document-item">
-            <div className="document-item-header">
-              <div className="document-icon">{documentIcons[type]}</div>
-              <h3 className="document-label">{label}</h3>
+        {Object.entries(documentTypes).map(([type, label]) => {
+          // Skip certain document types based on civil status
+          if (formData.civil_status === "Single" && (type === "marriage" || type === "death_cert")) {
+            return null;
+          }
+          if (formData.civil_status === "Married" && (type === "cenomar" || type === "death_cert")) {
+            return null;
+          }
+          if (formData.civil_status === "Widowed" && type === "cenomar") {
+            return null;
+          }
+          if (formData.civil_status === "Divorced" && (type === "death_cert" || type === "cenomar")) {
+            return null;
+          }
+          
+          return (
+            <div key={type} className="document-item">
+              <div className="document-item-header">
+                <div className="document-icon">{documentIcons[type]}</div>
+                <h3 className="document-label">{label}</h3>
+              </div>
+              
+              <label className="file-upload-area" htmlFor={`file-${type}`}>
+                <div className="file-upload-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 16V8M12 8L9 11M12 8L15 11" stroke="#40916c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M3 15V16C3 17.6569 3 18.4853 3.24224 19.0815C3.45338 19.6013 3.79878 20.0413 4.22836 20.3661C4.72283 20.7388 5.40061 20.9 6.75614 20.9H17.2439C18.5994 20.9 19.2772 20.9 19.7716 20.3661C20.2012 20.0413 20.5466 19.6013 20.7578 19.0815C21 18.4853 21 17.6569 21 16V15" stroke="#40916c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+                <p className="file-upload-text">
+                  {selectedFiles[type] ? "Change file" : "Choose a file"}
+                </p>
+                <span className="file-upload-hint">Click to browse</span>
+                <input
+                  id={`file-${type}`}
+                  type="file"
+                  accept=".jpg,.jpeg,.png,.pdf"
+                  onChange={(e) => handleFileSelect(e, type)}
+                  disabled={isUploading}
+                />
+              </label>
+              
+              {uploadProgress[type] > 0 && (
+                <div className="progress-container">
+                  <div className="progress-bar">
+                    <div 
+                      className="progress" 
+                      style={{ width: `${uploadProgress[type]}%` }}
+                    />
+                  </div>
+                  <div className="progress-text">{uploadProgress[type]}%</div>
+                </div>
+              )}
+              
+              {selectedFiles[type] && (
+                <div className="file-status-container">
+                  <div className="file-success-indicator">
+                    <span className="selected-file-icon">✓</span>
+                    <span className="file-selected-text">File selected</span>
+                  </div>
+                  <div className="selected-file">
+                    <span className="selected-file-icon">
+                      {getFileExtension(selectedFiles[type].name)}
+                    </span>
+                    <span className="selected-file-name">
+                      {getShortFileId(selectedFiles[type].name)}
+                    </span>
+                    <button 
+                      className="selected-file-remove" 
+                      onClick={(e) => handleRemoveFile(type, e)}
+                      title="Remove file"
+                      disabled={isUploading}
+                      aria-label="Remove file"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-            
-            <label className="file-upload-area" htmlFor={`file-${type}`}>
-              <div className="file-upload-icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M12 16V8M12 8L9 11M12 8L15 11" stroke="#40916c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M3 15V16C3 17.6569 3 18.4853 3.24224 19.0815C3.45338 19.6013 3.79878 20.0413 4.22836 20.3661C4.72283 20.7388 5.40061 20.9 6.75614 20.9H17.2439C18.5994 20.9 19.2772 20.9 19.7716 20.3661C20.2012 20.0413 20.5466 19.6013 20.7578 19.0815C21 18.4853 21 17.6569 21 16V15" stroke="#40916c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </div>
-              <p className="file-upload-text">
-                {selectedFiles[type] ? "Change file" : "Choose a file"}
-              </p>
-              <span className="file-upload-hint">Click to browse</span>
-              <input
-                id={`file-${type}`}
-                type="file"
-                accept=".jpg,.jpeg,.png,.pdf"
-                onChange={(e) => handleFileSelect(e, type)}
-                disabled={isUploading}
-              />
-            </label>
-            
-            {uploadProgress[type] > 0 && (
-              <div className="progress-container">
-                <div className="progress-bar">
-                  <div 
-                    className="progress" 
-                    style={{ width: `${uploadProgress[type]}%` }}
-                  />
-                </div>
-                <div className="progress-text">{uploadProgress[type]}%</div>
-              </div>
-            )}
-            
-            {selectedFiles[type] && (
-              <div className="file-status-container">
-                <div className="file-success-indicator">
-                  <span className="selected-file-icon">✓</span>
-                  <span className="file-selected-text">File selected</span>
-                </div>
-                <div className="selected-file">
-                  <span className="selected-file-icon">
-                    {getFileExtension(selectedFiles[type].name)}
-                  </span>
-                  <span className="selected-file-name">
-                    {getShortFileId(selectedFiles[type].name)}
-                  </span>
-                  <button 
-                    className="selected-file-remove" 
-                    onClick={(e) => handleRemoveFile(type, e)}
-                    title="Remove file"
-                    disabled={isUploading}
-                    aria-label="Remove file"
-                  >
-                    ✕
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <div className="button-group">
