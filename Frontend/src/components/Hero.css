@@ -103,7 +103,7 @@
 }
 
 /* ✅ Login Button - Green Gradient */
-.hero-buttons .login-hero {
+.hero-buttons .sign-up {
   background: linear-gradient(135deg, #16C47F 0%, #0E9B64 100%);
   color: white;
   box-shadow: 0 8px 20px rgba(22, 196, 127, 0.4);
@@ -114,7 +114,7 @@
   border: none;
 }
 
-.hero-buttons .login-hero:hover {
+.hero-buttons .sign-up:hover {
   background: linear-gradient(135deg, #0E9B64 0%, #16C47F 100%);
   transform: scale(1.07);
   box-shadow: 0 10px 30px rgba(14, 155, 100, 0.6);

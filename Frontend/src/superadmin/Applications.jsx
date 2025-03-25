@@ -261,10 +261,10 @@ const Applications = () => {
                     <button className="btn view-btn" onClick={() => openModal(app, "view")}> 
                       <i className="fas fa-eye"></i> View
                     </button>
-                    <button className="btn accept-btn" onClick={() => openModal(app, "confirmAccept")}> 
+                    <button className="btn accept-btnsadmin" onClick={() => openModal(app, "confirmAccept")}> 
                       <i className="fas fa-check"></i> Accept
                     </button>
-                    <button className="btn decline-btn" onClick={() => openModal(app, "decline")}> 
+                    <button className="btn decline-btnsadmin" onClick={() => openModal(app, "decline")}> 
                       <i className="fas fa-times"></i> Decline
                     </button>
                   </div>
@@ -568,7 +568,7 @@ const Applications = () => {
               <div className="modal-footer-right">
                 {stepPage < 6 ? (
                   <button 
-                    className="btn accept-btn mobile-nav-btn"
+                    className="accept-mobile-nav-btn"
                     onClick={() => setStepPage(stepPage + 1)}
                   >
                     Next <i className="fas fa-arrow-right"></i>
@@ -576,13 +576,13 @@ const Applications = () => {
                 ) : (
                   <>
                     <button 
-                      className="btn accept-btn"
+                      className="btn-accept-btnsadmin"
                       onClick={() => handleAction("Accept")}
                     >
                       <i className="fas fa-check"></i> Accept
                     </button>
                     <button 
-                      className="btn decline-btn"
+                      className="btn decline-btnsadmin"
                       onClick={() => handleAction("Decline")}
                     >
                       <i className="fas fa-times"></i> Decline
@@ -608,7 +608,7 @@ const Applications = () => {
               <p className="confirmation-message">Are you sure you want to accept this application?</p>
             </div>
             <div className="modal-footer">
-              <button className="btn accept-btn" onClick={() => handleAction("Accept")}>
+              <button className="btn-accept-btnsadmin" onClick={() => handleAction("Accept")}>
                 <i className="fas fa-check"></i> Yes, Accept
               </button>
               <button className="btn view-btn" onClick={closeModal}>
@@ -636,7 +636,7 @@ const Applications = () => {
               </div>
             </div>
             <div className="modal-footer">
-              <button className="btn decline-btn" onClick={() => handleAction("Decline")}>
+              <button className="btn decline-btnsadmin" onClick={() => handleAction("Decline")}>
                 <i className="fas fa-times"></i> Confirm Decline
               </button>
               <button className="btn view-btn" onClick={closeModal}>

@@ -295,21 +295,25 @@ tr:hover {
 }
 
 .accept-btn {
-  background-color: #dc3545;
+  background-color: #28a745;
   color: white;
+  
 }
 
 .accept-btn:hover {
-  background-color: #c82333;
+  background-color: #218838;
+  
 }
 
 .decline-btn {
-  background-color: #28a745;
+  background-color: #dc3545;
   color: white;
+  
 }
 
 .decline-btn:hover {
-  background-color: #218838;
+  
+  background-color: #c82333;
 }
 
 .view-btn {

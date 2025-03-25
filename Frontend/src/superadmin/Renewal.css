@@ -154,6 +154,11 @@ tbody tr:hover {
   color: white;
 }
 
+.btn-primary {
+  background-color: #007bff;
+  color: white;
+}
+
 .btn:hover {
   opacity: 0.9;
 }
