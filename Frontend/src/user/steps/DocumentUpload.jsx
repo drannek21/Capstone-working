@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { toast } from "react-hot-toast";
 import "./shared.css";
+import "./DocumentUpload.css";
 
 const DocumentUpload = ({ formData, updateFormData, prevStep, handleSubmit }) => {
   const [selectedFiles, setSelectedFiles] = useState({});
@@ -15,6 +16,16 @@ const DocumentUpload = ({ formData, updateFormData, prevStep, handleSubmit }) =>
     marriage: "Marriage Certificate",
     cenomar: "CENOMAR",
     death_cert: "Death Certificate"
+  };
+
+  // Document icons mapping
+  const documentIcons = {
+    psa: "📜",
+    itr: "💰",
+    med_cert: "🏥",
+    marriage: "💍",
+    cenomar: "📝",
+    death_cert: "📄"
   };
 
   const handleFileSelect = (e, documentType) => {
@@ -46,6 +57,36 @@ const DocumentUpload = ({ formData, updateFormData, prevStep, handleSubmit }) =>
     }));
   };
 
+  const handleRemoveFile = (documentType, e) => {
+    // Stop event propagation to prevent triggering parent elements
+    if (e) {
+      e.stopPropagation();
+    }
+    
+    if (isUploading) return;
+    
+    setSelectedFiles(prev => {
+      const newFiles = { ...prev };
+      delete newFiles[documentType];
+      return newFiles;
+    });
+
+    setUploadProgress(prev => {
+      const newProgress = { ...prev };
+      delete newProgress[documentType];
+      return newProgress;
+    });
+    
+    // Reset the file input element
+    const fileInput = document.getElementById(`file-${documentType}`);
+    if (fileInput) {
+      fileInput.value = '';
+    }
+    
+    // Show feedback to user
+    toast.success(`${documentTypes[documentType]} file removed`);
+  };
+
   const uploadToCloudinary = async (file, documentType, code_id) => {
     try {
       console.log('Uploading to Cloudinary:', { file, documentType, code_id });
@@ -56,7 +97,18 @@ const DocumentUpload = ({ formData, updateFormData, prevStep, handleSubmit }) =>
 
       const response = await axios.post(
         'https://api.cloudinary.com/v1_1/dskj7oxr7/upload',
-        formData
+        formData,
+        {
+          onUploadProgress: (progressEvent) => {
+            const percentCompleted = Math.round(
+              (progressEvent.loaded * 100) / progressEvent.total
+            );
+            setUploadProgress(prev => ({
+              ...prev,
+              [documentType]: percentCompleted
+            }));
+          }
+        }
       );
 
       if (!response.data.secure_url) {
@@ -75,17 +127,22 @@ const DocumentUpload = ({ formData, updateFormData, prevStep, handleSubmit }) =>
       console.log(`Inserting ${documentType} document:`, {
         code_id,
         file_name: url,
+        display_name: fileName,
         uploaded_at: new Date().toISOString(),
-        display_name: fileName
+        status: 'pending'
       });
 
+      // This is a placeholder for the actual API call to your backend
+      // Replace with your actual API endpoint
       const response = await axios.post(
-        `${process.env.REACT_APP_API_URL}/api/documents/${documentType}`,
+        `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/documents/${documentType}`,
         {
           code_id: code_id,
           file_name: url,
           uploaded_at: new Date().toISOString(),
+          status: 'pending',
           display_name: fileName
+          // rejection_reason will be null by default
         }
       );
 
@@ -95,83 +152,126 @@ const DocumentUpload = ({ formData, updateFormData, prevStep, handleSubmit }) =>
 
       return response.data;
     } catch (error) {
-      console.error(`Error inserting ${documentType} document:`, error);
+      console.error(`Error inserting ${documentType} document to database:`, error);
       throw error;
     }
   };
 
   const handleRegistrationSubmit = async () => {
-    console.log('handleRegistrationSubmit clicked');
-    console.log('Selected files:', selectedFiles);
-    console.log('Form data:', formData);
-
     if (Object.keys(selectedFiles).length === 0) {
-      toast.error("Please select at least one document to upload");
+      toast.error("Please upload at least one document");
       return;
     }
 
     setIsUploading(true);
 
     try {
-      // First submit the form to get a code_id
-      console.log('Submitting form data first to get code_id');
-      if (typeof handleSubmit !== 'function') {
-        throw new Error('handleSubmit function is not available');
-      }
-
-      const submitResponse = await handleSubmit();
-      console.log('Form submission response:', submitResponse);
-
-      if (!submitResponse || !submitResponse.code_id) {
-        throw new Error('Failed to get code_id after form submission');
-      }
-
-      const code_id = submitResponse.code_id;
-      console.log('Got code_id:', code_id);
-      const documentUrls = {};
+      // First, ensure we have a valid code_id by submitting the form data
+      let code_id;
       
-      // Now process each document with the real code_id
+      // Check if we need to submit the form first to get a code_id
+      if (!formData.code_id) {
+        try {
+          // Call handleSubmit to submit the form data first
+          const submitResult = await handleSubmit();
+          
+          // Extract the code_id from the result
+          if (submitResult && submitResult.code_id) {
+            code_id = submitResult.code_id;
+            console.log("Generated code_id from form submission:", code_id);
+          } else {
+            throw new Error("Failed to get a valid code_id from form submission");
+          }
+        } catch (submitError) {
+          console.error("Error during form submission:", submitError);
+          toast.error("Failed to submit registration form. Please try again.");
+          setIsUploading(false);
+          return;
+        }
+      } else {
+        // Use existing code_id from form data
+        code_id = formData.code_id;
+        console.log("Using existing code_id:", code_id);
+      }
+      
+      // Validate that we have a code_id
+      if (!code_id || code_id === 'default_user_id') {
+        toast.error("Invalid user ID. Please complete your registration first.");
+        setIsUploading(false);
+        return;
+      }
+
+      const uploadResults = {};
+
+      // Process each file sequentially
       for (const [documentType, file] of Object.entries(selectedFiles)) {
         try {
-          console.log(`Processing ${documentType} document:`, file.name);
+          // Upload to Cloudinary
+          const cloudinaryUrl = await uploadToCloudinary(file, documentType, code_id);
           
-          // Upload to Cloudinary with the real code_id
-          const url = await uploadToCloudinary(file, documentType, code_id);
-          console.log(`Cloudinary upload successful for ${documentType}:`, url);
+          // Insert document info to database
+          await insertDocumentToDatabase(documentType, file.name, cloudinaryUrl, code_id);
           
-          // Insert into database with the real code_id
-          const result = await insertDocumentToDatabase(documentType, file.name, url, code_id);
-          console.log(`Database insert successful for ${documentType}:`, result);
-          
-          documentUrls[documentType] = {
-            url: url,
-            displayName: file.name
+          uploadResults[documentType] = {
+            success: true,
+            fileName: file.name,
+            url: cloudinaryUrl
           };
           
           toast.success(`${documentTypes[documentType]} uploaded successfully`);
         } catch (error) {
-          console.error(`Error processing ${documentType}:`, error);
-          const errorMessage = error.response?.data?.error || error.response?.data?.details?.message || error.message;
-          toast.error(`Failed to upload ${documentTypes[documentType]}: ${errorMessage}`);
-          throw error;
+          uploadResults[documentType] = {
+            success: false,
+            error: error.message
+          };
+          toast.error(`Failed to upload ${documentTypes[documentType]}: ${error.message}`);
         }
       }
 
-      // Update form data with document URLs
-      const updatedFormData = {
-        ...formData,
-        documents: documentUrls
-      };
-      console.log('Updating form data with documents:', updatedFormData);
-      updateFormData(updatedFormData);
-
-      toast.success("All documents uploaded successfully!");
+      // Check if any uploads were successful
+      const successfulUploads = Object.values(uploadResults).filter(result => result.success);
+      
+      if (successfulUploads.length > 0) {
+        // Update form data with the upload results
+        updateFormData({
+          ...formData,
+          documents: uploadResults,
+          code_id: code_id // Ensure code_id is in the form data
+        });
+        
+        // If we haven't already submitted the form, do it now
+        if (!formData.code_id) {
+          handleSubmit();
+        }
+        
+        toast.success("Document upload complete!");
+      } else {
+        toast.error("No documents were uploaded successfully");
+      }
     } catch (error) {
-      console.error("Error during upload:", error);
-      toast.error("Failed to complete registration. Please try again.");
+      console.error("Error in registration submission:", error);
+      toast.error(`Registration submission failed: ${error.message}`);
     } finally {
       setIsUploading(false);
     }
+  };
+
+  // Function to get a shortened file ID
+  const getShortFileId = (fileName) => {
+    if (!fileName) return '';
+    
+    // Extract just the first 8 characters if it's a long filename
+    if (fileName.length > 10) {
+      return fileName.substring(0, 8) + '...';
+    }
+    return fileName;
+  };
+
+  // Function to get file extension
+  const getFileExtension = (fileName) => {
+    if (!fileName) return '';
+    const parts = fileName.split('.');
+    return parts.length > 1 ? parts[parts.length - 1].toUpperCase() : '';
   };
 
   useEffect(() => {
@@ -187,42 +287,89 @@ const DocumentUpload = ({ formData, updateFormData, prevStep, handleSubmit }) =>
   }, [formData, updateFormData, prevStep, handleSubmit, selectedFiles, isUploading]);
 
   return (
-    <div className="form-container">
-      <h2>Document Upload</h2>
-      <p>Please upload the required documents (JPG, PNG, or PDF format, max 5MB each)</p>
+    <div className="document-upload-container">
+      <h2 className="document-upload-header">Document Upload</h2>
+      <p className="document-upload-description">
+        Please upload the required documents to complete your registration
+        <br />
+        <span className="file-upload-hint">Accepted formats: JPG, PNG, or PDF (max 5MB each)</span>
+      </p>
 
-      {Object.entries(documentTypes).map(([type, label]) => (
-        <div key={type} className="form-group">
-          <label>{label}:</label>
-          <input
-            type="file"
-            accept=".jpg,.jpeg,.png,.pdf"
-            onChange={(e) => handleFileSelect(e, type)}
-            disabled={isUploading}
-          />
-          {uploadProgress[type] > 0 && (
-            <div className="progress-bar">
-              <div 
-                className="progress" 
-                style={{ width: `${uploadProgress[type]}%` }}
-              >
-                {uploadProgress[type]}%
-              </div>
+      <div className="document-list">
+        {Object.entries(documentTypes).map(([type, label]) => (
+          <div key={type} className="document-item">
+            <div className="document-item-header">
+              <div className="document-icon">{documentIcons[type]}</div>
+              <h3 className="document-label">{label}</h3>
             </div>
-          )}
-          {selectedFiles[type] && (
-            <p className="selected-file">
-              Selected: {selectedFiles[type].name}
-            </p>
-          )}
-        </div>
-      ))}
+            
+            <label className="file-upload-area" htmlFor={`file-${type}`}>
+              <div className="file-upload-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 16V8M12 8L9 11M12 8L15 11" stroke="#40916c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M3 15V16C3 17.6569 3 18.4853 3.24224 19.0815C3.45338 19.6013 3.79878 20.0413 4.22836 20.3661C4.72283 20.7388 5.40061 20.9 6.75614 20.9H17.2439C18.5994 20.9 19.2772 20.9 19.7716 20.3661C20.2012 20.0413 20.5466 19.6013 20.7578 19.0815C21 18.4853 21 17.6569 21 16V15" stroke="#40916c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </div>
+              <p className="file-upload-text">
+                {selectedFiles[type] ? "Change file" : "Choose a file"}
+              </p>
+              <span className="file-upload-hint">Click to browse</span>
+              <input
+                id={`file-${type}`}
+                type="file"
+                accept=".jpg,.jpeg,.png,.pdf"
+                onChange={(e) => handleFileSelect(e, type)}
+                disabled={isUploading}
+              />
+            </label>
+            
+            {uploadProgress[type] > 0 && (
+              <div className="progress-container">
+                <div className="progress-bar">
+                  <div 
+                    className="progress" 
+                    style={{ width: `${uploadProgress[type]}%` }}
+                  />
+                </div>
+                <div className="progress-text">{uploadProgress[type]}%</div>
+              </div>
+            )}
+            
+            {selectedFiles[type] && (
+              <div className="file-status-container">
+                <div className="file-success-indicator">
+                  <span className="selected-file-icon">✓</span>
+                  <span className="file-selected-text">File selected</span>
+                </div>
+                <div className="selected-file">
+                  <span className="selected-file-icon">
+                    {getFileExtension(selectedFiles[type].name)}
+                  </span>
+                  <span className="selected-file-name">
+                    {getShortFileId(selectedFiles[type].name)}
+                  </span>
+                  <button 
+                    className="selected-file-remove" 
+                    onClick={(e) => handleRemoveFile(type, e)}
+                    title="Remove file"
+                    disabled={isUploading}
+                    aria-label="Remove file"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
 
       <div className="button-group">
         <button 
           type="button" 
           onClick={prevStep}
           disabled={isUploading}
+          className="prev-button"
         >
           Previous
         </button>
@@ -234,15 +381,6 @@ const DocumentUpload = ({ formData, updateFormData, prevStep, handleSubmit }) =>
         >
           {isUploading ? "Uploading..." : "Submit Registration"}
         </button>
-      </div>
-
-      {/* Debug info */}
-      <div style={{ display: 'none' }}>
-        <p>Selected Files: {Object.keys(selectedFiles).length}</p>
-        <p>Is Uploading: {isUploading.toString()}</p>
-        <p>Code ID: {formData.code_id}</p>
-        <p>Handle Submit exists: {Boolean(handleSubmit).toString()}</p>
-        <p>Handle Submit type: {typeof handleSubmit}</p>
       </div>
     </div>
   );

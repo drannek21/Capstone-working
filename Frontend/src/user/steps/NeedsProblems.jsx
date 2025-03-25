@@ -23,11 +23,11 @@ export default function NeedsProblems({ prevStep, nextStep, formData, updateForm
           className={`needs-input step-input ${errors.needs_problems ? 'error' : ''}`}
           rows={4}
         />
-        {errors.needs_problems && <p className="needs-error">{errors.needs_problems.message}</p>}
+        {errors.needs_problems && <p className="needs-error step-error">{errors.needs_problems.message}</p>}
       </div>
       <div className="needs-buttons">
-        <button type="button" onClick={prevStep}>Back</button>
-        <button type="submit">Next</button>
+        <button type="button" onClick={prevStep} className="needs-back-btn step-button">Back</button>
+        <button type="submit" className="needs-submit-btn step-button">Next</button>
       </div>
     </form>
   );

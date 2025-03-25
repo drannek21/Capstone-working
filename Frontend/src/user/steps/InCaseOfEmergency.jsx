@@ -72,9 +72,9 @@ export default function InCaseOfEmergency({ prevStep, nextStep, updateFormData, 
           {errors.emergency_contact && <p className="ice-error-message step-error">{errors.emergency_contact.message}</p>}
         </div>
 
-        <div className="ice-button-group">
-          <button type="button" onClick={prevStep} className="ice-button">Back</button>
-          <button type="submit" className="ice-button">Next</button>
+        <div className="ice-form-buttons">
+          <button type="button" onClick={prevStep} className="ice-back-btn step-button">Back</button>
+          <button type="submit" className="ice-next-btn step-button">Next</button>
         </div>
       </form>
     </div>

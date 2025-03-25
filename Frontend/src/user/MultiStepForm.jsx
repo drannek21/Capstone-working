@@ -218,9 +218,6 @@ export default function MultiStepForm() {
           style={{ width: `${((step - 1) / (totalSteps - 1)) * 100}%` }}
         ></div>
       </div>
-      <div className="step-indicator">
-        Step {step} of {totalSteps}
-      </div>
       {renderStep()}
     </div>
   );

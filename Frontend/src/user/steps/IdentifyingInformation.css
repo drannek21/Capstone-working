@@ -1,98 +1,116 @@
 /* Main form container */
 .identifying-form {
-  max-width: 1000px;
-  margin: 0 auto;
-  padding: 2rem;
-  background-color: #ffffff;
-  border-radius: 10px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  font-family: Arial, sans-serif;
+  max-width: 900px;
+  margin: 2rem auto;
+  padding: 2.5rem;
+  background: var(--bg-gradient);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  border: 1px solid rgba(64, 145, 108, 0.1);
 }
 
-/* Header styling */
 .identifying-header {
-  text-align: center;
-  color: #2c3e50;
-  margin-bottom: 2rem;
   font-size: 1.8rem;
-  border-bottom: 2px solid #16C47F;
+  text-align: center;
+  color: var(--primary-dark);
+  margin-bottom: 2rem;
+  font-weight: 700;
+  position: relative;
   padding-bottom: 1rem;
 }
 
-/* Row layout for side-by-side fields */
-/* Update for three fields per row */
+.identifying-header:after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100px;
+  height: 3px;
+  background: var(--primary-color);
+  border-radius: 2px;
+}
+
 .identifying-row {
-  display: flex;
-  gap: 15px;
-  margin-bottom: 15px;
-  width: 100%;
-}
-
-.identifying-row .form-group {
-  flex: 1;
-  min-width: 0; /* Prevents overflow issues */
-}
-
-/* Each row item should take equal space */
-.identifying-row > div {
-  flex: 1;
-  min-width: 200px;
-}
-
-/* Form group for each field */
-.form-group {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
   margin-bottom: 1.5rem;
-  position: relative;
 }
 
-/* Label styling */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
 .identifying-label {
   display: block;
-  margin-bottom: 0.5rem;
-  font-weight: 600;
-  color: #34495e;
   font-size: 0.95rem;
+  color: var(--text-color);
+  font-weight: 600;
+  margin-bottom: 0.25rem;
 }
 
-/* Input field styling */
 .identifying-input {
   width: 100%;
-  padding: 0.8rem;
-  border: 1px solid #ddd;
-  border-radius: 5px;
-  font-size: 1rem;
-  transition: border-color 0.3s, box-shadow 0.3s;
+  padding: 0.875rem 1rem;
+  border: 2px solid var(--primary-bg);
+  border-radius: var(--radius-sm);
+  font-size: 0.95rem;
+  transition: var(--transition);
+  background-color: var(--bg-color);
+  color: var(--text-light);
+  box-sizing: border-box;
+}
+
+.identifying-input::placeholder {
+  color: var(--primary-light);
+}
+
+.identifying-input:hover {
+  border-color: var(--primary-light);
 }
 
 .identifying-input:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(64, 145, 108, 0.15);
   outline: none;
-  border-color: #16C47F;
-  box-shadow: 0 0 0 3px #16C47F;
 }
 
-/* Peso sign input styling */
+/* Select input styling */
+select.identifying-input {
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2340916c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  background-size: 1em;
+  padding-right: 2.5rem;
+}
+
+/* Currency input styling */
 .peso-input-container {
   position: relative;
 }
 
-.peso-sign {
+.peso-symbol {
   position: absolute;
-  left: 10px;
+  left: 1rem;
   top: 50%;
   transform: translateY(-50%);
-  color: #555;
+  color: var(--primary-dark);
   font-weight: 600;
 }
 
 .peso-input {
-  padding-left: 30px;
+  padding-left: 2rem;
 }
 
 /* Error message styling */
 .error {
-  color: #e74c3c;
+  color: var(--error-color);
   font-size: 0.85rem;
-  margin-top: 0.5rem;
+  margin-top: 0.25rem;
   display: block;
   font-weight: 500;
   animation: fadeIn 0.3s ease-in-out;
@@ -100,10 +118,10 @@
 
 /* Success message styling */
 .success-message {
-  background-color: #2ecc71;
+  background-color: var(--primary-color);
   color: white;
-  padding: 0.8rem;
-  border-radius: 5px;
+  padding: 1rem;
+  border-radius: var(--radius-sm);
   text-align: center;
   margin-bottom: 1.5rem;
   font-weight: 600;
@@ -114,67 +132,83 @@
 .identifying-next-btn {
   display: block;
   width: 100%;
-  padding: 1rem;
-  background-color: #16C47F;
+  max-width: 300px;
+  margin: 2rem auto 0;
+  padding: 1rem 2rem;
+  background: linear-gradient(to right, var(--primary-color), var(--primary-dark));
   color: white;
   border: none;
-  border-radius: 5px;
-  font-size: 1.1rem;
+  border-radius: var(--radius-sm);
+  font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.3s, transform 0.2s;
-  margin-top: 2rem;
+  transition: var(--transition);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .identifying-next-btn:hover {
-  background-color: #14b374;
   transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
 }
 
 .identifying-next-btn:active {
   transform: translateY(0);
 }
 
+.identifying-next-btn:disabled {
+  background: var(--primary-light);
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+  opacity: 0.7;
+}
+
+/* Readonly input styling */
+.readonly-input {
+  background-color: #f8f9fa;
+  cursor: not-allowed;
+  border-color: #e9ecef;
+  color: #6c757d;
+  pointer-events: none;
+}
+
+.readonly-input:focus {
+  border-color: #e9ecef;
+  box-shadow: none;
+}
+
 /* Animations */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
-  .identifying-row {
-    flex-direction: column;
-    gap: 0;
-  }
-  
-  .identifying-row > div {
-    width: 100%;
-  }
-  
   .identifying-form {
+    margin: 1rem;
     padding: 1.5rem;
   }
-  
+
   .identifying-header {
     font-size: 1.5rem;
+    margin-bottom: 1.5rem;
   }
-}
 
-.readonly-input {
-    background-color: #f5f5f5;
-    cursor: not-allowed;
-    border: 1px solid #ddd;
-    color: #666;
-    pointer-events: none;
-    user-select: none;
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
-}
+  .identifying-row {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
 
-.readonly-input:focus {
-    outline: none;
-    border-color: #ddd;
-    box-shadow: none;
+  .identifying-next-btn {
+    padding: 0.875rem 1.5rem;
+    font-size: 0.95rem;
+  }
 }
