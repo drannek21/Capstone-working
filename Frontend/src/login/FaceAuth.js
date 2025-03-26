@@ -10,6 +10,9 @@ const FaceAuth = ({ onLoginSuccess }) => {
     const [message, setMessage] = useState('');
     const [modelsLoaded, setModelsLoaded] = useState(false);
     const [isAuthenticating, setIsAuthenticating] = useState(false);
+    const [previousFrames, setPreviousFrames] = useState([]);
+    const [staticFrameCount, setStaticFrameCount] = useState(0);
+    const [lastMovementTime, setLastMovementTime] = useState(Date.now());
 
     useEffect(() => {
         loadModels();
@@ -76,6 +79,70 @@ const FaceAuth = ({ onLoginSuccess }) => {
         }
     };
 
+    const checkForStaticImage = () => {
+        if (!videoRef.current) return false;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = videoRef.current.videoWidth;
+        canvas.height = videoRef.current.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(videoRef.current, 0, 0);
+        const currentFrame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+        // Keep last 5 frames for comparison
+        const frames = [...previousFrames, currentFrame].slice(-5);
+        setPreviousFrames(frames);
+
+        if (frames.length < 2) return false;
+
+        // Compare current frame with previous frames
+        let totalDiff = 0;
+        for (let i = 1; i < frames.length; i++) {
+            const diff = calculateFrameDifference(frames[i], frames[i-1]);
+            totalDiff += diff;
+        }
+
+        const averageDiff = totalDiff / (frames.length - 1);
+        
+        // More strict threshold for movement detection
+        const isStatic = averageDiff < 2.0;
+        
+        if (isStatic) {
+            setStaticFrameCount(prev => prev + 1);
+            // If static for more than 15 frames (about 0.5 seconds), likely a photo
+            if (staticFrameCount > 15) {
+                return true;
+            }
+        } else {
+            setStaticFrameCount(0);
+            setLastMovementTime(Date.now());
+        }
+
+        // If no significant movement for 3 seconds, consider it a static image
+        if (Date.now() - lastMovementTime > 3000) {
+            return true;
+        }
+
+        return false;
+    };
+
+    const calculateFrameDifference = (frame1, frame2) => {
+        let diff = 0;
+        const data1 = frame1.data;
+        const data2 = frame2.data;
+        
+        // Sample pixels for performance (every 4th pixel)
+        for (let i = 0; i < data1.length; i += 16) {
+            // Compare RGB values
+            diff += Math.abs(data1[i] - data2[i]); // R
+            diff += Math.abs(data1[i + 1] - data2[i + 1]); // G
+            diff += Math.abs(data1[i + 2] - data2[i + 2]); // B
+        }
+        
+        // Normalize the difference
+        return diff / (data1.length / 16);
+    };
+
     const authenticateUser = async () => {
         if (!modelsLoaded || isAuthenticating) {
             return;
@@ -85,13 +152,46 @@ const FaceAuth = ({ onLoginSuccess }) => {
         setMessage('Authenticating...');
 
         try {
-            const detections = await faceapi.detectSingleFace(
+            // Enhanced static image check
+            if (checkForStaticImage()) {
+                setMessage('Login using cellphone pictures is not allowed. Please use the live camera directly.');
+                setIsAuthenticating(false);
+                return;
+            }
+
+            // Additional movement check
+            if (Date.now() - lastMovementTime > 3000) {
+                setMessage('Please move slightly to confirm you are using a live camera.');
+                setIsAuthenticating(false);
+                return;
+            }
+
+            // Check for multiple faces
+            const allDetections = await faceapi.detectAllFaces(
+                videoRef.current,
+                new faceapi.TinyFaceDetectorOptions()
+            );
+
+            if (allDetections.length === 0) {
+                setMessage('No face detected. Please position your face in the camera.');
+                setIsAuthenticating(false);
+                return;
+            }
+
+            if (allDetections.length > 1) {
+                setMessage('Multiple faces detected. Please ensure only your face is visible in the camera.');
+                setIsAuthenticating(false);
+                return;
+            }
+
+            // Get face landmarks and descriptor for the single face
+            const faceWithLandmarks = await faceapi.detectSingleFace(
                 videoRef.current,
                 new faceapi.TinyFaceDetectorOptions()
             ).withFaceLandmarks().withFaceDescriptor();
 
-            if (!detections) {
-                setMessage('No face detected. Please position your face in the camera.');
+            if (!faceWithLandmarks) {
+                setMessage('Face detection failed. Please try again.');
                 setIsAuthenticating(false);
                 return;
             }
@@ -101,13 +201,17 @@ const FaceAuth = ({ onLoginSuccess }) => {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
                 },
                 body: JSON.stringify({
-                    descriptor: Array.from(detections.descriptor)
+                    descriptor: Array.from(faceWithLandmarks.descriptor)
                 })
             });
 
             if (!response.ok) {
+                if (response.status === 401) {
+                    throw new Error('Authentication failed. Please try logging in again.');
+                }
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
 
@@ -134,7 +238,7 @@ const FaceAuth = ({ onLoginSuccess }) => {
         if (!isRunning || !modelsLoaded) return;
 
         try {
-            const detections = await faceapi.detectAllFaces(
+            const allDetections = await faceapi.detectAllFaces(
                 videoRef.current,
                 new faceapi.TinyFaceDetectorOptions()
             ).withFaceLandmarks();
@@ -149,9 +253,18 @@ const FaceAuth = ({ onLoginSuccess }) => {
                 height: videoRef.current.height 
             };
             faceapi.matchDimensions(canvasRef.current, displaySize);
-            const resizedDetections = faceapi.resizeResults(detections, displaySize);
+            const resizedDetections = faceapi.resizeResults(allDetections, displaySize);
             faceapi.draw.drawDetections(canvasRef.current, resizedDetections);
             faceapi.draw.drawFaceLandmarks(canvasRef.current, resizedDetections);
+
+            // Update message based on number of faces detected
+            if (allDetections.length === 0) {
+                setMessage('No face detected. Please position your face in the camera.');
+            } else if (allDetections.length > 1) {
+                setMessage('Multiple faces detected. Please ensure only your face is visible.');
+            } else {
+                setMessage('Face detected. Ready for authentication.');
+            }
 
             // Continue detection loop
             requestAnimationFrame(detectFaces);
