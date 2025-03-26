@@ -1,26 +1,125 @@
 .face-auth-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 2rem;
-    background-color: white;
-    border-radius: 10px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
     max-width: 800px;
-    margin: 2rem auto;
+    margin: 0 auto;
+    padding: 20px;
+    text-align: center;
+}
+
+.video-container {
+    position: relative;
+    margin: 20px auto;
+    width: 720px;
+    height: 560px;
+}
+
+video {
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.controls {
+    margin: 20px 0;
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.register-controls {
+    margin: 20px 0;
+    display: flex;
+    justify-content: center;
+}
+
+.start-btn, .authenticate-btn, .stop-btn, .register-btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s;
+}
+
+.start-btn {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.start-btn:hover {
+    background-color: #45a049;
+}
+
+.authenticate-btn {
+    background-color: #2196F3;
+    color: white;
+}
+
+.authenticate-btn:hover {
+    background-color: #1e87dc;
+}
+
+.stop-btn {
+    background-color: #f44336;
+    color: white;
+}
+
+.stop-btn:hover {
+    background-color: #da190b;
+}
+
+.register-btn {
+    background-color: #9c27b0;
+    color: white;
+    width: 200px;
+    margin-top: 20px;
+}
+
+.register-btn:hover {
+    background-color: #7B1FA2;
+}
+
+button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
+.message {
+    margin-top: 20px;
+    padding: 10px;
+    border-radius: 5px;
+    font-size: 16px;
+}
+
+@media (max-width: 768px) {
+    .video-container {
+        width: 100%;
+        height: auto;
+    }
+
+    video, canvas {
+        width: 100%;
+        height: auto;
+    }
+
+    .controls {
+        flex-direction: column;
+    }
+
+    .start-btn, .authenticate-btn, .stop-btn, .register-btn {
+        width: 100%;
+    }
 }
 
 .face-auth-container h1 {
     color: #1a73e8;
     margin-bottom: 2rem;
     text-align: center;
-}
-
-.video-container {
-    position: relative;
-    margin-bottom: 1.5rem;
-    width: 720px;
-    height: 560px;
 }
 
 .video-container video,
@@ -30,64 +129,6 @@
     left: 0;
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.controls {
-    display: flex;
-    gap: 1rem;
-    justify-content: center;
-    flex-wrap: wrap;
-    margin-bottom: 1rem;
-}
-
-.controls button {
-    padding: 0.8rem 1.5rem;
-    font-size: 1rem;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    transition: background-color 0.3s;
-}
-
-.controls button:first-child {
-    background-color: #1a73e8;
-    color: white;
-}
-
-.controls button:first-child:hover:not(:disabled) {
-    background-color: #1557b0;
-}
-
-.controls button:nth-child(2) {
-    background-color: #dc3545;
-    color: white;
-}
-
-.controls button:nth-child(2):hover:not(:disabled) {
-    background-color: #c82333;
-}
-
-.controls button:nth-child(3) {
-    background-color: #28a745;
-    color: white;
-}
-
-.controls button:nth-child(3):hover:not(:disabled) {
-    background-color: #218838;
-}
-
-.controls button:nth-child(4) {
-    background-color: #6c757d;
-    color: white;
-}
-
-.controls button:nth-child(4):hover:not(:disabled) {
-    background-color: #5a6268;
-}
-
-.controls button:disabled {
-    background-color: #ccc;
-    cursor: not-allowed;
 }
 
 .register-form {
@@ -103,14 +144,6 @@
     border: 1px solid #ddd;
     border-radius: 5px;
     width: 200px;
-}
-
-.message {
-    margin-top: 1rem;
-    padding: 1rem;
-    border-radius: 5px;
-    background-color: #f8f9fa;
-    color: #212529;
 }
 
 .user-info {

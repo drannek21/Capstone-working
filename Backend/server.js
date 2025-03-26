@@ -27,7 +27,63 @@ const faceAuthRouter = require('./routes/faceAuth');
 // Use routes
 app.use('/api/documents', documentsRouter);
 app.use('/api/users', usersRouter);
-app.use('/api/authenticate-face', faceAuthRouter);
+
+// Configure special route for face authentication with logging
+app.use('/api/authenticate-face', (req, res, next) => {
+  console.log('Face auth route accessed with method:', req.method);
+  console.log('Request body contains descriptor:', req.body && req.body.descriptor ? 'Yes' : 'No');
+  console.log('Request headers:', req.headers);
+  // Skip token verification for face authentication
+  next();
+}, faceAuthRouter);
+
+// Implement direct route for check-user-status
+app.post('/api/check-user-status', async (req, res) => {
+  try {
+    const { email } = req.body;
+    console.log('User status check requested for email:', email);
+    
+    if (!email) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Email is required' 
+      });
+    }
+    
+    // Get user by email
+    const users = await queryDatabase(
+      'SELECT id, email, name, code_id, status, faceRecognitionPhoto FROM users WHERE email = ?', 
+      [email]
+    );
+    
+    if (!users || users.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'User not found with this email' 
+      });
+    }
+    
+    const user = users[0];
+    
+    // Return user status and whether they have face recognition
+    return res.json({
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        status: user.status,
+        hasFaceRecognition: user.faceRecognitionPhoto ? true : false
+      }
+    });
+  } catch (error) {
+    console.error('Error checking user status:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Server error while checking user status' 
+    });
+  }
+});
 
 // Test route to verify server is running
 app.get('/api/test', (req, res) => {
@@ -542,22 +598,28 @@ app.post('/updateUserStatus', async (req, res) => {
 });
 
 app.post('/updateUserProfile', async (req, res) => {
-  const { userId, profilePic } = req.body;
+  const { userId, profilePic, faceRecognitionPhoto } = req.body;
   
   try {
     if (!userId) {
       return res.status(400).json({ error: 'Missing required field: userId' });
     }
     
-    // Only update if profilePic is provided
+    // Update profilePic if provided
     if (profilePic) {
       await queryDatabase('UPDATE users SET profilePic = ? WHERE id = ?', [profilePic, userId]);
     }
     
-    res.status(200).json({ success: true, message: 'Profile picture updated successfully' });
+    // Update faceRecognitionPhoto if provided
+    if (faceRecognitionPhoto) {
+      await queryDatabase('UPDATE users SET faceRecognitionPhoto = ? WHERE id = ?', [faceRecognitionPhoto, userId]);
+      console.log(`Updated faceRecognitionPhoto for user ${userId} to ${faceRecognitionPhoto}`);
+    }
+    
+    res.status(200).json({ success: true, message: 'User profile updated successfully' });
   } catch (err) {
-    console.error('Error updating profile picture:', err);
-    res.status(500).json({ error: 'Database error while updating profile picture' });
+    console.error('Error updating user profile:', err);
+    res.status(500).json({ error: 'Database error while updating user profile' });
   }
 });
 

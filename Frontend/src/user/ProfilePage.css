@@ -1436,3 +1436,31 @@
     gap: 10px;
     margin-top: 20px;
 }
+
+.register-photo-section {
+  display: flex;
+  justify-content: center;
+  margin: 20px 0;
+  padding: 10px;
+}
+
+.register-photo-btn {
+  background-color: #9c27b0;
+  color: white;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 5px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.register-photo-btn:hover {
+  background-color: #7B1FA2;
+}
+
+.register-photo-btn:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}

@@ -411,7 +411,7 @@
 }
 
 .faceAuthBtn:hover {
-  background-color: #45a049;
+  background-color: #0E8B54;
 }
 
 .backButton {
@@ -546,4 +546,90 @@
   0% { opacity: 1; }
   50% { opacity: 0.7; }
   100% { opacity: 1; }
+}
+
+/* Modal Styles */
+.modalOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    animation: fadeIn 0.3s ease-out;
+    will-change: opacity;
+}
+
+.modal {
+    background: white;
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: 0px 8px 24px rgba(0, 0, 0, 0.3);
+    width: 400px;
+    max-width: 95%;
+    position: relative;
+    z-index: 1001;
+    animation: fadeIn 0.3s ease-out, slideUp 0.3s ease-out;
+    will-change: transform, opacity;
+    transform: translateZ(0);
+}
+
+.modal h3 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    color: #333;
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+.modal p {
+    margin-bottom: 1.5rem;
+    color: #555;
+}
+
+.modalButtons {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 1.5rem;
+}
+
+.cancelBtn, .proceedBtn {
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: transform 0.2s, box-shadow 0.3s;
+    min-width: 120px;
+    will-change: transform, box-shadow;
+}
+
+.cancelBtn {
+    background-color: #f1f1f1;
+    color: #333;
+    border: 1px solid #ddd;
+}
+
+.cancelBtn:hover:not(:disabled) {
+    background-color: #e5e5e5;
+}
+
+.proceedBtn {
+    background: linear-gradient(135deg, #16C47F, #0E9B64);
+    color: white;
+    border: none;
+}
+
+.proceedBtn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0px 4px 12px rgba(14, 155, 100, 0.3);
+}
+
+.cancelBtn:disabled, .proceedBtn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
 }

@@ -590,17 +590,50 @@ const ProfilePage = () => {
     return url;
   };
 
-  const handlePhotoCapture = (photoData) => {
-    // Convert base64 to file
-    fetch(photoData)
-        .then(res => res.blob())
-        .then(blob => {
-            const file = new File([blob], "profile_photo.jpg", { type: "image/jpeg" });
-            setSelectedFile(file);
-            setPreviewUrl(photoData);
-            setShowFaceDetection(false);
-            setShowUploadModal(true);
-        });
+  const handlePhotoCapture = async (photoData) => {
+    try {
+      // Convert base64 to blob
+      const response = await fetch(photoData);
+      const blob = await response.blob();
+      const file = new File([blob], "face_recognition.jpg", { type: "image/jpeg" });
+
+      // Create form data for Cloudinary
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', UPLOAD_PRESET);
+      formData.append('folder', `${CLOUDINARY_FOLDER}/${loggedInUserId}/face_recognition`);
+
+      // Upload to Cloudinary
+      const cloudinaryResponse = await fetch(
+        `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
+        {
+          method: 'POST',
+          body: formData
+        }
+      );
+
+      const cloudinaryData = await cloudinaryResponse.json();
+
+      // Update faceRecognitionPhoto in database using updateUserProfile endpoint
+      const updateResponse = await axios.post(
+        `${API_BASE_URL}/updateUserProfile`,
+        { 
+          userId: loggedInUserId, 
+          faceRecognitionPhoto: cloudinaryData.secure_url 
+        }
+      );
+
+      if (updateResponse.data.success) {
+        toast.success('Face recognition photo registered successfully!');
+      } else {
+        throw new Error('Failed to update face recognition photo');
+      }
+      
+      setShowFaceDetection(false);
+    } catch (error) {
+      console.error('Error registering face photo:', error);
+      toast.error('Failed to register face photo. Please try again.');
+    }
   };
 
   if (isLoading) {
@@ -674,6 +707,16 @@ const ProfilePage = () => {
             <span>{user.status}</span>
           </div>
         </div>
+      </div>
+
+      {/* Register Photo Button */}
+      <div className="register-photo-section">
+        <button 
+          className="register-photo-btn"
+          onClick={() => setShowFaceDetection(true)}
+        >
+          Register Photo
+        </button>
       </div>
 
       <div className="profile-content">
@@ -1100,13 +1143,6 @@ const ProfilePage = () => {
               >
                 Choose Photo
               </button>
-              <button 
-                className="take-photo-btn"
-                onClick={() => setShowFaceDetection(true)}
-                disabled={isLoading}
-              >
-                Take Photo
-              </button>
               <button
                 className="save-photo-btn"
                 onClick={handleUploadSubmit}
@@ -1133,7 +1169,7 @@ const ProfilePage = () => {
       {showFaceDetection && (
         <div className="modal-overlay">
           <div className="modal-content face-detection-modal">
-            <h3>Take a Photo</h3>
+            <h3>Register Face Recognition Photo</h3>
             <FaceDetection onPhotoCapture={handlePhotoCapture} />
             <div className="modal-buttons">
               <button

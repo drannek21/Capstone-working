@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as faceapi from 'face-api.js';
 import './FaceAuth.css';
+import axios from 'axios';
 
-const FaceAuth = ({ onLoginSuccess }) => {
+const FaceAuth = ({ onLoginSuccess, email }) => {
     const videoRef = useRef(null);
     const canvasRef = useRef(null);
     const [isRunning, setIsRunning] = useState(false);
@@ -10,9 +11,12 @@ const FaceAuth = ({ onLoginSuccess }) => {
     const [message, setMessage] = useState('');
     const [modelsLoaded, setModelsLoaded] = useState(false);
     const [isAuthenticating, setIsAuthenticating] = useState(false);
+    const [isRegistering, setIsRegistering] = useState(false);
     const [previousFrames, setPreviousFrames] = useState([]);
     const [staticFrameCount, setStaticFrameCount] = useState(0);
     const [lastMovementTime, setLastMovementTime] = useState(Date.now());
+    
+    const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
 
     useEffect(() => {
         loadModels();
@@ -22,6 +26,14 @@ const FaceAuth = ({ onLoginSuccess }) => {
             }
         };
     }, []);
+
+    useEffect(() => {
+        if (email) {
+            setMessage(`Welcome ${email}! Loading face detection models...`);
+        } else {
+            setMessage('Loading face detection models...');
+        }
+    }, [email]);
 
     const loadModels = async () => {
         try {
@@ -169,53 +181,73 @@ const FaceAuth = ({ onLoginSuccess }) => {
             // Check for multiple faces
             const allDetections = await faceapi.detectAllFaces(
                 videoRef.current,
-                new faceapi.TinyFaceDetectorOptions()
+                new faceapi.TinyFaceDetectorOptions({
+                    inputSize: 416,       // Higher input size for better detection
+                    scoreThreshold: 0.5   // Lower threshold to be more forgiving with different lighting
+                })
             );
 
             if (allDetections.length === 0) {
-                setMessage('No face detected. Please position your face in the camera.');
+                setMessage('No face detected. Try moving closer to the camera.');
                 setIsAuthenticating(false);
                 return;
             }
 
             if (allDetections.length > 1) {
-                setMessage('Multiple faces detected. Please ensure only your face is visible in the camera.');
+                setMessage('Multiple faces detected. Make sure only your face is visible.');
                 setIsAuthenticating(false);
                 return;
             }
 
             // Get face landmarks and descriptor for the single face
-            const faceWithLandmarks = await faceapi.detectSingleFace(
+            let faceWithLandmarks = await faceapi.detectSingleFace(
                 videoRef.current,
-                new faceapi.TinyFaceDetectorOptions()
+                new faceapi.TinyFaceDetectorOptions({
+                    inputSize: 416,        // Higher input size for better detection
+                    scoreThreshold: 0.5    // Lower threshold to be more forgiving with different lighting
+                })
             ).withFaceLandmarks().withFaceDescriptor();
 
             if (!faceWithLandmarks) {
-                setMessage('Face detection failed. Please try again.');
+                setMessage('Face features not clear. Try adjusting your position or lighting.');
                 setIsAuthenticating(false);
                 return;
             }
 
-            // Send the face descriptor to the server for authentication
-            const response = await fetch('http://localhost:8081/api/authenticate-face', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                },
-                body: JSON.stringify({
-                    descriptor: Array.from(faceWithLandmarks.descriptor)
-                })
-            });
+            setMessage('Face detected! Authenticating...');
 
-            if (!response.ok) {
-                if (response.status === 401) {
-                    throw new Error('Authentication failed. Please try logging in again.');
-                }
-                throw new Error(`HTTP error! status: ${response.status}`);
+            // Prepare request payload
+            const payload = {
+                descriptor: Array.from(faceWithLandmarks.descriptor)
+            };
+            
+            // Add email to payload if provided
+            if (email) {
+                payload.email = email;
             }
 
-            const data = await response.json();
+            // Send the face descriptor to the server for authentication
+            const response = await fetch(`${API_BASE_URL}/api/authenticate-face`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            // Parse the response as JSON, handling potential errors
+            let data;
+            try {
+                data = await response.json();
+            } catch (jsonError) {
+                console.error('Failed to parse response as JSON:', jsonError);
+                throw new Error('Failed to parse authentication response. Please try again.');
+            }
+
+            if (!response.ok) {
+                const errorMessage = data?.error || `Authentication failed with status: ${response.status}`;
+                throw new Error(errorMessage);
+            }
 
             if (data.success) {
                 setMessage('Authentication successful!');
@@ -228,7 +260,7 @@ const FaceAuth = ({ onLoginSuccess }) => {
             }
         } catch (error) {
             console.error('Error during authentication:', error);
-            setMessage('Error during authentication. Please try again.');
+            setMessage(error.message || 'Error during authentication. Please try again.');
         } finally {
             setIsAuthenticating(false);
         }
@@ -240,7 +272,10 @@ const FaceAuth = ({ onLoginSuccess }) => {
         try {
             const allDetections = await faceapi.detectAllFaces(
                 videoRef.current,
-                new faceapi.TinyFaceDetectorOptions()
+                new faceapi.TinyFaceDetectorOptions({
+                    inputSize: 416,       // Higher input size for better detection
+                    scoreThreshold: 0.5   // Lower threshold to be more forgiving with different lighting
+                })
             ).withFaceLandmarks();
 
             // Clear canvas
@@ -259,11 +294,11 @@ const FaceAuth = ({ onLoginSuccess }) => {
 
             // Update message based on number of faces detected
             if (allDetections.length === 0) {
-                setMessage('No face detected. Please position your face in the camera.');
+                setMessage('No face detected. Try moving closer to the camera.');
             } else if (allDetections.length > 1) {
-                setMessage('Multiple faces detected. Please ensure only your face is visible.');
+                setMessage('Multiple faces detected. Make sure only your face is visible.');
             } else {
-                setMessage('Face detected. Ready for authentication.');
+                setMessage('Face detected! You can now click "Authenticate" to login.');
             }
 
             // Continue detection loop
@@ -271,6 +306,72 @@ const FaceAuth = ({ onLoginSuccess }) => {
         } catch (error) {
             console.error('Error detecting faces:', error);
             setMessage('Error detecting faces. Please try again.');
+        }
+    };
+
+    const registerFacePhoto = async () => {
+        if (!modelsLoaded || isRegistering) {
+            return;
+        }
+
+        // Check if we have a user ID (should only run on profile page, not login)
+        const userId = localStorage.getItem('UserId');
+        if (!userId) {
+            setMessage('You must be logged in to register a face photo');
+            return;
+        }
+
+        setIsRegistering(true);
+        setMessage('Registering face photo...');
+
+        try {
+            // Get the current frame from video
+            const canvas = document.createElement('canvas');
+            canvas.width = videoRef.current.videoWidth;
+            canvas.height = videoRef.current.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(videoRef.current, 0, 0);
+            
+            // Convert to blob
+            const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg'));
+            const file = new File([blob], "face_recognition.jpg", { type: "image/jpeg" });
+
+            // Create form data
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('upload_preset', 'soloparent');
+            formData.append('folder', `soloparent/users/${userId}/face_recognition`);
+
+            // Upload to Cloudinary
+            const cloudinaryResponse = await fetch(
+                `https://api.cloudinary.com/v1_1/dskj7oxr7/image/upload`,
+                {
+                    method: 'POST',
+                    body: formData
+                }
+            );
+
+            const cloudinaryData = await cloudinaryResponse.json();
+
+            // Update the faceRecognitionPhoto in the database
+            const updateResponse = await axios.post(
+                `${API_BASE_URL}/updateUserProfile`,
+                { 
+                    userId: userId, 
+                    faceRecognitionPhoto: cloudinaryData.secure_url 
+                }
+            );
+
+            if (updateResponse.data.success) {
+                setMessage('Face photo registered successfully!');
+            } else {
+                throw new Error('Failed to register face photo');
+            }
+        } catch (error) {
+            console.error('Error registering face photo:', error);
+            setMessage('Error registering face photo. Please try again.');
+        } finally {
+            setIsRegistering(false);
         }
     };
 
@@ -310,6 +411,18 @@ const FaceAuth = ({ onLoginSuccess }) => {
                     Stop Camera
                 </button>
             </div>
+            {/* Only show register photo button when not on login page (no onLoginSuccess prop) */}
+            {!onLoginSuccess && localStorage.getItem('UserId') && (
+                <div className="register-controls">
+                    <button 
+                        onClick={registerFacePhoto}
+                        disabled={!isRunning || isRegistering}
+                        className="register-btn"
+                    >
+                        {isRegistering ? 'Registering...' : 'Register a Photo'}
+                    </button>
+                </div>
+            )}
             {message && <p className="message">{message}</p>}
         </div>
     );
