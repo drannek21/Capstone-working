@@ -7,18 +7,32 @@ const nodemailer = require('nodemailer');
 
 // Enable CORS for all routes
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(bodyParser.json({ limit: '50mb' }));
 
 const { sendStatusEmail } = require('./services/emailService');
 const { pool, queryDatabase } = require('./database');
 
+// Add logging middleware
+app.use((req, res, next) => {
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+    next();
+});
+
 // Import routes
 const documentsRouter = require('./routes/documents');
 const usersRouter = require('./routes/users');
+const faceAuthRouter = require('./routes/faceAuth');
 
 // Use routes
 app.use('/api/documents', documentsRouter);
 app.use('/api/users', usersRouter);
+app.use('/api/authenticate-face', faceAuthRouter);
+
+// Test route to verify server is running
+app.get('/api/test', (req, res) => {
+    res.json({ message: 'Server is running!' });
+});
 
 app.post('/users', async (req, res) => {
   const { email, password, name, barangay, role, status } = req.body;
@@ -1275,9 +1289,11 @@ app.use((err, req, res, next) => {
   });
 });
 
+// Set port and start server
 const PORT = process.env.PORT || 8081;
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+    console.log(`Server is running on port ${PORT}`);
+    console.log(`Face authentication endpoint: http://localhost:${PORT}/api/authenticate-face`);
 });
 
 process.on('SIGTERM', () => {

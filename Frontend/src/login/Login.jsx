@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import styles from "./Login.module.css";
+import FaceAuth from "./FaceAuth";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -12,6 +13,7 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [showFaceAuth, setShowFaceAuth] = useState(false);
 
   useEffect(() => {
     // Load saved credentials if rememberMe is true
@@ -65,34 +67,64 @@ const Login = () => {
           localStorage.removeItem('savedCredentials');
         }
 
-        switch (user.role) {
-          case "admin":
-            navigate("/admin-dashboard");
-            break;
-          case "superadmin":
-            navigate("/superadmin/sdashboard");
-            break;
-          default:
-            navigate("/userui");
-        }
+        navigateToDashboard(user.role);
       } else {
         setError(data.error || "Login failed. Please try again.");
-        // Clear saved credentials on failed login
         localStorage.removeItem('savedCredentials');
       }
     } catch (err) {
       console.error("Login error:", err);
       setError("Failed to connect to the server. Please try again later.");
-      // Clear saved credentials on connection error
       localStorage.removeItem('savedCredentials');
     } finally {
       setLoading(false);
     }
   };
 
+  const handleFaceAuthSuccess = (user) => {
+    localStorage.setItem("loggedInUser", JSON.stringify(user));
+    localStorage.setItem("UserId", user.id);
+    
+    if (user.role === "admin") {
+      localStorage.setItem("id", user.id);
+      localStorage.setItem("barangay", user.barangay);
+    }
+
+    navigateToDashboard(user.role);
+  };
+
+  const navigateToDashboard = (role) => {
+    switch (role) {
+      case "admin":
+        navigate("/admin-dashboard");
+        break;
+      case "superadmin":
+        navigate("/superadmin/sdashboard");
+        break;
+      default:
+        navigate("/userui");
+    }
+  };
+
   const handleForgotPassword = () => {
     navigate("/forgot-password");
   };
+
+  if (showFaceAuth) {
+    return (
+      <div className={styles.loginContainer}>
+        <div className={styles.loginBox}>
+          <button 
+            className={styles.backButton}
+            onClick={() => setShowFaceAuth(false)}
+          >
+            ← Back to Login
+          </button>
+          <FaceAuth onLoginSuccess={handleFaceAuthSuccess} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.loginContainer}>
@@ -163,6 +195,18 @@ const Login = () => {
             disabled={loading}
           >
             {loading ? "Logging in..." : "Login"}
+          </button>
+
+          <div className={styles.divider}>
+            <span>OR</span>
+          </div>
+
+          <button
+            type="button"
+            className={styles.faceAuthBtn}
+            onClick={() => setShowFaceAuth(true)}
+          >
+            Login with Face Recognition
           </button>
         </form>
         

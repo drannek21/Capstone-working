@@ -7,6 +7,7 @@ import html2canvas from 'html2canvas';
 import dswdLogo from '../assets/dswd-logo.png';
 import axios from 'axios';
 import { toast, Toaster } from 'react-hot-toast';
+import FaceDetection from './FaceDetection';
 
 const ProfilePage = () => {
   const [activeTab, setActiveTab] = useState("Details");
@@ -22,6 +23,7 @@ const ProfilePage = () => {
   const [refreshKey, setRefreshKey] = useState(0);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [documentToDelete, setDocumentToDelete] = useState(null);
+  const [showFaceDetection, setShowFaceDetection] = useState(false);
   const navigate = useNavigate();
 
   const loggedInUserId = localStorage.getItem("UserId");
@@ -588,6 +590,19 @@ const ProfilePage = () => {
     return url;
   };
 
+  const handlePhotoCapture = (photoData) => {
+    // Convert base64 to file
+    fetch(photoData)
+        .then(res => res.blob())
+        .then(blob => {
+            const file = new File([blob], "profile_photo.jpg", { type: "image/jpeg" });
+            setSelectedFile(file);
+            setPreviewUrl(photoData);
+            setShowFaceDetection(false);
+            setShowUploadModal(true);
+        });
+  };
+
   if (isLoading) {
     return (
       <div className="loading-container">
@@ -1060,7 +1075,6 @@ const ProfilePage = () => {
                   console.log("Preview image load error, using default avatar");
                   e.target.onerror = null;
                   e.target.src = avatar;
-                  // Clear localStorage if image fails to load
                   localStorage.removeItem(`profilePic_${loggedInUserId}`);
                 }}
               />
@@ -1086,6 +1100,13 @@ const ProfilePage = () => {
               >
                 Choose Photo
               </button>
+              <button 
+                className="take-photo-btn"
+                onClick={() => setShowFaceDetection(true)}
+                disabled={isLoading}
+              >
+                Take Photo
+              </button>
               <button
                 className="save-photo-btn"
                 onClick={handleUploadSubmit}
@@ -1101,6 +1122,23 @@ const ProfilePage = () => {
                   setPreviewUrl(null);
                 }}
                 disabled={isLoading}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showFaceDetection && (
+        <div className="modal-overlay">
+          <div className="modal-content face-detection-modal">
+            <h3>Take a Photo</h3>
+            <FaceDetection onPhotoCapture={handlePhotoCapture} />
+            <div className="modal-buttons">
+              <button
+                className="cancel-btn-user"
+                onClick={() => setShowFaceDetection(false)}
               >
                 Cancel
               </button>

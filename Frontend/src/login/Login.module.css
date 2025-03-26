@@ -375,3 +375,175 @@
         font-size: 13px;
     }
 }
+
+.divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 20px 0;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.divider span {
+  padding: 0 10px;
+  color: #718096;
+  font-size: 14px;
+}
+
+.faceAuthBtn {
+  width: 100%;
+  padding: 12px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  margin-top: 10px;
+}
+
+.faceAuthBtn:hover {
+  background-color: #45a049;
+}
+
+.backButton {
+  background: none;
+  border: none;
+  color: #4a5568;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 8px 0;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.backButton:hover {
+  color: #2d3748;
+}
+
+/* Face Authentication Styles */
+.face-auth-container {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.face-auth-container h2 {
+  text-align: center;
+  color: #2d3748;
+  margin-bottom: 20px;
+}
+
+.video-container {
+  position: relative;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto 20px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.video-container video {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.video-container canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.controls {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.controls button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 120px;
+}
+
+.start-btn {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.start-btn:hover:not(:disabled) {
+  background-color: #45a049;
+}
+
+.authenticate-btn {
+  background-color: #2196F3;
+  color: white;
+}
+
+.authenticate-btn:hover:not(:disabled) {
+  background-color: #1976D2;
+}
+
+.stop-btn {
+  background-color: #f44336;
+  color: white;
+}
+
+.stop-btn:hover:not(:disabled) {
+  background-color: #d32f2f;
+}
+
+.controls button:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.message {
+  text-align: center;
+  margin-top: 20px;
+  padding: 10px;
+  border-radius: 5px;
+  background-color: #f8f9fa;
+  color: #2d3748;
+}
+
+/* Loading state styles */
+.loading-message {
+  background-color: #e3f2fd;
+  color: #1565c0;
+  padding: 12px 20px;
+  border-radius: 5px;
+  margin-bottom: 20px;
+  width: 100%;
+  text-align: center;
+  border-left: 4px solid #1565c0;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.7; }
+  100% { opacity: 1; }
+}
