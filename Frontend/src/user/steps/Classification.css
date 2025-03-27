@@ -147,7 +147,7 @@
 /* Error Message Styling */
 .classification-error.step-error {
   color: var(--error-color);
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   margin-top: 0.25rem;
   display: block;
   font-weight: 500;

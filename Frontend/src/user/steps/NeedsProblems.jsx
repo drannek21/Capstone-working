@@ -9,11 +9,6 @@ export default function NeedsProblems({ prevStep, nextStep, formData, updateForm
   });
 
   const onSubmit = data => {
-    // Ensure the field is not empty
-    if (!data.needs_problems || data.needs_problems.trim() === '') {
-      return; // Don't proceed if the textarea is empty
-    }
-    
     updateFormData(data);
     nextStep();
   };

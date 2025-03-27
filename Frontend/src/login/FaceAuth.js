@@ -275,6 +275,13 @@ const FaceAuth = ({ onLoginSuccess, email }) => {
                 throw new Error('Failed to parse authentication response. Please try again.');
             }
 
+            // Check if the response was a 403 indicating Pending status
+            if (response.status === 403 && data.isPendingStatus) {
+                setMessage('Your application is currently being reviewed by our administrators.');
+                setIsAuthenticating(false);
+                return;
+            }
+
             if (!response.ok) {
                 const errorMessage = data?.error || `Authentication failed with status: ${response.status}`;
                 throw new Error(errorMessage);
@@ -282,6 +289,11 @@ const FaceAuth = ({ onLoginSuccess, email }) => {
 
             if (data.success) {
                 setMessage('Authentication successful!');
+                // Check if the user's status is Pending
+                if (data.user && data.user.status === 'Pending') {
+                    setMessage('Your application is currently being reviewed by our administrators.');
+                    return;
+                }
                 // Call the onLoginSuccess callback with the user data
                 if (onLoginSuccess) {
                     onLoginSuccess(data.user);

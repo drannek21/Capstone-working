@@ -123,6 +123,14 @@ const Login = () => {
         }
 
         navigateToDashboard(user.role);
+      } else if (response.status === 403 && data.error === 'Account is pending approval') {
+        // Handle pending account status
+        setError(
+          <div className={styles.pendingMessage}>
+            <p><strong>Your application is currently being reviewed by our administrators.</strong></p>
+          </div>
+        );
+        localStorage.removeItem('savedCredentials');
       } else {
         setError(data.error || "Login failed. Please try again.");
         localStorage.removeItem('savedCredentials');

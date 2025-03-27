@@ -267,11 +267,11 @@ const DocumentUpload = ({ formData, updateFormData, prevStep, handleSubmit }) =>
           code_id: code_id // Ensure code_id is in the form data
         });
         
-        toast.success("Document upload complete! Redirecting to main page...");
+        toast.success("Document upload complete! Redirecting to login...");
         
         // Redirect to login page after a short delay to show the success message
         setTimeout(() => {
-          navigate('/');
+          navigate('/login');
         }, 2000);
       } else {
         toast.error("No documents were uploaded successfully");

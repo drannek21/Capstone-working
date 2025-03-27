@@ -333,40 +333,34 @@ app.post('/login', async (req, res) => {
     let [user] = await queryDatabase('SELECT * FROM users WHERE email = ? AND password = ?', [email, password]);
 
     if (!user) {
-      // Check admin table if user not found
-      [user] = await queryDatabase('SELECT * FROM admin WHERE email = ? AND password = ?', [email, password]);
-      if (user) user.role = 'admin';
+      return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    if (!user) {
-      // Check superadmin table if still not found
-      [user] = await queryDatabase('SELECT * FROM superadmin WHERE email = ? AND password = ?', [email, password]);
-      if (user) user.role = 'superadmin';
+    // Prevent login if status is 'Pending'
+    if (user.status === 'Pending') {
+      return res.status(403).json({ error: 'Account is pending approval' });
     }
 
-    if (user) {
-      // Update status to Verified on first login if previously Pending
-      if (user.status === 'Created') {
-        await queryDatabase('UPDATE users SET status = ? WHERE id = ?', ['Verified', user.id]);
-        user.status = 'Verified';
+    // Update status to Verified on first login if previously Created
+    if (user.status === 'Created') {
+      await queryDatabase('UPDATE users SET status = ? WHERE id = ?', ['Verified', user.id]);
+      user.status = 'Verified';
+    }
+
+    res.status(200).json({ 
+      user: {
+        id: user.id,
+        email: user.email,
+        status: user.status
       }
+    });
 
-      res.status(200).json({ 
-        user: {
-          id: user.id,
-          email: user.email,
-          status: user.status,
-          role: user.role || 'user'
-        }
-      });
-    } else {
-      res.status(401).json({ error: 'Invalid credentials' });
-    }
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: 'Login failed' });
   }
 });
+
 
 app.post('/getUserDetails', async (req, res) => {
   const { userId } = req.body;

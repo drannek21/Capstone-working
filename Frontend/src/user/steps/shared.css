@@ -144,10 +144,13 @@
 /* Error & Success Messages */
 .step-error {
   color: var(--error-color);
-  font-size: 0.75rem;
-  margin-top: 0.25rem;
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
   display: block;
   font-weight: 500;
+  padding: 0.5rem;
+  background-color: var(--error-light);
+  border-radius: var(--radius-sm);
   animation: fadeIn 0.3s ease-in-out;
 }
 

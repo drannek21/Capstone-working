@@ -14,17 +14,6 @@ export default function InCaseOfEmergency({ prevStep, nextStep, updateFormData, 
   });
 
   const onSubmitForm = (data) => {
-    // Check if there are any validation errors
-    if (Object.keys(errors).length > 0) {
-      return; // Don't proceed if there are errors
-    }
-    
-    // Ensure all required fields have values
-    if (!data.emergency_name || !data.emergency_relationship || 
-        !data.emergency_address || !data.emergency_contact) {
-      return;
-    }
-    
     updateFormData({
       emergency_name: data.emergency_name,
       emergency_relationship: data.emergency_relationship,
