@@ -69,6 +69,7 @@ const Login = () => {
   const [modalEmail, setModalEmail] = useState("");
   const [modalError, setModalError] = useState("");
   const [checkingUser, setCheckingUser] = useState(false);
+  const [faceAuthEmail, setFaceAuthEmail] = useState("");
 
   useEffect(() => {
     // Load saved credentials if rememberMe is true
@@ -181,9 +182,10 @@ const Login = () => {
   };
 
   const closeModal = () => {
-    setShowModal(false);
-    setModalEmail("");
+    // Don't reset the modalEmail until after FaceAuth is initialized
+    // setModalEmail("");
     setModalError("");
+    setShowModal(false);
   };
 
   const handleModalEmailChange = (e) => {
@@ -236,6 +238,14 @@ const Login = () => {
           if (!data.user.hasFaceRecognition) {
             setModalError("You don't have a registered face. Please register your face first or login with email and password.");
           } else {
+            // Save email securely for face auth
+            localStorage.setItem("tempAuthEmail", modalEmail);
+            console.log("Storing email for face auth:", modalEmail);
+            
+            // Set the email state for FaceAuth
+            setFaceAuthEmail(modalEmail);
+            console.log("Setting faceAuthEmail state to:", modalEmail);
+            
             // Proceed to face auth
             closeModal();
             setShowFaceAuth(true);
@@ -255,6 +265,7 @@ const Login = () => {
   };
 
   if (showFaceAuth) {
+    console.log("DEBUG - Rendering FaceAuth with email:", faceAuthEmail);
     return (
       <div className={styles.loginContainer}>
         <div className={styles.loginBox}>
@@ -270,7 +281,7 @@ const Login = () => {
           {faceAuthError && <p className={styles.errorMessage}>{faceAuthError}</p>}
           <FaceAuth 
             onLoginSuccess={handleFaceAuthSuccess} 
-            email={modalEmail}
+            email={faceAuthEmail}
           />
         </div>
       </div>

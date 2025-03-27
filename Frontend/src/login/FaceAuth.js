@@ -4,6 +4,8 @@ import './FaceAuth.css';
 import axios from 'axios';
 
 const FaceAuth = ({ onLoginSuccess, email }) => {
+    console.log("FaceAuth component mounted with email prop:", email);
+    
     const videoRef = useRef(null);
     const canvasRef = useRef(null);
     const [isRunning, setIsRunning] = useState(false);
@@ -15,6 +17,7 @@ const FaceAuth = ({ onLoginSuccess, email }) => {
     const [previousFrames, setPreviousFrames] = useState([]);
     const [staticFrameCount, setStaticFrameCount] = useState(0);
     const [lastMovementTime, setLastMovementTime] = useState(Date.now());
+    const [userEmail, setUserEmail] = useState('');
     
     const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
 
@@ -28,10 +31,34 @@ const FaceAuth = ({ onLoginSuccess, email }) => {
     }, []);
 
     useEffect(() => {
-        if (email) {
-            setMessage(`Welcome ${email}! Loading face detection models...`);
+        // Check if email is provided via props, otherwise get from localStorage
+        const storedEmail = localStorage.getItem("tempAuthEmail");
+        const emailToUse = email || storedEmail || '';
+        
+        console.log("FaceAuth - useEffect triggered");
+        console.log("Email from props:", email);
+        console.log("Email from localStorage:", storedEmail);
+        console.log("Final email to use:", emailToUse);
+        
+        setUserEmail(emailToUse);
+        
+        if (emailToUse) {
+            setMessage(`Welcome ${emailToUse}! Loading face detection models...`);
         } else {
             setMessage('Loading face detection models...');
+        }
+
+        // Clear temp email from storage after use
+        if (storedEmail) {
+            localStorage.removeItem("tempAuthEmail");
+        }
+    }, [email]);
+
+    // Additional effect to track email prop changes
+    useEffect(() => {
+        console.log("Email prop changed to:", email);
+        if (email) {
+            setUserEmail(email);
         }
     }, [email]);
 
@@ -164,6 +191,24 @@ const FaceAuth = ({ onLoginSuccess, email }) => {
         setMessage('Authenticating...');
 
         try {
+            // Debug email value
+            console.log("DEBUG - Email state at start of authentication:", userEmail, typeof userEmail);
+            console.log("DEBUG - Email prop at start of authentication:", email, typeof email);
+            
+            // Determine email to use, preferring userEmail state, then prop, then localStorage
+            const emailToUse = userEmail || email || localStorage.getItem("tempAuthEmail") || '';
+            console.log("Final email to use for authentication:", emailToUse);
+            
+            // Make sure email is present
+            if (!emailToUse) {
+                console.log("ERROR: No email available for authentication");
+                setMessage('Authentication failed: No email provided.');
+                setIsAuthenticating(false);
+                return;
+            }
+
+            console.log(`Starting authentication for email: ${emailToUse}`);
+
             // Enhanced static image check
             if (checkForStaticImage()) {
                 setMessage('Login using cellphone pictures is not allowed. Please use the live camera directly.');
@@ -216,15 +261,19 @@ const FaceAuth = ({ onLoginSuccess, email }) => {
 
             setMessage('Face detected! Authenticating...');
 
-            // Prepare request payload
-            const payload = {
-                descriptor: Array.from(faceWithLandmarks.descriptor)
-            };
-            
-            // Add email to payload if provided
-            if (email) {
-                payload.email = email;
+            // Prepare request payload with email validation
+            if (!emailToUse) {
+                setMessage('Authentication failed: No email provided.');
+                setIsAuthenticating(false);
+                return;
             }
+
+            const payload = {
+                descriptor: Array.from(faceWithLandmarks.descriptor),
+                email: emailToUse // Email is required for authentication
+            };
+
+            console.log("Authentication payload prepared with email:", emailToUse);
 
             // Send the face descriptor to the server for authentication
             const response = await fetch(`${API_BASE_URL}/api/authenticate-face`, {
