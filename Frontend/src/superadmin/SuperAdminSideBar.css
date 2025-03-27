@@ -1,8 +1,8 @@
 .super-admin-sidebar {
   width: 250px;
   height: 100vh;
-  background: white;
-  box-shadow: 2px 0 12px rgba(22, 196, 127, 0.1);
+  background: #16C47F;
+  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.15);
   padding: 1.5rem 1rem;
   position: fixed;
   left: 0;
@@ -24,7 +24,7 @@
   border-radius: 8px;
   padding: 0.75rem;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(22, 196, 127, 0.15);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   transition: all 0.2s ease;
   color: #16C47F;
   font-size: 1.25rem;
@@ -32,7 +32,7 @@
 
 .menu-toggle:hover {
   transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(22, 196, 127, 0.2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .menu-toggle:active {
@@ -41,15 +41,30 @@
 
 .sidebar-header {
   padding-bottom: 1.5rem;
-  border-bottom: 1px solid rgba(22, 196, 127, 0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
   margin-bottom: 1.5rem;
+  text-align: center;
 }
 
-.sidebar-header h2 {
-  color: #16C47F;
+.sidebar-header h1 {
+  color: white;
   font-size: 1.5rem;
   font-weight: 600;
   margin: 0;
+  margin-bottom: 0.75rem;
+}
+
+.logo-container {
+  display: flex;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.sidebar-logo {
+  width: 60%;
+  height: auto;
+  border-radius: 8px;
+  
 }
 
 .sidebar-nav {
@@ -64,7 +79,7 @@
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem 1rem;
-  color: #4a5568;
+  color: white;
   text-decoration: none;
   border-radius: 8px;
   transition: all 0.2s ease;
@@ -73,7 +88,7 @@
 
 .nav-icon {
   font-size: 1.25rem;
-  color: #16C47F;
+  color: white;
   transition: all 0.2s ease;
 }
 
@@ -83,13 +98,11 @@
 }
 
 .nav-link:hover {
-  background: rgba(22, 196, 127, 0.05);
-  color: #16C47F;
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .nav-link.active {
-  background: rgba(22, 196, 127, 0.1);
-  color: #16C47F;
+  background: rgba(255, 255, 255, 0.2);
   font-weight: 600;
 }
 
@@ -108,7 +121,7 @@
 
 .sidebar-footer {
   padding-top: 1rem;
-  border-top: 1px solid rgba(22, 196, 127, 0.1);
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
   margin-top: auto;
 }
 
@@ -124,12 +137,12 @@
 }
 
 .notifications:hover {
-  background: rgba(22, 196, 127, 0.05);
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .notification-icon {
   font-size: 1.25rem;
-  color: #16C47F;
+  color: white;
 }
 
 .notifications .notification-badge {
@@ -150,11 +163,27 @@
   animation: fadeIn 0.3s ease;
   backdrop-filter: blur(2px);
 }
+
 .nav-link.logout-button {
-  margin-top: auto; /* This pushes it to the bottom of the nav section */
-  margin-top: 1rem; /* Or add some specific spacing */
+  margin-top: 0; /* Remove the auto margin */
+  margin-bottom: 2.5rem; /* Add some bottom space */
+  background-color: #e73c4d;
+  color: white;
+  cursor: pointer;
 }
 
+.nav-link.logout-button:hover {
+  background-color: #d33948;
+}
+
+.nav-link.logout-button .nav-icon {
+  color: white;
+}
+
+.nav-spacer {
+  flex-grow: 1; /* This pushes the logout button down */
+  min-height: 20px;
+}
 
 @keyframes fadeIn {
   from { opacity: 0; }
@@ -183,8 +212,13 @@
     margin-bottom: 1rem;
   }
 
-  .sidebar-header h2 {
+  .sidebar-header h1 {
     font-size: 1.25rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .sidebar-logo {
+    width: 70%;
   }
 
   .nav-link {
@@ -205,6 +239,7 @@
   }
   .logout-button {
     padding: 0.6rem 0.75rem;
+    margin-bottom: 1rem;
   }
   
   .logout-icon {

@@ -378,7 +378,7 @@ const SDashboard = () => {
   return (
     <div className="dashboard">
       <div className="dashboard-header">
-        <h2 className="dashboard-title">Analytics Dashboard</h2>
+        <h1 className="dashboard-title">Dashboard</h1>
         <div className="header-controls">
           <div className="filters-container">
             <div className="filter-item">

@@ -129,9 +129,9 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
     e.preventDefault();
   
     // Run validation
-    const formErrors = validateForm();
+    const isValid = validateForm();
   
-    if (Object.keys(errors).length === 0) {
+    if (isValid) {
       // Show success message briefly
       setSuccessMessage("Form validated successfully!");
       setTimeout(() => {
@@ -139,10 +139,17 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
         nextStep(); // Move to the next step
       }, 1000); 
     } else {
+      // Scroll to the first error
+      const firstErrorField = Object.keys(errors)[0];
+      const errorElement = document.querySelector(`[name="${firstErrorField}"]`);
+      if (errorElement) {
+        errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      
       // Auto-clear errors after a few seconds
       setTimeout(() => {
         setErrors({});
-      }, 3000); 
+      }, 5000); 
     }
   };
   

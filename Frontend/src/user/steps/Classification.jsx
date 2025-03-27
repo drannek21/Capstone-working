@@ -16,6 +16,21 @@ export default function Classification({
   const selectedClassification = watch("classification");
 
   const onSubmit = async (data) => {
+    // Check if the form has any validation errors
+    if (Object.keys(errors).length > 0) {
+      return; // Don't proceed if there are errors
+    }
+    
+    // Only proceed if the classification is selected
+    if (!data.classification) {
+      return;
+    }
+    
+    // If "Others" is selected, make sure details are provided
+    if (data.classification === '013' && !data.others_details) {
+      return;
+    }
+    
     const selected = classifications.find(c => c.code === data.classification);
     const saveValue = selected.code === '013' ? data.others_details : selected.saveValue;
     updateFormData({ classification: saveValue });

@@ -1,6 +1,9 @@
 .renewal-container {
-  padding: 20px;
-  width: 100%;
+  padding: 1rem;
+  background-color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-bottom: 1.5rem;
 }
 
 .renewal-header {
@@ -278,6 +281,10 @@ tbody tr:hover {
 }
 
 @media (max-width: 768px) {
+  .renewal-container {
+    padding: 1rem;
+  }
+  
   .details-grid {
     grid-template-columns: 1fr;
   }
@@ -289,6 +296,16 @@ tbody tr:hover {
   
   .filter-item, .search-container {
     width: 100%;
+  }
+  
+  .header-section {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .section-title {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
   }
 }
 
@@ -350,4 +367,20 @@ tbody tr:hover {
 .success-content h3 {
   margin: 0;
   color: #333;
+}
+
+.header-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.section-title {
+  color: #16C47F;
+  font-size: 1.75rem;
+  font-weight: 600;
+  margin: 0;
 } 

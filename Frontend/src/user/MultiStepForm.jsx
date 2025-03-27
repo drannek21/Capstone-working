@@ -78,7 +78,10 @@ export default function MultiStepForm() {
   };
 
   const nextStep = () => {
+    // Each step component handles its own validation
+    // If we reach here, validation has passed
     setStep(step + 1);
+    window.scrollTo(0, 0);
   };
 
   const prevStep = () => setStep(step - 1);

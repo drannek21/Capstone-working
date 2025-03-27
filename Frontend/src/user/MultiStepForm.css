@@ -20,6 +20,37 @@
   --transition: all 0.3s ease;
 }
 
+/* Apply background to body */
+body {
+  position: relative;
+  background-color: #f8faf8;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: url('../assets/hero-bg.jpg');
+  background-size: cover;
+  background-position: center;
+  opacity: 0.15;
+  z-index: -2;
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(14, 163, 88, 0.315);
+  z-index: -1;
+}
+
 /* Main container */
 .multistep-form-container {
   max-width: 1000px;
@@ -29,6 +60,22 @@
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
   border: 1px solid rgba(64, 145, 108, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Remove previous background from container */
+.multistep-form-container::before,
+.multistep-form-container::after {
+  display: none;
+}
+
+/* Ensure content stays above the background */
+.progress-bar-container,
+.form-section,
+.form-navigation {
+  position: relative;
+  z-index: 1;
 }
 
 /* Progress bar container */

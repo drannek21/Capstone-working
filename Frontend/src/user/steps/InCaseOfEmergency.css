@@ -232,6 +232,16 @@
   }
 }
 
+/* Error message styling */
+.ice-error-message.step-error {
+  color: var(--error-color);
+  font-size: 0.75rem;
+  margin-top: 0.25rem;
+  display: block;
+  font-weight: 500;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .ice-form.step-form {

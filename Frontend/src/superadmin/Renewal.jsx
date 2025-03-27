@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import SuperAdminSideBar from './SuperAdminSideBar';
 import './Renewal.css';
 
 const Renewal = () => {
@@ -113,158 +115,179 @@ const Renewal = () => {
 
   if (isLoading) {
     return (
-      <div className="renewal-container">
-        <div className="loading">Loading renewal applications...</div>
+      <div className="super-admin-dashboard">
+        <SuperAdminSideBar />
+        <div className="super-admin-container">
+          <div className="super-admin-content">
+            <div className="renewal-container">
+              <div className="loading">Loading renewal applications...</div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="renewal-container">
-        <div className="error">{error}</div>
+      <div className="super-admin-dashboard">
+        <SuperAdminSideBar />
+        <div className="super-admin-container">
+          <div className="super-admin-content">
+            <div className="renewal-container">
+              <div className="error">{error}</div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="renewal-container">
-      <div className="renewal-header">
-        <h2>Renewal Applications</h2>
-        <div className="filter-controls">
-          <div className="filter-item">
-            <label htmlFor="barangayFilter">Barangay:</label>
-            <select 
-              id="barangayFilter"
-              value={selectedBarangay}
-              onChange={(e) => setSelectedBarangay(e.target.value)}
-              className="filter-select"
-            >
-              {barangays.map((barangay, index) => (
-                <option key={index} value={barangay}>{barangay}</option>
-              ))}
-            </select>
-          </div>
-          <div className="search-container">
-            <input
-              type="text"
-              placeholder="Search by name..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="search-input"
-            />
-          </div>
-        </div>
-      </div>
+    <div className="super-admin-dashboard">
+      <SuperAdminSideBar />
+      <div className="super-admin-container">
+        <div className="super-admin-content">
+          <div className="renewal-container">
+            <div className="header-section">
+              <h1 className="section-title">Renewal Applications</h1>
+              <div className="filter-controls">
+                <div className="filter-item">
+                  <label htmlFor="barangayFilter">Barangay:</label>
+                  <select 
+                    id="barangayFilter"
+                    value={selectedBarangay}
+                    onChange={(e) => setSelectedBarangay(e.target.value)}
+                    className="filter-select"
+                  >
+                    {barangays.map((barangay, index) => (
+                      <option key={index} value={barangay}>{barangay}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="search-container">
+                  <input
+                    type="text"
+                    placeholder="Search by name..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="search-input"
+                  />
+                </div>
+              </div>
+            </div>
 
-      <div className="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Name</th>
-              <th>Barangay</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredRenewals.map((renewal, index) => (
-              <tr key={index}>
-                <td>{index + 1}</td>
-                <td>{`${renewal.first_name} ${renewal.middle_name || ''} ${renewal.last_name}`}</td>
-                <td>{renewal.barangay}</td>
-                <td>
-                    <button 
-                      className="btn view-btn" 
-                      onClick={() => openModal(renewal)}
-                    >
-                      <i className="fas fa-eye"></i> View
-                    </button>
-                    <button 
-                      className="btn accept-btn" 
-                      onClick={() => handleAction("Accept", renewal)}
-                    >
+            <div className="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Barangay</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredRenewals.map((renewal, index) => (
+                    <tr key={index}>
+                      <td>{index + 1}</td>
+                      <td>{`${renewal.first_name} ${renewal.middle_name || ''} ${renewal.last_name}`}</td>
+                      <td>{renewal.barangay}</td>
+                      <td>
+                          <button 
+                            className="btn view-btn" 
+                            onClick={() => openModal(renewal)}
+                          >
+                            <i className="fas fa-eye"></i> View
+                          </button>
+                          <button 
+                            className="btn accept-btn" 
+                            onClick={() => handleAction("Accept", renewal)}
+                          >
+                            <i className="fas fa-check"></i> Accept
+                          </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Certificate View Modal */}
+            {showModal && selectedRenewal && (
+              <div className="modal-overlay" onClick={closeModal}>
+                <div className="modal" onClick={(e) => e.stopPropagation()}>
+                  <div className="modal-header">
+                    <h3>View Barangay Certificate</h3>
+                  </div>
+                  <div className="modal-content">
+                    <div className="details-grid">
+                      <div className="detail-item">
+                        <span className="label">Name</span>
+                        <span className="value">
+                          {`${selectedRenewal.first_name} ${selectedRenewal.middle_name || ''} ${selectedRenewal.last_name}`}
+                        </span>
+                      </div>
+                      <div className="detail-item">
+                        <span className="label">Barangay</span>
+                        <span className="value">{selectedRenewal.barangay}</span>
+                      </div>
+                    </div>
+
+                    {/* Certificate Section */}
+                    <div className="documents-section">
+                      <h4>Barangay Certificate</h4>
+                      {selectedRenewal.documents && selectedRenewal.documents.length > 0 ? (
+                        <div className="documents-list">
+                          {selectedRenewal.documents.map((doc, index) => (
+                            <div key={index} className="document-item">
+                              <div className="document-preview">
+                                <img 
+                                  src={doc.file_url} 
+                                  alt="Barangay Certificate"
+                                  className="document-thumbnail"
+                                  onClick={() => window.open(doc.file_url, '_blank')}
+                                  onError={(e) => {
+                                    e.target.onerror = null;
+                                    e.target.src = "https://placehold.co/200x200/e2e8f0/64748b?text=Certificate+Not+Found";
+                                  }}
+                                />
+                              </div>
+                              <div className="document-actions">
+                                <button 
+                                  className="btn view-btn full-width"
+                                  onClick={() => window.open(doc.file_url, '_blank')}
+                                >
+                                  <i className="fas fa-eye"></i> View Full Size
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="no-documents">
+                          <p>No barangay certificate submitted yet.</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="modal-footer">
+                    <button className="btn accept-btn" onClick={() => handleAction("Accept", selectedRenewal)}>
                       <i className="fas fa-check"></i> Accept
                     </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Certificate View Modal */}
-      {showModal && selectedRenewal && (
-        <div className="modal-overlay" onClick={closeModal}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>View Barangay Certificate</h3>
-            </div>
-            <div className="modal-content">
-              <div className="details-grid">
-                <div className="detail-item">
-                  <span className="label">Name</span>
-                  <span className="value">
-                    {`${selectedRenewal.first_name} ${selectedRenewal.middle_name || ''} ${selectedRenewal.last_name}`}
-                  </span>
-                </div>
-                <div className="detail-item">
-                  <span className="label">Barangay</span>
-                  <span className="value">{selectedRenewal.barangay}</span>
+                    <button className="btn decline-btn" onClick={() => handleAction("Decline", selectedRenewal)}>
+                      <i className="fas fa-times"></i> Decline
+                    </button>
+                    <button className="btn view-btn" onClick={closeModal}>
+                      Close
+                    </button>
+                  </div>
                 </div>
               </div>
-
-              {/* Certificate Section */}
-              <div className="documents-section">
-                <h4>Barangay Certificate</h4>
-                {selectedRenewal.documents && selectedRenewal.documents.length > 0 ? (
-                  <div className="documents-list">
-                    {selectedRenewal.documents.map((doc, index) => (
-                      <div key={index} className="document-item">
-                        <div className="document-preview">
-                          <img 
-                            src={doc.file_url} 
-                            alt="Barangay Certificate"
-                            className="document-thumbnail"
-                            onClick={() => window.open(doc.file_url, '_blank')}
-                            onError={(e) => {
-                              e.target.onerror = null;
-                              e.target.src = "https://placehold.co/200x200/e2e8f0/64748b?text=Certificate+Not+Found";
-                            }}
-                          />
-                        </div>
-                        <div className="document-actions">
-                          <button 
-                            className="btn view-btn full-width"
-                            onClick={() => window.open(doc.file_url, '_blank')}
-                          >
-                            <i className="fas fa-eye"></i> View Full Size
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="no-documents">
-                    <p>No barangay certificate submitted yet.</p>
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button className="btn accept-btn" onClick={() => handleAction("Accept", selectedRenewal)}>
-                <i className="fas fa-check"></i> Accept
-              </button>
-              <button className="btn decline-btn" onClick={() => handleAction("Decline", selectedRenewal)}>
-                <i className="fas fa-times"></i> Decline
-              </button>
-              <button className="btn view-btn" onClick={closeModal}>
-                Close
-              </button>
-            </div>
+            )}
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 };

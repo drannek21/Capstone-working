@@ -1,7 +1,9 @@
 .user-management-container {
-  padding: 2rem;
-  min-height: 100vh;
+  padding: 1rem;
   background-color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-bottom: 1.5rem;
 }
 
 .user-management-header {
@@ -301,6 +303,22 @@
   font-size: 0.95rem;
 }
 
+.header-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.section-title {
+  color: #16C47F;
+  font-size: 1.75rem;
+  font-weight: 600;
+  margin: 0;
+}
+
 /* Large screens (≥1200px) */
 @media (min-width: 1200px) {
   .user-management-container {
@@ -520,5 +538,67 @@
   .users-table td {
     padding: 0.5rem 0.25rem;
     font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .header-section {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .section-title {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  
+  .user-management-container {
+    padding: 1.25rem;
+  }
+
+  .filter-container {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+
+  .barangay-filter,
+  .search-container {
+    max-width: none;
+    width: 100%;
+  }
+
+  .search-container {
+    display: flex;
+    gap: 1rem;
+  }
+
+  .search-input {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .add-user-btn {
+    width: 120px;
+    flex-shrink: 0;
+  }
+
+  .users-table-container {
+    margin: 0 -1rem;
+    border-radius: 0;
+  }
+
+  .users-table th:last-child,
+  .users-table td:last-child {
+    width: 220px;
+  }
+
+  .action-buttons {
+    min-width: 200px;
+    gap: 0.5rem;
+  }
+
+  .action-buttons button {
+    width: 120px;
   }
 }

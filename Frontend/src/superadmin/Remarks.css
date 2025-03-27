@@ -1,7 +1,9 @@
 .remarks-container {
-  padding: 20px;
-  max-width: 100%;
-  margin: 0 auto;
+  padding: 1rem;
+  background-color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-bottom: 1.5rem;
 }
 
 .remarks-header {
@@ -200,6 +202,20 @@ tr:hover {
   .page-btn {
     padding: 6px 12px;
     font-size: 14px;
+  }
+
+  .header-section {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .section-title {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .remarks-container {
+    padding: 1rem;
   }
 }
 
@@ -441,4 +457,20 @@ tr:hover {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+.header-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.section-title {
+  color: #16C47F;
+  font-size: 1.75rem;
+  font-weight: 600;
+  margin: 0;
 }

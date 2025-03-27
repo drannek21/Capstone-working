@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { toast } from "react-hot-toast";
+import { useNavigate } from "react-router-dom";
 import "./shared.css";
 import "./DocumentUpload.css";
 
 const DocumentUpload = ({ formData, updateFormData, prevStep, handleSubmit }) => {
+  const navigate = useNavigate();
   const [selectedFiles, setSelectedFiles] = useState({});
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({});
@@ -163,6 +165,16 @@ const DocumentUpload = ({ formData, updateFormData, prevStep, handleSubmit }) =>
       return;
     }
 
+    // Add additional validation to check if any required documents are missing
+    const requiredDocuments = ['psa']; // Add other required documents if needed
+    const missingRequired = requiredDocuments.filter(type => !selectedFiles[type]);
+    
+    if (missingRequired.length > 0) {
+      const missingNames = missingRequired.map(type => documentTypes[type]).join(', ');
+      toast.error(`Required document(s) missing: ${missingNames}`);
+      return;
+    }
+
     // Prevent duplicate submissions
     if (isUploading) {
       console.log("Upload already in progress, preventing duplicate submission");
@@ -198,25 +210,23 @@ const DocumentUpload = ({ formData, updateFormData, prevStep, handleSubmit }) =>
           }
           
           // Extract the code_id from the result
-          if (submitResult.code_id) {
-            code_id = submitResult.code_id;
-            console.log("Generated code_id from form submission:", code_id);
-          } else {
-            throw new Error("Failed to get a valid code_id from form submission");
+          code_id = submitResult.code_id;
+          
+          // Update the form data with the code_id if it's not already set
+          if (!formData.code_id || formData.code_id !== code_id) {
+            updateFormData({
+              ...formData,
+              code_id: code_id
+            });
           }
-        } catch (submitError) {
-          console.error("Error during form submission:", submitError);
-          toast.error("Failed to submit registration form. Please try again.");
+          
+          console.log("Form submitted successfully, using code_id:", code_id);
+        } catch (error) {
+          console.error("Error during form submission:", error);
+          toast.error("Failed to submit form. Please try again.");
           setIsUploading(false);
           return;
         }
-      }
-      
-      // Validate that we have a code_id
-      if (!code_id || code_id === 'default_user_id') {
-        toast.error("Invalid user ID. Please complete your registration first.");
-        setIsUploading(false);
-        return;
       }
 
       const uploadResults = {};
@@ -257,7 +267,12 @@ const DocumentUpload = ({ formData, updateFormData, prevStep, handleSubmit }) =>
           code_id: code_id // Ensure code_id is in the form data
         });
         
-        toast.success("Document upload complete!");
+        toast.success("Document upload complete! Redirecting to main page...");
+        
+        // Redirect to login page after a short delay to show the success message
+        setTimeout(() => {
+          navigate('/');
+        }, 2000);
       } else {
         toast.error("No documents were uploaded successfully");
       }

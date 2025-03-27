@@ -1,15 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
-import { FiMenu, FiX, FiHome, FiFileText, FiBell, FiLogOut, FiUsers, FiMessageSquare, FiRefreshCw } from 'react-icons/fi';
+import { Link, NavLink, useLocation } from 'react-router-dom';
+import { FaTachometerAlt, FaDatabase, FaUsers, FaClipboardList, FaSync, FaBars, FaSignOutAlt } from 'react-icons/fa';
 import './SuperAdminSideBar.css';
+import logo from '../assets/logo.jpg'; // Import the logo
 
 const SuperAdminSideBar = () => {
-  const [isOpen, setIsOpen] = useState(window.innerWidth >= 768);
-  const navigate = useNavigate();
+  const [isOpen, setIsOpen] = useState(true);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const location = useLocation();
 
   useEffect(() => {
     const handleResize = () => {
-      setIsOpen(window.innerWidth >= 768);
+      const mobile = window.innerWidth <= 768;
+      setIsMobile(mobile);
+      if (mobile) {
+        setIsOpen(false);
+      } else {
+        setIsOpen(true);
+      }
     };
 
     window.addEventListener('resize', handleResize);
@@ -21,97 +29,86 @@ const SuperAdminSideBar = () => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('userToken');
-    navigate('/', { replace: true });
-    setTimeout(() => {
-      window.history.pushState(null, '', window.location.href);
-      window.onpopstate = () => {
-        window.history.pushState(null, '', window.location.href);
-      };
-    }, 0);
-    window.location.reload();
+    // Clear local storage
+    localStorage.removeItem('superadminToken');
+    // Redirect to login page
+    window.location.href = '/';
   };
 
   return (
     <>
-      <button
-        className="menu-toggle"
-        onClick={toggleSidebar}
-        aria-label={isOpen ? 'Close menu' : 'Open menu'}
-      >
-        {isOpen ? <FiX /> : <FiMenu />}
-      </button>
-
-      <div className={`super-admin-sidebar ${isOpen ? 'open' : ''}`}>
+      {isMobile && (
+        <button className="menu-toggle" onClick={toggleSidebar}>
+          <FaBars />
+        </button>
+      )}
+      
+      {isMobile && isOpen && (
+        <div className="sidebar-overlay" onClick={toggleSidebar}></div>
+      )}
+      
+      <aside className={`super-admin-sidebar ${isOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
-          <h2>Super Admin</h2>
+          <h1>Super Admin</h1>
+          <div className="logo-container">
+            <img src={logo} alt="Logo" className="sidebar-logo" />
+          </div>
         </div>
+        
         <nav className="sidebar-nav">
-          <NavLink
-            to="/superadmin/sdashboard"
-            className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}
-            onClick={() => window.innerWidth < 768 && setIsOpen(false)}
+          <NavLink 
+            to="/superadmin/sdashboard" 
+            className={({isActive}) => `nav-link ${isActive ? 'active' : ''}`}
+            onClick={isMobile ? toggleSidebar : undefined}
           >
-            <FiHome className="nav-icon" />
+            <FaTachometerAlt className="nav-icon" />
             <span>Dashboard</span>
           </NavLink>
-
-          <NavLink
-            to="/superadmin/applications"
-            className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}
-            onClick={() => window.innerWidth < 768 && setIsOpen(false)}
+          
+          <NavLink 
+            to="/superadmin/applications" 
+            className={({isActive}) => `nav-link ${isActive ? 'active' : ''}`}
+            onClick={isMobile ? toggleSidebar : undefined}
           >
-            <FiFileText className="nav-icon" />
+            <FaDatabase className="nav-icon" />
             <span>Applications</span>
           </NavLink>
-
-          <NavLink
-            to="/superadmin/user-management"
-            className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}
-            onClick={() => window.innerWidth < 768 && setIsOpen(false)}
+          
+          <NavLink 
+            to="/superadmin/user-management" 
+            className={({isActive}) => `nav-link ${isActive ? 'active' : ''}`}
+            onClick={isMobile ? toggleSidebar : undefined}
           >
-            <FiUsers className="nav-icon" />
+            <FaUsers className="nav-icon" />
             <span>Admin Management</span>
           </NavLink>
-
-          <NavLink
-            to="/superadmin/remarks"
-            className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}
-            onClick={() => window.innerWidth < 768 && setIsOpen(false)}
+          
+          <NavLink 
+            to="/superadmin/remarks" 
+            className={({isActive}) => `nav-link ${isActive ? 'active' : ''}`}
+            onClick={isMobile ? toggleSidebar : undefined}
           >
-            <FiMessageSquare className="nav-icon" />
+            <FaClipboardList className="nav-icon" />
             <span>Remarks</span>
           </NavLink>
-
-          <NavLink
-            to="/superadmin/renewal"
-            className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}
-            onClick={() => window.innerWidth < 768 && setIsOpen(false)}
+          
+          <NavLink 
+            to="/superadmin/renewal" 
+            className={({isActive}) => `nav-link ${isActive ? 'active' : ''}`}
+            onClick={isMobile ? toggleSidebar : undefined}
           >
-            <FiRefreshCw className="nav-icon" />
+            <FaSync className="nav-icon" />
             <span>Renewal</span>
           </NavLink>
 
-          <div
-            className="nav-link"
-            onClick={handleLogout}
-            style={{ cursor: 'pointer' }}
-          >
-            <FiLogOut className="nav-icon" />
-            <span>Log Out</span>
+          <div className="nav-spacer"></div>
+          
+          <div className="nav-link logout-button" onClick={handleLogout}>
+            <FaSignOutAlt className="nav-icon logout-icon" />
+            <span>Logout</span>
           </div>
         </nav>
-      </div>
-
-      {isOpen && window.innerWidth < 768 && (
-        <div
-          className="sidebar-overlay"
-          onClick={toggleSidebar}
-          role="button"
-          aria-label="Close sidebar"
-          tabIndex={0}
-        />
-      )}
+      </aside>
     </>
   );
 };
