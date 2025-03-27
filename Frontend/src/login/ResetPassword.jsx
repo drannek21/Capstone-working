@@ -54,8 +54,8 @@ const ResetPassword = () => {
       return;
     }
     
-    if (password.length < 8) {
-      setError("Password must be at least 8 characters long");
+    if (password.length < 10 || password.length > 15) {
+      setError("Password must be between 10 and 15 characters long");
       return;
     }
     
@@ -129,6 +129,7 @@ const ResetPassword = () => {
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
+              <small className={styles.passwordHelper}>Password must be between 10-15 characters</small>
             </div>
             
             <div className={styles.inputGroup}>

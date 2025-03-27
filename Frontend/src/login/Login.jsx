@@ -273,7 +273,6 @@ const Login = () => {
             ← Back to Login
           </button>
           {faceAuthError && <p className={styles.errorMessage}>{faceAuthError}</p>}
-          <p className="emailDisplay">Using email: {modalEmail}</p>
           <FaceAuth 
             onLoginSuccess={handleFaceAuthSuccess} 
             email={modalEmail}

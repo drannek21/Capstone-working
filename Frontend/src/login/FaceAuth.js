@@ -410,21 +410,14 @@ const FaceAuth = ({ onLoginSuccess, email }) => {
         <div className="face-auth-container">
             <h2>Face Recognition Login</h2>
             
-            {userEmail ? (
-                <p style={{ backgroundColor: '#e8f5e9', padding: '10px', borderRadius: '5px', margin: '10px 0' }}>
-                    Authenticating as: <strong>{userEmail}</strong>
-                </p>
-            ) : (
-                <p style={{ backgroundColor: '#ffebee', padding: '10px', borderRadius: '5px', margin: '10px 0' }}>
-                    <strong>Warning:</strong> Email not detected. Please go back and try again.
-                </p>
-            )}
+            {/* Hidden email input for face authentication */}
+            <input type="hidden" id="faceAuthEmail" value={userEmail} />
             
             <div className="video-container">
                 <video
                     ref={videoRef}
-                    width="720"
-                    height="560"
+                    width="1000"
+                    height="300"
                     autoPlay
                     muted
                 />

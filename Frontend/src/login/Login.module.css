@@ -708,3 +708,10 @@
   color: #424242;
   line-height: 1.5;
 }
+
+.passwordHelper {
+  color: #666;
+  font-size: 0.8rem;
+  margin-top: 4px;
+  display: block;
+}

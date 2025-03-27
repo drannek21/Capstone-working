@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import "./ProfilePage.css"; // Import CSS file
-import { FaCamera, FaCheckCircle, FaClock, FaTimes } from "react-icons/fa"; // Import icons
+import { FaCamera, FaCheckCircle, FaClock, FaTimes, FaCog } from "react-icons/fa"; // Import icons
 import avatar from "../assets/avatar.jpg";
 import html2canvas from 'html2canvas';
 import dswdLogo from '../assets/dswd-logo.png';
@@ -338,6 +338,20 @@ const ProfilePage = () => {
 
   const handleRemoveDocument = async (documentType) => {
     confirmDelete(documentType);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("loggedInUser");
+    localStorage.removeItem("UserId");
+    localStorage.removeItem("id");
+    localStorage.removeItem("barangay");
+    navigate("/login");
+  };
+
+  const handleChangePassword = () => {
+    // Navigate to change password page or open modal
+    // For now, we'll just display a toast
+    toast.info("Change password functionality will be available soon!");
   };
 
   const downloadID = async (side) => {
@@ -709,16 +723,6 @@ const ProfilePage = () => {
         </div>
       </div>
 
-      {/* Register Photo Button */}
-      <div className="register-photo-section">
-        <button 
-          className="register-photo-btn"
-          onClick={() => setShowFaceDetection(true)}
-        >
-          Register Photo
-        </button>
-      </div>
-
       <div className="profile-content">
         <div className="tab-navigation">
           {["Details", "ID", "Documents"].map((tab) => (
@@ -730,6 +734,14 @@ const ProfilePage = () => {
               {tab}
             </button>
           ))}
+          
+          {/* Register Photo Button */}
+          <button
+            className="tab-button register-photo-tab"
+            onClick={() => setShowFaceDetection(true)}
+          >
+            <FaCamera className="register-camera-icon" />
+          </button>
         </div>
 
         <div className="tab-content">

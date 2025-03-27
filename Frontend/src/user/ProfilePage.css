@@ -16,6 +16,7 @@
   gap: 3rem;
   margin-bottom: 2.5rem;
   transition: transform 0.3s ease;
+  position: relative;
 }
 
 .profile-picture-container {
@@ -1437,30 +1438,106 @@
     margin-top: 20px;
 }
 
-.register-photo-section {
-  display: flex;
-  justify-content: center;
-  margin: 20px 0;
-  padding: 10px;
+/* Register Photo Icon Styles */
+.register-photo-container {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  position: relative;
 }
 
-.register-photo-btn {
-  background-color: #9c27b0;
-  color: white;
-  padding: 12px 24px;
+.register-photo-icon {
+  background: none;
   border: none;
-  border-radius: 5px;
-  font-size: 16px;
+  color: #333;
   cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transition: background-color 0.3s;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.register-photo-btn:hover {
-  background-color: #7B1FA2;
+.register-photo-icon:hover {
+  background-color: rgba(0, 0, 0, 0.05);
 }
 
-.register-photo-btn:disabled {
-  background-color: #cccccc;
-  cursor: not-allowed;
+/* Add tooltip styles */
+.register-photo-icon::after {
+  content: "For Register Photo";
+  position: absolute;
+  bottom: 100%;
+  right: 0;
+  margin-bottom: 10px;
+  background-color: #333;
+  color: white;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s, visibility 0.3s;
+  z-index: 100;
+}
+
+.register-photo-icon:hover::after {
+  opacity: 1;
+  visibility: visible;
+}
+
+.register-camera-icon {
+  font-size: 24px;
+  color: #16C47F;
+}
+
+.register-photo-tab {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem 1.5rem;
+}
+
+.register-photo-tab .register-camera-icon {
+  font-size: 1.3rem;
+  color: #16C47F;
+}
+
+.register-photo-tab:hover {
+  background-color: rgba(22, 196, 127, 0.1);
+}
+
+.register-photo-tab:hover .register-camera-icon {
+  color: #14b374;
+}
+
+/* Add tooltip to register photo tab */
+.register-photo-tab {
+  position: relative;
+}
+
+.register-photo-tab::after {
+  content: "Register Photo";
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%) translateY(100%);
+  padding: 5px 10px;
+  background-color: #333;
+  color: white;
+  border-radius: 4px;
+  font-size: 12px;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s;
+  white-space: nowrap;
+  z-index: 10;
+}
+
+.register-photo-tab:hover::after {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(110%);
 }

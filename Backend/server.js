@@ -1533,47 +1533,92 @@ app.get('/api/verify-reset-token/:token', async (req, res) => {
 
 // Process password reset
 app.post('/api/reset-password', async (req, res) => {
+  const { token, password } = req.body;
+  
+  if (!token || !password) {
+    return res.status(400).json({ success: false, error: 'Missing required fields' });
+  }
+  
   try {
-    const { token, password } = req.body;
-    
-    if (!token || !password) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Token and password are required' 
-      });
-    }
-    
-    // Find user with this token that hasn't expired
-    const users = await queryDatabase(
-      'SELECT id FROM users WHERE resetPasswordToken = ? AND resetPasswordExpires > NOW()', 
+    // Verify token is valid and get associated email
+    const [tokenResults] = await pool.execute(
+      'SELECT * FROM password_reset_tokens WHERE token = ? AND expires > NOW()',
       [token]
     );
     
-    if (!users || users.length === 0) {
-      return res.status(404).json({ 
+    if (tokenResults.length === 0) {
+      return res.status(400).json({ success: false, error: 'Invalid or expired token' });
+    }
+    
+    const { email } = tokenResults[0];
+    
+    // Check if new password is same as old password
+    const [userResults] = await pool.execute(
+      'SELECT password FROM users WHERE email = ?',
+      [email]
+    );
+    
+    if (userResults.length > 0 && userResults[0].password === password) {
+      return res.status(400).json({ 
         success: false, 
-        error: 'Invalid or expired token' 
+        error: 'New password cannot be the same as your current password' 
       });
     }
     
-    const userId = users[0].id;
-    
-    // Update password and clear reset token
-    await queryDatabase(
-      'UPDATE users SET password = ?, resetPasswordToken = NULL, resetPasswordExpires = NULL WHERE id = ?',
-      [password, userId]
+    // Update user's password
+    await pool.execute(
+      'UPDATE users SET password = ? WHERE email = ?',
+      [password, email]
     );
     
-    res.json({ 
-      success: true, 
-      message: 'Password has been reset successfully' 
-    });
+    // Delete used token
+    await pool.execute(
+      'DELETE FROM password_reset_tokens WHERE token = ?',
+      [token]
+    );
     
+    res.json({ success: true });
   } catch (error) {
     console.error('Error resetting password:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Server error resetting password: ' + error.message
-    });
+    res.status(500).json({ success: false, error: 'Server error' });
+  }
+});
+
+// Add route for changing password
+app.post('/changePassword', async (req, res) => {
+  const { userId, currentPassword, newPassword } = req.body;
+
+  if (!userId || !currentPassword || !newPassword) {
+    return res.status(400).json({ message: 'Missing required fields' });
+  }
+
+  try {
+    // First, verify the current password
+    const [rows] = await pool.execute(
+      'SELECT password FROM users WHERE id = ?',
+      [userId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const storedPassword = rows[0].password;
+
+    // Compare current password (basic comparison for now)
+    if (storedPassword !== currentPassword) {
+      return res.status(401).json({ message: 'Current password is incorrect' });
+    }
+
+    // Update the password
+    await pool.execute(
+      'UPDATE users SET password = ? WHERE id = ?',
+      [newPassword, userId]
+    );
+
+    res.status(200).json({ message: 'Password updated successfully' });
+  } catch (error) {
+    console.error('Error changing password:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 });
