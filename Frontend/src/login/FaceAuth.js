@@ -4,8 +4,6 @@ import './FaceAuth.css';
 import axios from 'axios';
 
 const FaceAuth = ({ onLoginSuccess, email }) => {
-    console.log("FaceAuth component mounted with email prop:", email);
-    
     const videoRef = useRef(null);
     const canvasRef = useRef(null);
     const [isRunning, setIsRunning] = useState(false);
@@ -17,7 +15,8 @@ const FaceAuth = ({ onLoginSuccess, email }) => {
     const [previousFrames, setPreviousFrames] = useState([]);
     const [staticFrameCount, setStaticFrameCount] = useState(0);
     const [lastMovementTime, setLastMovementTime] = useState(Date.now());
-    const [userEmail, setUserEmail] = useState('');
+    // Get email from localStorage if it's not passed as a prop
+    const [userEmail, setUserEmail] = useState(email || localStorage.getItem('faceAuthEmail') || '');
     
     const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
 
@@ -31,34 +30,22 @@ const FaceAuth = ({ onLoginSuccess, email }) => {
     }, []);
 
     useEffect(() => {
-        // Check if email is provided via props, otherwise get from localStorage
-        const storedEmail = localStorage.getItem("tempAuthEmail");
-        const emailToUse = email || storedEmail || '';
-        
-        console.log("FaceAuth - useEffect triggered");
-        console.log("Email from props:", email);
-        console.log("Email from localStorage:", storedEmail);
-        console.log("Final email to use:", emailToUse);
-        
-        setUserEmail(emailToUse);
-        
-        if (emailToUse) {
-            setMessage(`Welcome ${emailToUse}! Loading face detection models...`);
-        } else {
-            setMessage('Loading face detection models...');
-        }
-
-        // Clear temp email from storage after use
-        if (storedEmail) {
-            localStorage.removeItem("tempAuthEmail");
-        }
-    }, [email]);
-
-    // Additional effect to track email prop changes
-    useEffect(() => {
-        console.log("Email prop changed to:", email);
+        // Update userEmail state if email prop changes
         if (email) {
             setUserEmail(email);
+            console.log("Email prop received in FaceAuth:", email);
+            setMessage(`Welcome ${email}! Loading face detection models...`);
+        } else {
+            // Try to get from localStorage if not in props
+            const storedEmail = localStorage.getItem('faceAuthEmail');
+            if (storedEmail) {
+                setUserEmail(storedEmail);
+                console.log("Email found in localStorage:", storedEmail);
+                setMessage(`Welcome ${storedEmail}! Loading face detection models...`);
+            } else {
+                console.log("No email found in prop or localStorage");
+                setMessage('Loading face detection models...');
+            }
         }
     }, [email]);
 
@@ -191,24 +178,6 @@ const FaceAuth = ({ onLoginSuccess, email }) => {
         setMessage('Authenticating...');
 
         try {
-            // Debug email value
-            console.log("DEBUG - Email state at start of authentication:", userEmail, typeof userEmail);
-            console.log("DEBUG - Email prop at start of authentication:", email, typeof email);
-            
-            // Determine email to use, preferring userEmail state, then prop, then localStorage
-            const emailToUse = userEmail || email || localStorage.getItem("tempAuthEmail") || '';
-            console.log("Final email to use for authentication:", emailToUse);
-            
-            // Make sure email is present
-            if (!emailToUse) {
-                console.log("ERROR: No email available for authentication");
-                setMessage('Authentication failed: No email provided.');
-                setIsAuthenticating(false);
-                return;
-            }
-
-            console.log(`Starting authentication for email: ${emailToUse}`);
-
             // Enhanced static image check
             if (checkForStaticImage()) {
                 setMessage('Login using cellphone pictures is not allowed. Please use the live camera directly.');
@@ -259,21 +228,34 @@ const FaceAuth = ({ onLoginSuccess, email }) => {
                 return;
             }
 
-            setMessage('Face detected! Authenticating...');
-
-            // Prepare request payload with email validation
-            if (!emailToUse) {
-                setMessage('Authentication failed: No email provided.');
-                setIsAuthenticating(false);
-                return;
+            // Use the state variable that already combines props and localStorage
+            if (!userEmail) {
+                // One last attempt to get the email from the DOM
+                const domEmail = document.querySelector('.emailDisplay')?.textContent?.replace('Using email: ', '');
+                
+                console.log('Final attempt to get email from DOM:', domEmail);
+                
+                if (domEmail && domEmail.includes('@')) {
+                    // Valid email found in DOM
+                    setUserEmail(domEmail);
+                } else {
+                    console.log('No valid email found in any source');
+                    setMessage('Email is missing. Please go back and try again.');
+                    setIsAuthenticating(false);
+                    return;
+                }
             }
 
+            console.log('Using email for authentication:', userEmail);
+            setMessage('Face detected! Authenticating...');
+
+            // Always include email in the payload
             const payload = {
                 descriptor: Array.from(faceWithLandmarks.descriptor),
-                email: emailToUse // Email is required for authentication
+                email: userEmail
             };
-
-            console.log("Authentication payload prepared with email:", emailToUse);
+            
+            console.log("Authentication payload with email:", payload.email);
 
             // Send the face descriptor to the server for authentication
             const response = await fetch(`${API_BASE_URL}/api/authenticate-face`, {
@@ -427,6 +409,17 @@ const FaceAuth = ({ onLoginSuccess, email }) => {
     return (
         <div className="face-auth-container">
             <h2>Face Recognition Login</h2>
+            
+            {userEmail ? (
+                <p style={{ backgroundColor: '#e8f5e9', padding: '10px', borderRadius: '5px', margin: '10px 0' }}>
+                    Authenticating as: <strong>{userEmail}</strong>
+                </p>
+            ) : (
+                <p style={{ backgroundColor: '#ffebee', padding: '10px', borderRadius: '5px', margin: '10px 0' }}>
+                    <strong>Warning:</strong> Email not detected. Please go back and try again.
+                </p>
+            )}
+            
             <div className="video-container">
                 <video
                     ref={videoRef}

@@ -3,6 +3,8 @@ import { BrowserRouter as Router, Route, Routes, useLocation } from "react-route
 import Navbar from "./components/Navbar";
 import MainPage from "./mainpage/MainPage";
 import Login from "./login/Login";
+import ForgotPassword from "./login/ForgotPassword";
+import ResetPassword from "./login/ResetPassword";
 import MultiStepForm from "./user/MultiStepForm";
 import AdminDashboard from "./admin/AdminDashboard";
 import Userui from "./user/Userui";
@@ -29,7 +31,8 @@ const MainContent = () => {
     "/login", 
     "/signup", 
     "/form",
-    "/profile"
+    "/profile",
+    "/forgot-password"
   ].some(path => location.pathname.startsWith(path)) 
   || location.pathname.startsWith("/superadmin");
 
@@ -39,6 +42,8 @@ const MainContent = () => {
       <Routes>
         <Route path="/" element={<MainPage />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password/:token" element={<ResetPassword />} />
         <Route path="/signup" element={<MultiStepForm />} />
         <Route path="/admin-dashboard/*" element={<AdminDashboard />} />
         <Route path="/userui" element={<Userui />} />

@@ -69,7 +69,6 @@ const Login = () => {
   const [modalEmail, setModalEmail] = useState("");
   const [modalError, setModalError] = useState("");
   const [checkingUser, setCheckingUser] = useState(false);
-  const [faceAuthEmail, setFaceAuthEmail] = useState("");
 
   useEffect(() => {
     // Load saved credentials if rememberMe is true
@@ -182,10 +181,9 @@ const Login = () => {
   };
 
   const closeModal = () => {
-    // Don't reset the modalEmail until after FaceAuth is initialized
-    // setModalEmail("");
-    setModalError("");
     setShowModal(false);
+    setModalEmail("");
+    setModalError("");
   };
 
   const handleModalEmailChange = (e) => {
@@ -199,6 +197,9 @@ const Login = () => {
       return;
     }
     
+    console.log("Email entered in modal:", modalEmail);
+    // Store the email in localStorage temporarily to ensure it's available
+    localStorage.setItem('faceAuthEmail', modalEmail);
     setCheckingUser(true);
     setModalError("");
     
@@ -238,15 +239,8 @@ const Login = () => {
           if (!data.user.hasFaceRecognition) {
             setModalError("You don't have a registered face. Please register your face first or login with email and password.");
           } else {
-            // Save email securely for face auth
-            localStorage.setItem("tempAuthEmail", modalEmail);
-            console.log("Storing email for face auth:", modalEmail);
-            
-            // Set the email state for FaceAuth
-            setFaceAuthEmail(modalEmail);
-            console.log("Setting faceAuthEmail state to:", modalEmail);
-            
             // Proceed to face auth
+            console.log("Proceeding to face auth with email:", modalEmail);
             closeModal();
             setShowFaceAuth(true);
           }
@@ -265,7 +259,7 @@ const Login = () => {
   };
 
   if (showFaceAuth) {
-    console.log("DEBUG - Rendering FaceAuth with email:", faceAuthEmail);
+    console.log("Rendering FaceAuth component with email:", modalEmail);
     return (
       <div className={styles.loginContainer}>
         <div className={styles.loginBox}>
@@ -279,9 +273,10 @@ const Login = () => {
             ← Back to Login
           </button>
           {faceAuthError && <p className={styles.errorMessage}>{faceAuthError}</p>}
+          <p className="emailDisplay">Using email: {modalEmail}</p>
           <FaceAuth 
             onLoginSuccess={handleFaceAuthSuccess} 
-            email={faceAuthEmail}
+            email={modalEmail}
           />
         </div>
       </div>
@@ -343,9 +338,9 @@ const Login = () => {
           
           <div className={styles.forgotPassword}>
             <button 
-              type="button" 
-              className={styles.forgotPasswordBtn} 
-              onClick={handleForgotPassword}
+              type="button"
+              className={styles.forgotPasswordBtn}
+              onClick={() => navigate('/forgot-password')}
             >
               Forgot Password?
             </button>

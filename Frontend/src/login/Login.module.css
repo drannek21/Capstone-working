@@ -633,3 +633,78 @@
     opacity: 0.7;
     cursor: not-allowed;
 }
+
+/* Additional styles for ForgotPassword component */
+.successMessage {
+  color: #4CAF50;
+  background-color: #e8f5e9;
+  padding: 10px;
+  border-radius: 4px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.instructionText {
+  color: #666;
+  font-size: 14px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.buttonGroup {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.primaryBtn {
+  background-color: #3f51b5;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 10px 16px;
+  cursor: pointer;
+  font-weight: 500;
+  width: 50%;
+}
+
+.primaryBtn:hover {
+  background-color: #303f9f;
+}
+
+.primaryBtn:disabled {
+  background-color: #c5cae9;
+  cursor: not-allowed;
+}
+
+.secondaryBtn {
+  background-color: #e0e0e0;
+  color: #424242;
+  border: none;
+  border-radius: 4px;
+  padding: 10px 16px;
+  cursor: pointer;
+  font-weight: 500;
+  width: 50%;
+}
+
+.secondaryBtn:hover {
+  background-color: #bdbdbd;
+}
+
+.secondaryBtn:disabled {
+  background-color: #f5f5f5;
+  color: #9e9e9e;
+  cursor: not-allowed;
+}
+
+.resetSuccess {
+  text-align: center;
+}
+
+.resetSuccess p {
+  margin-bottom: 20px;
+  color: #424242;
+  line-height: 1.5;
+}

@@ -4,6 +4,7 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const app = express();
 const nodemailer = require('nodemailer');
+const crypto = require('crypto');
 
 // Enable CORS for all routes
 app.use(cors());
@@ -1366,4 +1367,213 @@ process.on('SIGTERM', () => {
     }
     process.exit(0);
   });
+});
+
+// Implement direct route for password reset
+app.post('/api/reset-password-request', async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Email is required' 
+      });
+    }
+    
+    console.log(`Password reset requested for email: ${email}`);
+    
+    // Check if email exists in database and status is Verified
+    const users = await queryDatabase(
+      'SELECT id, email, name, status FROM users WHERE email = ?', 
+      [email]
+    );
+    
+    if (!users || users.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'User not found with this email' 
+      });
+    }
+    
+    const user = users[0];
+    
+    // Check if user status is Verified
+    if (user.status !== 'Verified') {
+      return res.status(403).json({ 
+        success: false, 
+        error: 'Only verified users can reset their password. Please contact an administrator.' 
+      });
+    }
+    
+    // Generate reset token and expiration
+    const resetToken = crypto.randomBytes(20).toString('hex');
+    const resetTokenExpires = new Date(Date.now() + 3600000); // 1 hour from now
+    
+    try {
+      // Add resetPasswordToken column if it doesn't exist
+      await queryDatabase(`
+        ALTER TABLE users 
+        ADD COLUMN IF NOT EXISTS resetPasswordToken VARCHAR(100) NULL,
+        ADD COLUMN IF NOT EXISTS resetPasswordExpires DATETIME NULL
+      `);
+    } catch (alterError) {
+      console.log("Table alteration attempted. If columns already exist, this error can be ignored.");
+      console.error(alterError);
+    }
+    
+    // Save token to database
+    await queryDatabase(
+      'UPDATE users SET resetPasswordToken = ?, resetPasswordExpires = ? WHERE id = ?',
+      [resetToken, resetTokenExpires, user.id]
+    );
+    
+    // Create reset URL
+    const resetUrl = `http://localhost:3000/reset-password/${resetToken}`;
+    
+    // Configure Nodemailer transporter
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: 'baisasangelo8@gmail.com',
+        pass: process.env.EMAIL_APP_PASSWORD || 'your-app-password-here'
+      }
+    });
+    
+    // Set up email options
+    const mailOptions = {
+      from: '"Solo Parent Support System" <baisasangelo8@gmail.com>',
+      to: email,
+      subject: 'Password Reset - Solo Parent Support System',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+          <h2 style="color: #16C47F; text-align: center;">Password Reset Request</h2>
+          <p>Hello ${user.name || email},</p>
+          <p>We received a request to reset your password for the Solo Parent Support System. Please click the button below to reset your password:</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${resetUrl}" style="background-color: #16C47F; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">Reset Your Password</a>
+          </div>
+          <p>If you didn't request this password reset, you can safely ignore this email. The link will expire in 1 hour.</p>
+          <p>If the button doesn't work, copy and paste the following URL into your browser:</p>
+          <p style="word-break: break-all; background-color: #f5f5f5; padding: 10px; border-radius: 5px;">${resetUrl}</p>
+          <hr style="border-top: 1px solid #eee; margin: 30px 0;">
+          <p style="text-align: center; color: #777; font-size: 14px;">Solo Parent Support System</p>
+        </div>
+      `
+    };
+    
+    // Send email
+    try {
+      await transporter.sendMail(mailOptions);
+      console.log(`Password reset email sent to: ${email}`);
+      
+      return res.json({ 
+        success: true, 
+        message: 'Password reset link has been sent to your email address'
+      });
+    } catch (emailError) {
+      console.error('Error sending password reset email:', emailError);
+      
+      // Still return success but with a warning
+      return res.json({ 
+        success: true, 
+        message: 'Password reset link was processed but email sending failed. For testing, you can use this token:',
+        token: resetToken
+      });
+    }
+    
+  } catch (error) {
+    console.error('Error in password reset request:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Server error processing password reset request: ' + error.message
+    });
+  }
+});
+
+// Verify reset token endpoint
+app.get('/api/verify-reset-token/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+    
+    if (!token) {
+      return res.status(400).json({ 
+        valid: false, 
+        error: 'Token is required' 
+      });
+    }
+    
+    // Look for user with this reset token
+    const users = await queryDatabase(
+      'SELECT id FROM users WHERE resetPasswordToken = ? AND resetPasswordExpires > NOW()', 
+      [token]
+    );
+    
+    if (!users || users.length === 0) {
+      return res.status(404).json({ 
+        valid: false, 
+        error: 'Invalid or expired token' 
+      });
+    }
+    
+    // Token is valid
+    res.json({ 
+      valid: true,
+      message: 'Token is valid'
+    });
+    
+  } catch (error) {
+    console.error('Error verifying reset token:', error);
+    res.status(500).json({ 
+      valid: false, 
+      error: 'Server error verifying token: ' + error.message
+    });
+  }
+});
+
+// Process password reset
+app.post('/api/reset-password', async (req, res) => {
+  try {
+    const { token, password } = req.body;
+    
+    if (!token || !password) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Token and password are required' 
+      });
+    }
+    
+    // Find user with this token that hasn't expired
+    const users = await queryDatabase(
+      'SELECT id FROM users WHERE resetPasswordToken = ? AND resetPasswordExpires > NOW()', 
+      [token]
+    );
+    
+    if (!users || users.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Invalid or expired token' 
+      });
+    }
+    
+    const userId = users[0].id;
+    
+    // Update password and clear reset token
+    await queryDatabase(
+      'UPDATE users SET password = ?, resetPasswordToken = NULL, resetPasswordExpires = NULL WHERE id = ?',
+      [password, userId]
+    );
+    
+    res.json({ 
+      success: true, 
+      message: 'Password has been reset successfully' 
+    });
+    
+  } catch (error) {
+    console.error('Error resetting password:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Server error resetting password: ' + error.message
+    });
+  }
 });
