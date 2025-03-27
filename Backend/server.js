@@ -329,8 +329,29 @@ app.post('/login', async (req, res) => {
   const { email, password } = req.body;
 
   try {
+    let result;
+
     // Check users table first
-    let [user] = await queryDatabase('SELECT * FROM users WHERE email = ? AND password = ?', [email, password]);
+    result = await queryDatabase('SELECT * FROM users WHERE email = ? AND password = ?', [email, password]);
+    let user = result.length > 0 ? result[0] : null;
+
+    // Check admin table if user not found
+    if (!user) {
+      result = await queryDatabase('SELECT * FROM admin WHERE email = ? AND password = ?', [email, password]);
+      if (result.length > 0) {
+        user = result[0];
+        user.role = 'admin';
+      }
+    }
+
+    // Check superadmin table if still not found
+    if (!user) {
+      result = await queryDatabase('SELECT * FROM superadmin WHERE email = ? AND password = ?', [email, password]);
+      if (result.length > 0) {
+        user = result[0];
+        user.role = 'superadmin';
+      }
+    }
 
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });
@@ -351,7 +372,8 @@ app.post('/login', async (req, res) => {
       user: {
         id: user.id,
         email: user.email,
-        status: user.status
+        status: user.status,
+        role: user.role || 'user'
       }
     });
 
@@ -1067,7 +1089,7 @@ app.get('/verifiedUsers/:adminId', async (req, res) => {
 
     const usersWithChildren = await Promise.all(users.map(async (user) => {
       const children = await queryDatabase(`
-        SELECT family_member_name, relationship, occupation, age
+        SELECT family_member_name, educational_attainment, birthdate, age
         FROM step2_family_occupation
         WHERE code_id = ?
       `, [user.code_id]);
