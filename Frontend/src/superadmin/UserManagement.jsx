@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import SuperAdminSideBar from './SuperAdminSideBar';
 import './UserManagement.css';
-import { FaEye, FaEyeSlash } from 'react-icons/fa';
+import { FaEye, FaEyeSlash, FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
 
 const UserManagement = () => {
   const [users, setUsers] = useState([]);
@@ -13,6 +13,8 @@ const UserManagement = () => {
   const [showModal, setShowModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedBarangay, setSelectedBarangay] = useState('All');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(5);
   const [barangays, setBarangays] = useState([
     'All',
     'Adia', 'Bagong Pook', 'Bagumbayan', 'Bubucal', 'Cabooan',
@@ -32,6 +34,10 @@ const UserManagement = () => {
   const [editUser, setEditUser] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [sortConfig, setSortConfig] = useState({
+    key: null,
+    direction: 'asc'
+  });
 
   useEffect(() => {
     fetchUsers();
@@ -79,6 +85,51 @@ const UserManagement = () => {
     const matchesBarangay = selectedBarangay === 'All' || user.barangay === selectedBarangay;
     return matchesSearch && matchesBarangay;
   });
+
+  const handleSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const getSortIcon = (key) => {
+    if (sortConfig.key !== key) {
+      return <FaSort />;
+    }
+    return sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />;
+  };
+
+  const sortedUsers = [...filteredUsers].sort((a, b) => {
+    if (sortConfig.key === null) return 0;
+    
+    if (sortConfig.key === 'barangay') {
+      if (sortConfig.direction === 'asc') {
+        return a.barangay.localeCompare(b.barangay);
+      }
+      return b.barangay.localeCompare(a.barangay);
+    }
+    
+    if (sortConfig.key === 'email') {
+      if (sortConfig.direction === 'asc') {
+        return a.email.localeCompare(b.email);
+      }
+      return b.email.localeCompare(a.email);
+    }
+    
+    return 0;
+  });
+
+  // Pagination logic
+  const indexOfLastUser = currentPage * itemsPerPage;
+  const indexOfFirstUser = indexOfLastUser - itemsPerPage;
+  const currentUsers = sortedUsers.slice(indexOfFirstUser, indexOfLastUser);
+  const totalPages = Math.ceil(sortedUsers.length / itemsPerPage);
+
+  const paginate = (pageNumber) => {
+    setCurrentPage(pageNumber);
+  };
 
   const handleViewDetails = (user) => {
     setSelectedUser(user);
@@ -229,7 +280,7 @@ const UserManagement = () => {
                     onChange={handleBarangayChange}
                     className="barangay-select"
                   >
-                    {availableBarangays.map(barangay => (
+                    {barangays.map(barangay => (
                       <option key={barangay} value={barangay}>
                         {barangay === 'All' ? 'All Barangays' : barangay}
                       </option>
@@ -268,13 +319,17 @@ const UserManagement = () => {
                 <table className="users-table">
                   <thead>
                     <tr>
-                      <th>Email</th>
-                      <th>Barangay</th>
+                      <th onClick={() => handleSort('email')} className="sortable">
+                        Email {getSortIcon('email')}
+                      </th>
+                      <th onClick={() => handleSort('barangay')} className="sortable">
+                        Barangay {getSortIcon('barangay')}
+                      </th>
                       <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredUsers.map(user => (
+                    {currentUsers.map(user => (
                       <tr key={user.id}>
                         <td>{user.email}</td>
                         <td>{user.barangay}</td>
@@ -298,6 +353,33 @@ const UserManagement = () => {
                     ))}
                   </tbody>
                 </table>
+                {totalPages > 1 && (
+                  <div className="pagination">
+                    <button 
+                      onClick={() => paginate(currentPage - 1)}
+                      disabled={currentPage === 1}
+                      className="pagination-btn"
+                    >
+                      Previous
+                    </button>
+                    {[...Array(totalPages)].map((_, index) => (
+                      <button
+                        key={index + 1}
+                        onClick={() => paginate(index + 1)}
+                        className={`pagination-btn ${currentPage === index + 1 ? 'active' : ''}`}
+                      >
+                        {index + 1}
+                      </button>
+                    ))}
+                    <button 
+                      onClick={() => paginate(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                      className="pagination-btn"
+                    >
+                      Next
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 

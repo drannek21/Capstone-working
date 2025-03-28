@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, NavLink } from "react-router-dom";
 import { FiMenu, FiX, FiHome, FiUsers, FiLogOut } from 'react-icons/fi';
 import "./AdminSideBar.css";
+import logo from '../assets/logo.jpg';
 
 const AdminSideBar = () => {
     const navigate = useNavigate();
@@ -45,12 +46,17 @@ const AdminSideBar = () => {
             </button>
 
             <div className={`sidebar ${isOpen ? "visible" : "hidden"}`}>
-                <h2 className="sidebar-title">
-                    Admin Panel - {localStorage.getItem("barangay") || "No barangay assigned"}
-                </h2>
+                <div className="sidebar-header">
+                    <div className="logo-container">
+                        <img src={logo} alt="Logo" className="sidebar-logo" />
+                    </div>
+                    <h2 className="sidebar-title">
+                        Admin Panel - {localStorage.getItem("barangay") || "No barangay assigned"}
+                    </h2>
+                </div>
                 <ul className="sidebar-menu">
                     <li>
-                        <NavLink 
+                        <NavLink
                             to="/admin-dashboard/dashboard"
                             className={({ isActive }) => isActive ? 'active' : ''}
                             onClick={() => window.innerWidth < 768 && setIsOpen(false)}
@@ -69,13 +75,13 @@ const AdminSideBar = () => {
                             <span>Solo Parent</span>
                         </NavLink>
                     </li>
-                    <li>
-                        <button onClick={handleLogout} className="logout">
-                            <FiLogOut className="nav-icon" />
-                            <span>Logout</span>
-                        </button>
-                    </li>
                 </ul>
+                <div className="logout-container">
+                    <button onClick={handleLogout} className="logout">
+                        <FiLogOut className="nav-icon" />
+                        <span>Logout</span>
+                    </button>
+                </div>
             </div>
 
             {isOpen && window.innerWidth < 768 && (
