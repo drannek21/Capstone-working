@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import ReactECharts from "echarts-for-react";
-import "./Dashboard.css";
+import "./Admin-contend-Dashboard.css";
 
 const Dashboard = () => {
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);

@@ -38,47 +38,47 @@ const AdminSideBar = () => {
     return (
         <>
             <button 
-                className="sidebar-toggle"
+                className="admin-sidebar-toggle"
                 onClick={toggleSidebar}
                 aria-label={isOpen ? "Close menu" : "Open menu"}
             >
                 {isOpen ? <FiX /> : <FiMenu />}
             </button>
 
-            <div className={`sidebar ${isOpen ? "visible" : "hidden"}`}>
-                <div className="sidebar-header">
-                    <div className="logo-container">
-                        <img src={logo} alt="Logo" className="sidebar-logo" />
+            <div className={`admin-sidebar ${isOpen ? "admin-sidebar-visible" : "admin-sidebar-hidden"}`}>
+                <div className="admin-sidebar-header">
+                    <div className="admin-sidebar-logo-container">
+                        <img src={logo} alt="Logo" className="admin-sidebar-logo" />
+                        <h2 className="admin-sidebar-title">
+                            Admin Panel - {localStorage.getItem("barangay") || "No barangay assigned"}
+                        </h2>
                     </div>
-                    <h2 className="sidebar-title">
-                        Admin Panel - {localStorage.getItem("barangay") || "No barangay assigned"}
-                    </h2>
                 </div>
-                <ul className="sidebar-menu">
+                <ul className="admin-sidebar-menu">
                     <li>
                         <NavLink
                             to="/admin-dashboard/dashboard"
-                            className={({ isActive }) => isActive ? 'active' : ''}
+                            className={({ isActive }) => isActive ? 'admin-sidebar-active' : ''}
                             onClick={() => window.innerWidth < 768 && setIsOpen(false)}
                         >
-                            <FiHome className="nav-icon" />
+                            <FiHome className="admin-sidebar-nav-icon" />
                             <span>Dashboard</span>
                         </NavLink>
                     </li>
                     <li>
                         <NavLink 
                             to="/admin-dashboard/solo-parent"
-                            className={({ isActive }) => isActive ? 'active' : ''}
+                            className={({ isActive }) => isActive ? 'admin-sidebar-active' : ''}
                             onClick={() => window.innerWidth < 768 && setIsOpen(false)}
                         >
-                            <FiUsers className="nav-icon" />
+                            <FiUsers className="admin-sidebar-nav-icon" />
                             <span>Solo Parent</span>
                         </NavLink>
                     </li>
                 </ul>
-                <div className="logout-container">
-                    <button onClick={handleLogout} className="logout">
-                        <FiLogOut className="nav-icon" />
+                <div className="admin-sidebar-logout-container">
+                    <button onClick={handleLogout} className="admin-sidebar-logout">
+                        <FiLogOut className="admin-sidebar-nav-icon" />
                         <span>Logout</span>
                     </button>
                 </div>
@@ -86,7 +86,7 @@ const AdminSideBar = () => {
 
             {isOpen && window.innerWidth < 768 && (
                 <div 
-                    className="sidebar-overlay"
+                    className="admin-sidebar-overlay"
                     onClick={toggleSidebar}
                     role="button"
                     aria-label="Close sidebar"

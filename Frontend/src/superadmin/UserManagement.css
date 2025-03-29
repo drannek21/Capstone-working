@@ -603,10 +603,7 @@
   }
 }
 
-.super-admin-dashboard {
-  display: flex;
-  min-height: 100vh;
-}
+
 
 .super-admin-container {
   flex: 1;
@@ -621,7 +618,7 @@
 }
 
 .user-management-container {
-  width: 100%;
+  width: auto;
 }
 
 .header-section {

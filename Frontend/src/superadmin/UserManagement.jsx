@@ -266,329 +266,295 @@ const UserManagement = () => {
   };
 
   return (
-    <div className="super-admin-dashboard">
+    <div className="super-admin-content">
       <SuperAdminSideBar />
-      <div className="super-admin-container">
-        <div className="super-admin-content">
-          <div className="user-management-container">
-            <div className="header-section">
-              <h1 className="section-title">Admin Management</h1>
-              <div className="filter-container">
-                <div className="barangay-filter">
-                  <select 
-                    value={selectedBarangay}
-                    onChange={handleBarangayChange}
-                    className="barangay-select"
-                  >
-                    {barangays.map(barangay => (
-                      <option key={barangay} value={barangay}>
-                        {barangay === 'All' ? 'All Barangays' : barangay}
-                      </option>
-                    ))}
-                  </select>
+      <div className="user-management-container">
+        <div className="header-section">
+          <h1 className="section-title">Admin Management</h1>
+          <div className="filter-container">
+            <div className="barangay-filter">
+              <select 
+                value={selectedBarangay}
+                onChange={handleBarangayChange}
+                className="barangay-select"
+              >
+                {barangays.map(barangay => (
+                  <option key={barangay} value={barangay}>
+                    {barangay === 'All' ? 'All Barangays' : barangay}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="search-container">
+              <input
+                type="text"
+                placeholder="Search Admins..."
+                value={searchTerm}
+                onChange={handleSearch}
+                className="search-input"
+              />
+              <button 
+                className="add-user-btn"
+                onClick={() => {
+                  setError(null);
+                  setShowAddModal(true);
+                }}
+              >
+                Add Admin
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="loading">Loading users...</div>
+        ) : error ? (
+          <div className="error">{error}</div>
+        ) : (
+          <>
+            <div className="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th onClick={() => handleSort('email')}>
+                      Email {getSortIcon('email')}
+                    </th>
+                    <th onClick={() => handleSort('barangay')}>
+                      Barangay {getSortIcon('barangay')}
+                    </th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {currentUsers.map((user) => (
+                    <tr key={user.id}>
+                      <td>{user.email}</td>
+                      <td>{user.barangay}</td>
+                      <td>
+                        <div className="action-buttons">
+                          <button 
+                            className="edit-btn"
+                            onClick={() => handleEditClick(user)}
+                          >
+                            Edit
+                          </button>
+                          <button 
+                            className="view-details-btn"
+                            onClick={() => handleViewDetails(user)}
+                          >
+                            View Details
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="pagination">
+              <button 
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className="page-btn"
+              >
+                Previous
+              </button>
+              <span className="page-info">
+                Page {currentPage} of {totalPages}
+              </span>
+              <button 
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className="page-btn"
+              >
+                Next
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* Add User Modal */}
+        {showAddModal && (
+          <div className="modal-overlay">
+            <div className="modal">
+              <div className="modal-header">
+                <h2>Add New Admin</h2>
+              </div>
+              <div className="modal-content">
+                <form onSubmit={handleAddUser}>
+                  {error && <div className="error-message">{error}</div>}
+                  <div className="form-group">
+                    <label>Email:</label>
+                    <input 
+                      type="email" 
+                      name="email"
+                      value={newUser.email}
+                      onChange={handleNewUserChange}
+                      required 
+                    />
+                  </div>
+                  <div className="form-group">
+                    <div className="password-input-container">
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        name="password"
+                        value={newUser.password}
+                        onChange={handleNewUserChange}
+                        required
+                        className="password-input"
+                      />
+                      <span
+                        className="password-toggle"
+                        onClick={togglePasswordVisibility}
+                        style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', cursor: 'pointer' }}
+                      >
+                        {showPassword ? <FaEyeSlash /> : <FaEye />}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label>Barangay:</label>
+                    <select 
+                      name="barangay"
+                      value={newUser.barangay}
+                      onChange={handleNewUserChange}
+                      required
+                    >
+                      <option value="">Select Barangay</option>
+                      {availableBarangays.filter(b => b !== 'All').map(barangay => (
+                        <option key={barangay} value={barangay}>
+                          {barangay}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="modal-actions">
+                    <button 
+                      type="submit" 
+                      className="submit-btn"
+                    >
+                      Add Admin
+                    </button>
+                    <button 
+                      type="button" 
+                      className="cancel-btn"
+                      onClick={() => {
+                        setError(null);
+                        setShowAddModal(false);
+                        setNewUser({ email: '', password: '', barangay: '' });
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit User Modal */}
+        {showEditModal && editUser && (
+          <div className="modal-overlay">
+            <div className="modal">
+              <div className="modal-header">
+                <h2>Edit Admin</h2>
+              </div>
+              <div className="modal-content">
+                <form onSubmit={handleEditSubmit}>
+                  {error && <div className="error-message">{error}</div>}
+                  <div className="form-group">
+                    <label>Email:</label>
+                    <input 
+                      type="email" 
+                      name="email"
+                      value={editUser.email}
+                      onChange={handleEditChange}
+                      required 
+                    />
+                  </div>
+                  <div className="form-group">
+                    <div className="password-input-container">
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        name="password"
+                        value={editUser.password}
+                        onChange={handleEditChange}
+                        placeholder="Leave blank to keep current password"
+                        className="password-input"
+                        style={{ width: '250px', paddingRight: '30px' }}
+                      />
+                      <span
+                        className="password-toggle"
+                        onClick={togglePasswordVisibility}
+                        style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', cursor: 'pointer' }}
+                      >
+                        {showPassword ? <FaEyeSlash /> : <FaEye />}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label>Barangay:</label>
+                    <select 
+                      name="barangay"
+                      value={editUser.barangay}
+                      onChange={handleEditChange}
+                      required
+                    >
+                      <option value="">Select Barangay</option>
+                      {availableBarangays.filter(b => b !== 'All').map(barangay => (
+                        <option key={barangay} value={barangay}>
+                          {barangay}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="modal-actions">
+                    <button 
+                      type="submit" 
+                      className="submit-btn"
+                    >
+                      Update
+                    </button>
+                    <button 
+                      type="button" 
+                      className="cancel-btn"
+                      onClick={() => {
+                        setError(null);
+                        setShowEditModal(false);
+                        setEditUser(null);
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* View Details Modal */}
+        {showModal && selectedUser && (
+          <div className="modal-overlay">
+            <div className="modal">
+              <div className="modal-header">
+                <h2>Admin Details</h2>
+              </div>
+              <div className="modal-content">
+                <div className="detail-group">
+                  <label>Email:</label>
+                  <p>{selectedUser.email}</p>
                 </div>
-                <div className="search-container">
-                  <input
-                    type="text"
-                    placeholder="Search Admins..."
-                    value={searchTerm}
-                    onChange={handleSearch}
-                    className="search-input"
-                  />
-                  <button 
-                    className="add-user-btn"
-                    onClick={() => {
-                      setError(null);
-                      setShowAddModal(true);
-                    }}
-                  >
-                    Add
-                  </button>
+                <div className="detail-group">
+                  <label>Barangay:</label>
+                  <p>{selectedUser.barangay}</p>
                 </div>
               </div>
             </div>
-
-            {loading ? (
-              <div className="loading-spinner">Loading...</div>
-            ) : error ? (
-              <div className="error-message">{error}</div>
-            ) : users.length === 0 ? (
-              <div className="no-data-message">No admins found</div>
-            ) : (
-              <div className="users-table-container">
-                <table className="users-table">
-                  <thead>
-                    <tr>
-                      <th onClick={() => handleSort('email')} className="sortable">
-                        Email {getSortIcon('email')}
-                      </th>
-                      <th onClick={() => handleSort('barangay')} className="sortable">
-                        Barangay {getSortIcon('barangay')}
-                      </th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {currentUsers.map(user => (
-                      <tr key={user.id}>
-                        <td>{user.email}</td>
-                        <td>{user.barangay}</td>
-                        <td>
-                          <div className="action-buttons">
-                            <button 
-                              className="edit-btn"
-                              onClick={() => handleEditClick(user)}
-                            >
-                              Edit
-                            </button>
-                            <button 
-                              className="view-details-btn"
-                              onClick={() => handleViewDetails(user)}
-                            >
-                              View Details
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {totalPages > 1 && (
-                  <div className="pagination">
-                    <button 
-                      onClick={() => paginate(currentPage - 1)}
-                      disabled={currentPage === 1}
-                      className="pagination-btn"
-                    >
-                      Previous
-                    </button>
-                    {[...Array(totalPages)].map((_, index) => (
-                      <button
-                        key={index + 1}
-                        onClick={() => paginate(index + 1)}
-                        className={`pagination-btn ${currentPage === index + 1 ? 'active' : ''}`}
-                      >
-                        {index + 1}
-                      </button>
-                    ))}
-                    <button 
-                      onClick={() => paginate(currentPage + 1)}
-                      disabled={currentPage === totalPages}
-                      className="pagination-btn"
-                    >
-                      Next
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {showAddModal && (
-              <div className="modal-overlay">
-                <div className="modal-content">
-                  <button 
-                    className="close-modal"
-                    onClick={() => {
-                      setError(null);
-                      setShowAddModal(false);
-                      setNewUser({ email: '', password: '', barangay: '' });
-                    }}
-                  >
-                    ×
-                  </button>
-                  <div className="modal-header">
-                    <h3>Add New Admin</h3>
-                  </div>
-                  <div className="modal-body">
-                    <form onSubmit={handleAddUser}>
-                      <div className="form-group">
-                        <label>Email:</label>
-                        <input 
-                          type="email" 
-                          name="email"
-                          value={newUser.email}
-                          onChange={handleNewUserChange}
-                          required 
-                        />
-                      </div>
-                      <div className="form-group">
-                        <div className="password-input-container">
-                          <input
-                            type={showPassword ? 'text' : 'password'}
-                            name="password"
-                            value={newUser.password}
-                            onChange={handleNewUserChange}
-                            required
-                            className="password-input"
-                          />
-                          <span
-                            className="password-toggle"
-                            onClick={togglePasswordVisibility}
-                            style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', cursor: 'pointer' }}
-                          >
-                            {showPassword ? <FaEyeSlash /> : <FaEye />}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="form-group">
-                        <label>Barangay:</label>
-                        <select 
-                          name="barangay"
-                          value={newUser.barangay}
-                          onChange={handleNewUserChange}
-                          required
-                        >
-                          <option value="">Select Barangay</option>
-                          {availableBarangays.filter(b => b !== 'All').map(barangay => (
-                            <option key={barangay} value={barangay}>
-                              {barangay}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      {error && <div className="error-message">{error}</div>}
-                      <div className="modal-actions">
-                        <button 
-                          type="submit" 
-                          className="submit-btn"
-                        >
-                          Add Admin
-                        </button>
-                        <button 
-                          type="button" 
-                          className="cancel-btn"
-                          onClick={() => {
-                            setError(null);
-                            setShowAddModal(false);
-                            setNewUser({ email: '', password: '', barangay: '' });
-                          }}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </form>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {showEditModal && editUser && (
-              <div className="modal-overlay">
-                <div className="modal-content">
-                  <button 
-                    className="close-modal"
-                    onClick={() => {
-                      setError(null);
-                      setShowEditModal(false);
-                      setEditUser(null);
-                    }}
-                  >
-                    ×
-                  </button>
-                  <div className="modal-header">
-                    <h3>Edit Admin</h3>
-                  </div>
-                  <div className="modal-body">
-                    <form onSubmit={handleEditSubmit}>
-                      <div className="form-group">
-                        <label>Email:</label>
-                        <input 
-                          type="email" 
-                          name="email"
-                          value={editUser.email}
-                          onChange={handleEditChange}
-                          required 
-                        />
-                      </div>
-                      <div className="form-group">
-                        <div className="password-input-container">
-                          <input
-                            type={showPassword ? 'text' : 'password'}
-                            name="password"
-                            value={editUser.password}
-                            onChange={handleEditChange}
-                            placeholder="Leave blank to keep current password"
-                            className="password-input"
-                            style={{ width: '250px', paddingRight: '30px' }}
-                          />
-                          <span
-                            className="password-toggle"
-                            onClick={togglePasswordVisibility}
-                            style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', cursor: 'pointer' }}
-                          >
-                            {showPassword ? <FaEyeSlash /> : <FaEye />}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="form-group">
-                        <label>Barangay:</label>
-                        <select 
-                          name="barangay"
-                          value={editUser.barangay}
-                          onChange={handleEditChange}
-                          required
-                        >
-                          <option value="">Select Barangay</option>
-                          {availableBarangays.filter(b => b !== 'All').map(barangay => (
-                            <option key={barangay} value={barangay}>
-                              {barangay}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      {error && <div className="error-message">{error}</div>}
-                      <div className="modal-actions">
-                        <button 
-                          type="submit" 
-                          className="submit-btn"
-                        >
-                          Update
-                        </button>
-                        <button 
-                          type="button" 
-                          className="cancel-btn"
-                          onClick={() => {
-                            setError(null);
-                            setShowEditModal(false);
-                            setEditUser(null);
-                          }}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </form>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {showModal && selectedUser && (
-              <div className="modal-overlay">
-                <div className="modal-content">
-                  <button 
-                    className="close-modal"
-                    onClick={() => setShowModal(false)}
-                  >
-                    ×
-                  </button>
-                  <div className="modal-header">
-                    <h3>Admin Details</h3>
-                  </div>
-                  <div className="modal-body">
-                    <div className="detail-group">
-                      <label>Email:</label>
-                      <p>{selectedUser.email}</p>
-                    </div>
-                    <div className="detail-group">
-                      <label>Barangay:</label>
-                      <p>{selectedUser.barangay}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

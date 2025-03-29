@@ -21,14 +21,16 @@
 
 .super-admin-container {
   flex: 1;
-  margin-left:160px;
+  margin-left: 350px;
   transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   background-color: #f8fafc;
 }
 
 .super-admin-content {
-  padding: 1rem 1.5rem;
+  padding: 2rem;
   min-height: 100vh;
+  max-width: 1600px;
+  margin: 0 auto;
 }
 
 /* Overlay for Sidebar on Smaller Screens */

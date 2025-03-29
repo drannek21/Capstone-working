@@ -6,30 +6,33 @@
   background-color: #f8fafc;
   width: 100%;
   max-width: 100vw;
-  padding-left: 150px;
   overflow-x: hidden;
   box-sizing: border-box;
 }
 
-
 /* Sidebar */
 .sidebar {
   flex-shrink: 0;
-  width: 250px;
+  width: 350px;
   transition: transform 0.3s ease-in-out;
 }
 
 /* Main Content */
 .main-content {
-  min-width: 100vh;
   flex-grow: 1;
-  margin-left: 100px;
+  margin-left: 300px;
   padding: 2rem;
   transition: margin-left 0.3s ease;
   height: auto;
   min-height: 100vh;
 }
 
+/* Dashboard Content */
+.dashboard-content {
+  width: 100%;
+  height: 100%;
+  padding: 1rem;
+}
 
 /* Sidebar Hidden - Adjustments */
 .sidebar.hidden + .main-content {
@@ -111,7 +114,6 @@
     width: 100%;
     max-width: 100%;
     border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     height: auto;
     min-height: 100%;
 }

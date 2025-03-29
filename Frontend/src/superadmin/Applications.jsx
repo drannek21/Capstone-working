@@ -222,438 +222,431 @@ const Applications = () => {
   };
 
   return (
-    <div className="super-admin-dashboard">
-      <SuperAdminSideBar />
-      <div className="super-admin-container">
-        <div className="super-admin-content">
-          <div className="applications-container">
-            <div className="header-section">
-              <h1 className="section-title">Applications</h1>
-              <div className="search-container">
-                <input
-                  type="text"
-                  placeholder="Search applications..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="search-input"
+    <div className="super-admin-content">
+      <div className="applications-header">
+        <h1 className="section-title">Applications</h1>
+        <div className="search-container">
+          <input
+            type="text"
+            placeholder="Search applications..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="search-input"
+          />
+        </div>
+      </div>
+
+      <div 
+        ref={tableContainerRef}
+        className={`table-container ${isTableScrollable ? 'has-scroll' : ''}`}
+      >
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Code ID</th>
+              <th>Name</th>
+              <th>Barangay</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {currentApplications.map((app, index) => (
+              <tr key={index}>
+                <td>{indexOfFirstApplication + index + 1}</td>
+                <td>{app.code_id}</td>
+                <td>{`${app.first_name} ${app.middle_name || ''} ${app.last_name}`}</td>
+                <td>{app.barangay || 'N/A'}</td>
+                <td>
+                  <div className="action-buttons">
+                    <button className="btn view-btn" onClick={() => openModal(app, "view")}> 
+                      <i className="fas fa-eye"></i> View
+                    </button>
+                    <button className="btn accept-btnsadmin" onClick={() => openModal(app, "confirmAccept")}> 
+                      <i className="fas fa-check"></i> Accept
+                    </button>
+                    <button className="btn decline-btnsadmin" onClick={() => openModal(app, "decline")}> 
+                      <i className="fas fa-times"></i> Decline
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="pagination">
+        <button 
+          className="page-btn" 
+          onClick={() => setCurrentPage(currentPage - 1)} 
+          disabled={currentPage === 1}
+        >
+          <i className="fas fa-chevron-left"></i>
+        </button>
+        {[...Array(totalPages)].map((_, index) => (
+          <button
+            key={index}
+            className={`page-btn ${currentPage === index + 1 ? 'active' : ''}`}
+            onClick={() => setCurrentPage(index + 1)}
+          >
+            {index + 1}
+          </button>
+        ))}
+        <button 
+          className="page-btn" 
+          onClick={() => setCurrentPage(currentPage + 1)} 
+          disabled={currentPage === totalPages}
+        >
+          <i className="fas fa-chevron-right"></i>
+        </button>
+      </div>
+
+      {/* PAGINATED VIEW DETAILS MODAL */}
+      {modalType === "view" && selectedApplication && (
+        <div 
+          className="modal-overlay" 
+          onClick={closeModal}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
+          <div 
+            className="modal" 
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h3>Application Details (Step {stepPage}/6)</h3>
+            </div>
+            <div className="modal-content">
+              {/* Add step indicators for mobile */}
+              <div className="step-indicators">
+                {[1, 2, 3, 4, 5, 6].map(step => (
+                  <div
+                    key={step}
+                    className={`step-dot ${stepPage === step ? 'active' : ''}`}
+                    onClick={() => setStepPage(step)}
+                  />
+                ))}
+              </div>
+              
+              {stepPage === 1 && (
+                <div className="detail-section">
+                  <h4>Personal Information</h4>
+                  <div className="details-grid">
+                    <div className="detail-item">
+                      <span className="label">Name</span>
+                      <span className="value">
+                        {`${selectedApplication.first_name || ''} ${selectedApplication.middle_name || ''} ${selectedApplication.last_name || ''}`}
+                      </span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="label">Age</span>
+                      <span className="value">{selectedApplication.age || ''}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="label">Gender</span>
+                      <span className="value">{selectedApplication.gender || ''}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="label">Date of Birth</span>
+                      <span className="value">{formatDate(selectedApplication.date_of_birth)}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="label">Place of Birth</span>
+                      <span className="value">{selectedApplication.place_of_birth}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="label">Barangay</span>
+                      <span className="value">{selectedApplication.barangay}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="label">Email</span>
+                      <span className="value">{selectedApplication.email}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="label">Contact Number</span>
+                      <span className="value">{selectedApplication.contact_number}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="label">Education</span>
+                      <span className="value">{selectedApplication.education}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="label">Occupation</span>
+                      <span className="value">{selectedApplication.occupation}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="label">Company</span>
+                      <span className="value">{selectedApplication.company}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="label">Income</span>
+                      <span className="value">{selectedApplication.income}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="label">Employment Status</span>
+                      <span className="value">{selectedApplication.employment_status}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="label">Civil Status</span>
+                      <span className="value">{selectedApplication.civil_status}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="label">Religion</span>
+                      <span className="value">{selectedApplication.religion}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="label">Pantawid Beneficiary</span>
+                      <span className="value">{selectedApplication.pantawid_beneficiary}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="label">Indigenous</span>
+                      <span className="value">{selectedApplication.indigenous}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="label">Code ID</span>
+                      <span className="value">{selectedApplication.code_id}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {stepPage === 2 && (
+                <div className="detail-section">
+                  <h4>Family Information</h4>
+                  {selectedApplication.familyMembers && selectedApplication.familyMembers.length > 0 ? (
+                    <div className="children-list">
+                      {selectedApplication.familyMembers.map((member, index) => (
+                        <div key={index} className="child-details">
+                          <h5>Family Member {index + 1}</h5>
+                          <div className="details-grid">
+                            <div className="detail-item">
+                              <span className="label">Name</span>
+                              <span className="value">{member.family_member_name}</span>
+                            </div>
+                            <div className="detail-item">
+                              <span className="label">Birthdate</span>
+                              <span className="value">{formatDate(member.birthdate)}</span>
+                            </div>
+                            <div className="detail-item">
+                              <span className="label">Age</span>
+                              <span className="value">{member.age}</span>
+                            </div>
+                            <div className="detail-item">
+                              <span className="label">Educational Attainment</span>
+                              <span className="value">{member.educational_attainment}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p>No family members information available.</p>
+                  )}
+                </div>
+              )}
+              {stepPage === 3 && (
+                <div className="detail-section">
+                  <h4>Classification</h4>
+                  <div className="details-grid">
+                    <div className="detail-item">
+                      <span className="label">Type</span>
+                      <span className="value">{selectedApplication.classification}</span>
+                    </div>
+                  </div>
+                  <div className="classification-input">
+                    {showDropdown && (
+                      <select 
+                        onChange={(e) => setSelectedClassification(e.target.value)}
+                        className="classification-dropdown"
+                      >
+                        <option value="">Select Classification</option>
+                        {classificationOptions.map(option => (
+                          <option key={option.code} value={option.code} className="dropdown-option">
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    <button className="btn accept-btn" onClick={handleClassificationUpdate} style={{ display: showDropdown ? 'block' : 'none' }}>
+                      <i className="fas fa-check"></i> Update Classification
+                    </button>
+                  </div>
+                </div>
+              )}
+              {stepPage === 4 && (
+                <div className="detail-section">
+                  <h4>Needs/Problems</h4>
+                  <div className="details-grid">
+                    <div className="detail-item">
+                      <span className="label">Details</span>
+                      <span className="value">{selectedApplication.needs_problems}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {stepPage === 5 && (
+                <div className="detail-section">
+                  <h4>Emergency Contact</h4>
+                  <div className="details-grid">
+                    <div className="detail-item">
+                      <span className="label">Name</span>
+                      <span className="value">{selectedApplication.emergency_name}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="label">Relationship</span>
+                      <span className="value">{selectedApplication.emergency_relationship}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="label">Address</span>
+                      <span className="value">{selectedApplication.emergency_address}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="label">Contact Number</span>
+                      <span className="value">{selectedApplication.emergency_contact}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {stepPage === 6 && (
+                <div className="detail-section">
+                  <h4>Documents</h4>
+                  {selectedApplication.documents && selectedApplication.documents.length > 0 ? (
+                    <div className="documents-list">
+                      {selectedApplication.documents.map((doc, index) => {
+                        // Extract document type from table name
+                        const displayType = doc.document_type ? 
+                          doc.document_type.replace('_documents', '').toUpperCase() : 'Document';
+                        
+                        return (
+                          <div key={index} className="document-item">
+                            <div className="document-header">
+                              <h5>{displayType}</h5>
+                            </div>
+                            <div className="document-preview">
+                              <img 
+                                src={doc.file_url} 
+                                alt={doc.display_name || displayType}
+                                className="document-thumbnail"
+                                onClick={() => window.open(doc.file_url, '_blank')}
+                                onError={(e) => {
+                                  e.target.onerror = null;
+                                  e.target.src = "https://placehold.co/200x200/e2e8f0/64748b?text=Image+Not+Found";
+                                }}
+                              />
+                            </div>
+                            <div className="document-actions">
+                              <button 
+                                className="btn view-btn full-width"
+                                onClick={() => window.open(doc.file_url, '_blank')}
+                              >
+                                <i className="fas fa-eye"></i> View Full Size
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p>No documents available.</p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Mobile-friendly footer */}
+            <div className="modal-footer">
+              <div className="modal-footer-left">
+                {stepPage > 1 && (
+                  <button 
+                    className="btn view-btn mobile-nav-btn"
+                    onClick={() => setStepPage(stepPage - 1)}
+                  >
+                    <i className="fas fa-arrow-left"></i> Previous
+                  </button>
+                )}
+              </div>
+              <div className="modal-footer-right">
+                {stepPage < 6 ? (
+                  <button 
+                    className="accept-mobile-nav-btn"
+                    onClick={() => setStepPage(stepPage + 1)}
+                  >
+                    Next <i className="fas fa-arrow-right"></i>
+                  </button>
+                ) : (
+                  <>
+                    <button 
+                      className="btn-accept-btnsadmin"
+                      onClick={() => handleAction("Accept")}
+                    >
+                      <i className="fas fa-check"></i> Accept
+                    </button>
+                    <button 
+                      className="btn decline-btnsadmin"
+                      onClick={() => handleAction("Decline")}
+                    >
+                      <i className="fas fa-times"></i> Decline
+                    </button>
+                  </>
+                )}
+                <button className="btn view-btn" onClick={closeModal}>
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {modalType === "confirmAccept" && selectedApplication && (
+        <div className="modal-overlay" onClick={closeModal}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Confirm Acceptance</h3>
+            </div>
+            <div className="modal-content">
+              <p className="confirmation-message">Are you sure you want to accept this application?</p>
+            </div>
+            <div className="modal-footer">
+              <button className="btn-accept-btnsadmin" onClick={() => handleAction("Accept")}>
+                <i className="fas fa-check"></i> Yes, Accept
+              </button>
+              <button className="btn view-btn" onClick={closeModal}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {modalType === "decline" && selectedApplication && (
+        <div className="modal-overlay" onClick={closeModal}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Decline Application</h3>
+            </div>
+            <div className="modal-content">
+              <div className="remarks-section">
+                <label>Please provide remarks for declining:</label>
+                <textarea
+                  value={remarks}
+                  onChange={(e) => setRemarks(e.target.value)}
+                  placeholder="Enter remarks here"
+                  rows="4"
                 />
               </div>
             </div>
-
-            <div 
-              ref={tableContainerRef}
-              className={`table-container ${isTableScrollable ? 'has-scroll' : ''}`}
-            >
-              <table>
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Code ID</th>
-                    <th>Name</th>
-                    <th>Barangay</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {currentApplications.map((app, index) => (
-                    <tr key={index}>
-                      <td>{indexOfFirstApplication + index + 1}</td>
-                      <td>{app.code_id}</td>
-                      <td>{`${app.first_name} ${app.middle_name || ''} ${app.last_name}`}</td>
-                      <td>{app.barangay || 'N/A'}</td>
-                      <td>
-                        <div className="action-buttons">
-                          <button className="btn view-btn" onClick={() => openModal(app, "view")}> 
-                            <i className="fas fa-eye"></i> View
-                          </button>
-                          <button className="btn accept-btnsadmin" onClick={() => openModal(app, "confirmAccept")}> 
-                            <i className="fas fa-check"></i> Accept
-                          </button>
-                          <button className="btn decline-btnsadmin" onClick={() => openModal(app, "decline")}> 
-                            <i className="fas fa-times"></i> Decline
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="pagination">
-              <button 
-                className="page-btn" 
-                onClick={() => setCurrentPage(currentPage - 1)} 
-                disabled={currentPage === 1}
-              >
-                <i className="fas fa-chevron-left"></i>
+            <div className="modal-footer">
+              <button className="btn decline-btnsadmin" onClick={() => handleAction("Decline")}>
+                <i className="fas fa-times"></i> Confirm Decline
               </button>
-              {[...Array(totalPages)].map((_, index) => (
-                <button
-                  key={index}
-                  className={`page-btn ${currentPage === index + 1 ? 'active' : ''}`}
-                  onClick={() => setCurrentPage(index + 1)}
-                >
-                  {index + 1}
-                </button>
-              ))}
-              <button 
-                className="page-btn" 
-                onClick={() => setCurrentPage(currentPage + 1)} 
-                disabled={currentPage === totalPages}
-              >
-                <i className="fas fa-chevron-right"></i>
+              <button className="btn view-btn" onClick={closeModal}>
+                Cancel
               </button>
             </div>
-
-            {/* PAGINATED VIEW DETAILS MODAL */}
-            {modalType === "view" && selectedApplication && (
-              <div 
-                className="modal-overlay" 
-                onClick={closeModal}
-                onTouchStart={handleTouchStart}
-                onTouchMove={handleTouchMove}
-                onTouchEnd={handleTouchEnd}
-              >
-                <div 
-                  className="modal" 
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className="modal-header">
-                    <h3>Application Details (Step {stepPage}/6)</h3>
-                  </div>
-                  <div className="modal-content">
-                    {/* Add step indicators for mobile */}
-                    <div className="step-indicators">
-                      {[1, 2, 3, 4, 5, 6].map(step => (
-                        <div
-                          key={step}
-                          className={`step-dot ${stepPage === step ? 'active' : ''}`}
-                          onClick={() => setStepPage(step)}
-                        />
-                      ))}
-                    </div>
-                    
-                    {stepPage === 1 && (
-                      <div className="detail-section">
-                        <h4>Personal Information</h4>
-                        <div className="details-grid">
-                          <div className="detail-item">
-                            <span className="label">Name</span>
-                            <span className="value">
-                              {`${selectedApplication.first_name || ''} ${selectedApplication.middle_name || ''} ${selectedApplication.last_name || ''}`}
-                            </span>
-                          </div>
-                          <div className="detail-item">
-                            <span className="label">Age</span>
-                            <span className="value">{selectedApplication.age || ''}</span>
-                          </div>
-                          <div className="detail-item">
-                            <span className="label">Gender</span>
-                            <span className="value">{selectedApplication.gender || ''}</span>
-                          </div>
-                          <div className="detail-item">
-                            <span className="label">Date of Birth</span>
-                            <span className="value">{formatDate(selectedApplication.date_of_birth)}</span>
-                          </div>
-                          <div className="detail-item">
-                            <span className="label">Place of Birth</span>
-                            <span className="value">{selectedApplication.place_of_birth}</span>
-                          </div>
-                          <div className="detail-item">
-                            <span className="label">Barangay</span>
-                            <span className="value">{selectedApplication.barangay}</span>
-                          </div>
-                          <div className="detail-item">
-                            <span className="label">Email</span>
-                            <span className="value">{selectedApplication.email}</span>
-                          </div>
-                          <div className="detail-item">
-                            <span className="label">Contact Number</span>
-                            <span className="value">{selectedApplication.contact_number}</span>
-                          </div>
-                          <div className="detail-item">
-                            <span className="label">Education</span>
-                            <span className="value">{selectedApplication.education}</span>
-                          </div>
-                          <div className="detail-item">
-                            <span className="label">Occupation</span>
-                            <span className="value">{selectedApplication.occupation}</span>
-                          </div>
-                          <div className="detail-item">
-                            <span className="label">Company</span>
-                            <span className="value">{selectedApplication.company}</span>
-                          </div>
-                          <div className="detail-item">
-                            <span className="label">Income</span>
-                            <span className="value">{selectedApplication.income}</span>
-                          </div>
-                          <div className="detail-item">
-                            <span className="label">Employment Status</span>
-                            <span className="value">{selectedApplication.employment_status}</span>
-                          </div>
-                          <div className="detail-item">
-                            <span className="label">Civil Status</span>
-                            <span className="value">{selectedApplication.civil_status}</span>
-                          </div>
-                          <div className="detail-item">
-                            <span className="label">Religion</span>
-                            <span className="value">{selectedApplication.religion}</span>
-                          </div>
-                          <div className="detail-item">
-                            <span className="label">Pantawid Beneficiary</span>
-                            <span className="value">{selectedApplication.pantawid_beneficiary}</span>
-                          </div>
-                          <div className="detail-item">
-                            <span className="label">Indigenous</span>
-                            <span className="value">{selectedApplication.indigenous}</span>
-                          </div>
-                          <div className="detail-item">
-                            <span className="label">Code ID</span>
-                            <span className="value">{selectedApplication.code_id}</span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    {stepPage === 2 && (
-                      <div className="detail-section">
-                        <h4>Family Information</h4>
-                        {selectedApplication.familyMembers && selectedApplication.familyMembers.length > 0 ? (
-                          <div className="children-list">
-                            {selectedApplication.familyMembers.map((member, index) => (
-                              <div key={index} className="child-details">
-                                <h5>Family Member {index + 1}</h5>
-                                <div className="details-grid">
-                                  <div className="detail-item">
-                                    <span className="label">Name</span>
-                                    <span className="value">{member.family_member_name}</span>
-                                  </div>
-                                  <div className="detail-item">
-                                    <span className="label">Birthdate</span>
-                                    <span className="value">{formatDate(member.birthdate)}</span>
-                                  </div>
-                                  <div className="detail-item">
-                                    <span className="label">Age</span>
-                                    <span className="value">{member.age}</span>
-                                  </div>
-                                  <div className="detail-item">
-                                    <span className="label">Educational Attainment</span>
-                                    <span className="value">{member.educational_attainment}</span>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p>No family members information available.</p>
-                        )}
-                      </div>
-                    )}
-                    {stepPage === 3 && (
-                      <div className="detail-section">
-                        <h4>Classification</h4>
-                        <div className="details-grid">
-                          <div className="detail-item">
-                            <span className="label">Type</span>
-                            <span className="value">{selectedApplication.classification}</span>
-                          </div>
-                        </div>
-                        <div className="classification-input">
-                          {showDropdown && (
-                            <select 
-                              onChange={(e) => setSelectedClassification(e.target.value)}
-                              className="classification-dropdown"
-                            >
-                              <option value="">Select Classification</option>
-                              {classificationOptions.map(option => (
-                                <option key={option.code} value={option.code} className="dropdown-option">
-                                  {option.label}
-                                </option>
-                              ))}
-                            </select>
-                          )}
-                          <button className="btn accept-btn" onClick={handleClassificationUpdate} style={{ display: showDropdown ? 'block' : 'none' }}>
-                            <i className="fas fa-check"></i> Update Classification
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                    {stepPage === 4 && (
-                      <div className="detail-section">
-                        <h4>Needs/Problems</h4>
-                        <div className="details-grid">
-                          <div className="detail-item">
-                            <span className="label">Details</span>
-                            <span className="value">{selectedApplication.needs_problems}</span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    {stepPage === 5 && (
-                      <div className="detail-section">
-                        <h4>Emergency Contact</h4>
-                        <div className="details-grid">
-                          <div className="detail-item">
-                            <span className="label">Name</span>
-                            <span className="value">{selectedApplication.emergency_name}</span>
-                          </div>
-                          <div className="detail-item">
-                            <span className="label">Relationship</span>
-                            <span className="value">{selectedApplication.emergency_relationship}</span>
-                          </div>
-                          <div className="detail-item">
-                            <span className="label">Address</span>
-                            <span className="value">{selectedApplication.emergency_address}</span>
-                          </div>
-                          <div className="detail-item">
-                            <span className="label">Contact Number</span>
-                            <span className="value">{selectedApplication.emergency_contact}</span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    {stepPage === 6 && (
-                      <div className="detail-section">
-                        <h4>Documents</h4>
-                        {selectedApplication.documents && selectedApplication.documents.length > 0 ? (
-                          <div className="documents-list">
-                            {selectedApplication.documents.map((doc, index) => {
-                              // Extract document type from table name
-                              const displayType = doc.document_type ? 
-                                doc.document_type.replace('_documents', '').toUpperCase() : 'Document';
-                              
-                              return (
-                                <div key={index} className="document-item">
-                                  <div className="document-header">
-                                    <h5>{displayType}</h5>
-                                  </div>
-                                  <div className="document-preview">
-                                    <img 
-                                      src={doc.file_url} 
-                                      alt={doc.display_name || displayType}
-                                      className="document-thumbnail"
-                                      onClick={() => window.open(doc.file_url, '_blank')}
-                                      onError={(e) => {
-                                        e.target.onerror = null;
-                                        e.target.src = "https://placehold.co/200x200/e2e8f0/64748b?text=Image+Not+Found";
-                                      }}
-                                    />
-                                  </div>
-                                  <div className="document-actions">
-                                    <button 
-                                      className="btn view-btn full-width"
-                                      onClick={() => window.open(doc.file_url, '_blank')}
-                                    >
-                                      <i className="fas fa-eye"></i> View Full Size
-                                    </button>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        ) : (
-                          <p>No documents available.</p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Mobile-friendly footer */}
-                  <div className="modal-footer">
-                    <div className="modal-footer-left">
-                      {stepPage > 1 && (
-                        <button 
-                          className="btn view-btn mobile-nav-btn"
-                          onClick={() => setStepPage(stepPage - 1)}
-                        >
-                          <i className="fas fa-arrow-left"></i> Previous
-                        </button>
-                      )}
-                    </div>
-                    <div className="modal-footer-right">
-                      {stepPage < 6 ? (
-                        <button 
-                          className="accept-mobile-nav-btn"
-                          onClick={() => setStepPage(stepPage + 1)}
-                        >
-                          Next <i className="fas fa-arrow-right"></i>
-                        </button>
-                      ) : (
-                        <>
-                          <button 
-                            className="btn-accept-btnsadmin"
-                            onClick={() => handleAction("Accept")}
-                          >
-                            <i className="fas fa-check"></i> Accept
-                          </button>
-                          <button 
-                            className="btn decline-btnsadmin"
-                            onClick={() => handleAction("Decline")}
-                          >
-                            <i className="fas fa-times"></i> Decline
-                          </button>
-                        </>
-                      )}
-                      <button className="btn view-btn" onClick={closeModal}>
-                        Close
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {modalType === "confirmAccept" && selectedApplication && (
-              <div className="modal-overlay" onClick={closeModal}>
-                <div className="modal" onClick={(e) => e.stopPropagation()}>
-                  <div className="modal-header">
-                    <h3>Confirm Acceptance</h3>
-                  </div>
-                  <div className="modal-content">
-                    <p className="confirmation-message">Are you sure you want to accept this application?</p>
-                  </div>
-                  <div className="modal-footer">
-                    <button className="btn-accept-btnsadmin" onClick={() => handleAction("Accept")}>
-                      <i className="fas fa-check"></i> Yes, Accept
-                    </button>
-                    <button className="btn view-btn" onClick={closeModal}>
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-            {modalType === "decline" && selectedApplication && (
-              <div className="modal-overlay" onClick={closeModal}>
-                <div className="modal" onClick={(e) => e.stopPropagation()}>
-                  <div className="modal-header">
-                    <h3>Decline Application</h3>
-                  </div>
-                  <div className="modal-content">
-                    <div className="remarks-section">
-                      <label>Please provide remarks for declining:</label>
-                      <textarea
-                        value={remarks}
-                        onChange={(e) => setRemarks(e.target.value)}
-                        placeholder="Enter remarks here"
-                        rows="4"
-                      />
-                    </div>
-                  </div>
-                  <div className="modal-footer">
-                    <button className="btn decline-btnsadmin" onClick={() => handleAction("Decline")}>
-                      <i className="fas fa-times"></i> Confirm Decline
-                    </button>
-                    <button className="btn view-btn" onClick={closeModal}>
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

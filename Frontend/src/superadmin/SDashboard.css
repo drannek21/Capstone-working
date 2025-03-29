@@ -1,217 +1,203 @@
-.dashboard {
-  margin-left: 150px;
-  padding: 1.5rem;
+.superadmin-dashboard {
+  padding: 0;
   background-color: #f8fafc;
   min-height: 100vh;
+  width: 100%;
 }
 
-.dashboard-header {
+.superadmin-dashboard-header {
   margin-bottom: 2rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  flex-wrap: wrap;
-  gap: 1.5rem;
+  padding: 1.5rem 2rem;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
-.header-controls {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  align-items: flex-end;
+.superadmin-header-content {
+  margin-bottom: 1.5rem;
 }
 
-.dashboard-title {
+.superadmin-dashboard-title {
   color: #16C47F;
   font-size: 1.75rem;
   font-weight: 600;
   margin: 0;
+  margin-bottom: 0.5rem;
 }
 
-.filters-container {
+.superadmin-dashboard-subtitle {
+  color: #64748b;
+  font-size: 1rem;
+  margin: 0;
+}
+
+.superadmin-controls-wrapper {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.superadmin-filters-container {
   display: flex;
   gap: 1rem;
   align-items: center;
   flex-wrap: wrap;
 }
 
-.generate-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
-  background-color: #16C47F;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-size: 0.95rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.generate-btn:hover {
-  background-color: #14b374;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-
-.generate-btn:active {
-  transform: translateY(0);
-}
-
-.generate-btn i {
-  font-size: 1.1rem;
-}
-
-.filter-item {
+.superadmin-filter-item {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 0.5rem;
 }
 
-.filter-item label {
+.superadmin-filter-item label {
   color: #475569;
   font-weight: 500;
-  font-size: 0.95rem;
+  font-size: 0.875rem;
 }
 
-.filter-select {
-  padding: 0.5rem 2rem 0.5rem 1rem;
+.superadmin-filter-select {
+  min-width: 160px;
+  padding: 0.625rem 2.5rem 0.625rem 1rem;
   border: 1px solid #e2e8f0;
-  border-radius: 6px;
+  border-radius: 8px;
   background-color: white;
   color: #334155;
-  font-size: 0.95rem;
+  font-size: 0.875rem;
   cursor: pointer;
   appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23475569' viewBox='0 0 16 16'%3E%3Cpath d='M8 10.5l4-4H4l4 4z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 0.75rem center;
+  background-position: right 1rem center;
+  transition: all 0.2s ease;
 }
 
-.filter-select:focus {
+.superadmin-filter-select:hover {
+  border-color: #cbd5e1;
+}
+
+.superadmin-filter-select:focus {
   outline: none;
   border-color: #16C47F;
   box-shadow: 0 0 0 3px rgba(22, 196, 127, 0.1);
 }
 
-.charts-grid {
+.superadmin-generate-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  background-color: #16C47F;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.superadmin-generate-btn:hover {
+  background-color: #14b374;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.superadmin-generate-btn:active {
+  transform: translateY(0);
+}
+
+.superadmin-generate-btn i {
+  font-size: 1rem;
+}
+
+.superadmin-charts-grid {
   display: grid;
   gap: 1.5rem;
   grid-template-columns: repeat(12, 1fr);
 }
 
-.chart-card {
+.superadmin-chart-card {
   background: white;
   border-radius: 12px;
-  padding: 1rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  border: 1px solid #e2e8f0;
+  padding: 1.5rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   transition: all 0.2s ease;
 }
 
-.chart-card:hover {
+.superadmin-chart-card:hover {
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   transform: translateY(-2px);
 }
 
 /* Chart card sizes */
-.population-trend {
+.superadmin-population-trend {
   grid-column: span 12;
 }
 
-.age-distribution,
-.employment-status {
+.superadmin-age-distribution,
+.superadmin-user-status {
   grid-column: span 6;
 }
 
-.education-level,
-.income-distribution {
-  grid-column: span 6;
-}
-
-.application-status,
-.assistance-types {
-  grid-column: span 6;
-}
-
-/* Responsive design */
+/* Responsive Design */
 @media screen and (max-width: 1200px) {
-  .age-distribution,
-  .employment-status,
-  .education-level,
-  .income-distribution,
-  .application-status,
-  .assistance-types {
+  .superadmin-age-distribution,
+  .superadmin-user-status {
     grid-column: span 12;
   }
 }
 
 @media screen and (max-width: 768px) {
-  .dashboard {
+  .superadmin-dashboard-header {
     padding: 1rem;
   }
 
-  .dashboard-header {
+  .superadmin-controls-wrapper {
     flex-direction: column;
     align-items: stretch;
-    gap: 1rem;
   }
 
-  .header-controls {
+  .superadmin-filters-container {
+    flex-direction: column;
     width: 100%;
-    align-items: stretch;
   }
 
-  .dashboard-title {
-    font-size: 1.5rem;
-  }
-
-  .filters-container {
+  .superadmin-filter-item {
     width: 100%;
-    justify-content: space-between;
   }
 
-  .generate-btn {
+  .superadmin-filter-select {
+    width: 100%;
+    min-width: unset;
+  }
+
+  .superadmin-generate-btn {
     width: 100%;
     justify-content: center;
   }
 
-  .filter-item {
-    flex: 1;
-  }
-
-  .filter-select {
-    width: 100%;
-  }
-
-  .chart-card {
-    padding: 0.75rem;
+  .superadmin-chart-card {
+    padding: 1rem;
   }
 }
 
 @media screen and (max-width: 480px) {
-  .dashboard {
+  .superadmin-dashboard-header {
+    padding: 1rem;
+  }
+
+  .superadmin-dashboard-title {
+    font-size: 1.5rem;
+  }
+
+  .superadmin-dashboard-subtitle {
+    font-size: 0.875rem;
+  }
+
+  .superadmin-chart-card {
     padding: 0.75rem;
-  }
-
-  .filters-container {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .filter-item {
-    width: 100%;
-  }
-
-  .generate-btn {
-    padding: 0.75rem 1rem;
-    font-size: 0.9rem;
-  }
-
-  .chart-card {
-    padding: 0.5rem;
   }
 }
