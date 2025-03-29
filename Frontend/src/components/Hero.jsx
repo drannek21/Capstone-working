@@ -8,7 +8,7 @@ const PrivacyModal = ({ onClose, onProceed }) => (
     <div className="modal-content" onClick={e => e.stopPropagation()}>
       <h3>Privacy Notice</h3>
       <p>We are dedicated to protecting your privacy and ensuring the security of your personal information. We collect only the data necessary for providing our services and use it exclusively for those purposes. Your information will not be shared with third parties without your consent. We have implemented robust security measures to safeguard your data from unauthorized access or misuse.</p>
-      <p className="note-text">NOTE: Valid E-mail is required</p>
+      <p className="note-text">Note: Valid e-mail is required</p>
       <div className="modal-buttons">
         <button className="proceed-btn" onClick={onProceed}>
           Proceed
