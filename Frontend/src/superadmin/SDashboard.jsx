@@ -7,6 +7,9 @@ const SDashboard = () => {
   const [selectedBrgy, setSelectedBrgy] = useState("All");
   const [selectedYear, setSelectedYear] = useState("2024");
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  const [acceptedUsers, setAcceptedUsers] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
   const chartsRef = useRef([]);
   
   const barangays = ["All", "Brgy 1", "Brgy 2", "Brgy 3", "Brgy 4"];
@@ -26,6 +29,35 @@ const SDashboard = () => {
       assistanceTypes: [40, 35, 45, 30, 20]
     },
   };
+
+  // Fetch accepted users data
+  useEffect(() => {
+    const fetchAcceptedUsers = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const response = await fetch('http://localhost:8081/api/users/accepted-users');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        setAcceptedUsers(data);
+      } catch (error) {
+        console.error('Error fetching accepted users:', error);
+        setError('Failed to load accepted users. Please make sure the backend server is running.');
+        // Set some mock data for development
+        setAcceptedUsers([
+          { id: 1, name: "John Doe", accepted_at: "2024-03-30T10:00:00Z" },
+          { id: 2, name: "Jane Smith", accepted_at: "2024-03-29T15:30:00Z" },
+          { id: 3, name: "Mike Johnson", accepted_at: "2024-03-28T09:15:00Z" }
+        ]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchAcceptedUsers();
+  }, []);
 
   useEffect(() => {
     let resizeTimeout;
@@ -359,6 +391,7 @@ const SDashboard = () => {
           />
         </div>
 
+      
         <div className="superadmin-chart-card superadmin-user-status">
           <ReactECharts 
             ref={(e) => { chartsRef.current[2] = e; }}
@@ -366,6 +399,40 @@ const SDashboard = () => {
             style={{ height: '300px' }}
           />
         </div>
+
+        <div className="superadmin-data-table-container">
+          <h2>Accepted Users</h2>
+          {error && (
+            <div className="error-message">
+              {error}
+            </div>
+          )}
+          <div className="table-responsive">
+            {isLoading ? (
+              <div className="loading-message">
+                Loading accepted users...
+              </div>
+            ) : (
+              <table className="accepted-users-table">
+                <thead>
+                  <tr>
+                    <th></th>
+                    <th>Name</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {acceptedUsers.map((user, index) => (
+                    <tr key={`${user.name}-${user.accepted_at}-${index}`}>
+                      <td>{index + 1}</td>
+                      <td><strong>{user.name}</strong> accepted <strong>{new Date(user.accepted_at).toLocaleString()}</strong></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+
       </div>
     </div>
   );

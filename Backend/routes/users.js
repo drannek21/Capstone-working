@@ -102,4 +102,39 @@ router.post('/change-password', async (req, res) => {
   }
 });
 
+// Add route to fetch accepted users
+router.get('/accepted-users', async (req, res) => {
+  try {
+    console.log('Fetching accepted users...');
+    const query = `
+      SELECT 
+        au.id,
+        u.name,
+        au.accepted_at
+      FROM users u
+      JOIN accepted_users au ON u.id = au.user_id
+      ORDER BY au.accepted_at DESC
+      LIMIT 5
+    `;
+    
+    console.log('Executing query:', query);
+    const results = await queryDatabase(query);
+    console.log('Query results:', results);
+    
+    if (!results || results.length === 0) {
+      console.log('No accepted users found');
+      return res.json([]);
+    }
+    
+    res.json(results);
+  } catch (error) {
+    console.error('Error fetching accepted users:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch accepted users', 
+      details: error.message,
+      stack: error.stack 
+    });
+  }
+});
+
 module.exports = router;
