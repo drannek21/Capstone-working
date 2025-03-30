@@ -71,26 +71,23 @@ const SoloParent = () => {
     if (!selectedParent || !remarks.trim()) return;
     
     try {
-      const response = await fetch('http://localhost:8081/saveRemarks', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          code_id: selectedParent.code_id,
-          remarks: remarks,
-          user_id: selectedParent.userId,
-          admin_id: adminId
-        }),
+      const response = await axios.post('http://localhost:8081/saveRemarks', {
+        code_id: selectedParent.code_id,
+        remarks: remarks,
+        user_id: selectedParent.userId,
+        admin_id: adminId
       });
 
-      if (!response.ok) {
+      if (response.data) {
+        // Wait for a short delay to ensure database update is complete
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Refresh the list with the current admin ID
+        await fetchVerifiedUsers(adminId);
+        closeModal();
+      } else {
         throw new Error('Failed to save remarks');
       }
-
-      // Refresh the list to show new remarks
-      await fetchVerifiedUsers();
-      closeModal();
     } catch (err) {
       console.error('Error saving remarks:', err);
       alert('Failed to save remarks. Please try again.');

@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import SuperAdminSideBar from './SuperAdminSideBar';
-import './UserManagement.css';
+import './AdminManagement.css';
 import { FaEye, FaEyeSlash, FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
 
-const UserManagement = () => {
+const AdminManagement = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -268,7 +268,7 @@ const UserManagement = () => {
   return (
     <div className="super-admin-content">
       <SuperAdminSideBar />
-      <div className="user-management-container">
+      <div className="admin-management-container">
         <div className="header-section">
           <h1 className="section-title">Admin Management</h1>
           <div className="filter-container">
@@ -316,6 +316,7 @@ const UserManagement = () => {
               <table>
                 <thead>
                   <tr>
+                    <th>ID</th>
                     <th onClick={() => handleSort('email')}>
                       Email {getSortIcon('email')}
                     </th>
@@ -326,25 +327,18 @@ const UserManagement = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {currentUsers.map((user) => (
+                  {currentUsers.map((user, index) => (
                     <tr key={user.id}>
+                      <td>{user.id}</td>
                       <td>{user.email}</td>
                       <td>{user.barangay}</td>
                       <td>
-                        <div className="action-buttons">
                           <button 
-                            className="edit-btn"
+                            className="btn edit-btn"
                             onClick={() => handleEditClick(user)}
                           >
-                            Edit
+                            <i className="fas fa-edit"></i> Edit
                           </button>
-                          <button 
-                            className="view-details-btn"
-                            onClick={() => handleViewDetails(user)}
-                          >
-                            View Details
-                          </button>
-                        </div>
                       </td>
                     </tr>
                   ))}
@@ -353,23 +347,15 @@ const UserManagement = () => {
             </div>
 
             <div className="pagination">
-              <button 
-                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                disabled={currentPage === 1}
-                className="page-btn"
-              >
-                Previous
-              </button>
-              <span className="page-info">
-                Page {currentPage} of {totalPages}
-              </span>
-              <button 
-                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                disabled={currentPage === totalPages}
-                className="page-btn"
-              >
-                Next
-              </button>
+              {Array.from({ length: totalPages }, (_, index) => (
+                <button
+                  key={index + 1}
+                  onClick={() => paginate(index + 1)}
+                  className={`page-btn ${currentPage === index + 1 ? 'active' : ''}`}
+                >
+                  {index + 1}
+                </button>
+              ))}
             </div>
           </>
         )}
@@ -560,4 +546,4 @@ const UserManagement = () => {
   );
 };
 
-export default UserManagement;
+export default AdminManagement;

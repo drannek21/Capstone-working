@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
-import { FaTachometerAlt, FaDatabase, FaUsers, FaClipboardList, FaSync, FaBars, FaSignOutAlt } from 'react-icons/fa';
+import { FaTachometerAlt, FaDatabase, FaUsers, FaClipboardList, FaSync, FaBars, FaSignOutAlt, FaUserFriends } from 'react-icons/fa';
 import './SuperAdminSideBar.css';
 import logo from '../assets/logo.jpg'; // Import the logo
 
@@ -73,32 +73,23 @@ const SuperAdminSideBar = () => {
             <FaDatabase className="nav-icon" />
             <span>Applications</span>
           </NavLink>
+
+          <NavLink 
+            to="/superadmin/solo-parent-management" 
+            className={({isActive}) => `nav-link ${isActive ? 'active' : ''}`}
+            onClick={isMobile ? toggleSidebar : undefined}
+          >
+            <FaUserFriends className="nav-icon" />
+            <span>Solo Parent Management</span>
+          </NavLink>
           
           <NavLink 
-            to="/superadmin/user-management" 
+            to="/superadmin/admin-management" 
             className={({isActive}) => `nav-link ${isActive ? 'active' : ''}`}
             onClick={isMobile ? toggleSidebar : undefined}
           >
             <FaUsers className="nav-icon" />
             <span>Admin Management</span>
-          </NavLink>
-          
-          <NavLink 
-            to="/superadmin/remarks" 
-            className={({isActive}) => `nav-link ${isActive ? 'active' : ''}`}
-            onClick={isMobile ? toggleSidebar : undefined}
-          >
-            <FaClipboardList className="nav-icon" />
-            <span>Remarks</span>
-          </NavLink>
-          
-          <NavLink 
-            to="/superadmin/renewal" 
-            className={({isActive}) => `nav-link ${isActive ? 'active' : ''}`}
-            onClick={isMobile ? toggleSidebar : undefined}
-          >
-            <FaSync className="nav-icon" />
-            <span>Renewal</span>
           </NavLink>
 
           <div className="nav-spacer"></div>

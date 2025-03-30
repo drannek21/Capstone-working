@@ -779,7 +779,34 @@ const ProfilePage = () => {
                 </li>
                 <li>
                   <span className="label">Monthly Income</span>
-                  <span className="value">{user.income}</span>
+                  <span className="value">
+                    {user.income}
+                    {(() => {
+                      let incomeValue = 0;
+                      // If income is a direct number from database, use it directly
+                      if (!isNaN(user.income)) {
+                        incomeValue = parseFloat(user.income);
+                      } else {
+                        // Handle text-based income ranges
+                        if (user.income === 'Below ₱10,000') {
+                          incomeValue = 10000;
+                        } else if (user.income === '₱11,000-₱20,000') {
+                          incomeValue = 20000;
+                        } else if (user.income === '₱21,000-₱43,000') {
+                          incomeValue = 43000;
+                        } else if (user.income === '₱44,000 and above') {
+                          incomeValue = 250001; // Set high value to ensure no benefits
+                        }
+                      }
+                      
+                      // Only show benefits badge if income is strictly less than 250000
+                      return incomeValue < 250001 ? (
+                        <span className="beneficiary-badge">
+                          <i className="fas fa-tag"></i> Eligible for Benefits
+                        </span>
+                      ) : null;
+                    })()}
+                  </span>
                 </li>
                 <li>
                   <span className="label">Contact Number</span>

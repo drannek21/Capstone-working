@@ -75,7 +75,6 @@ CREATE TABLE death_cert_documents (
     FOREIGN KEY (code_id) REFERENCES users(code_id) ON DELETE CASCADE,
     INDEX idx_code_id (code_id)
 );
-
 -- Barangay Certificate Documents Table
 CREATE TABLE barangay_cert_documents (
     barangay_cert_id INT PRIMARY KEY AUTO_INCREMENT,
@@ -88,3 +87,4 @@ CREATE TABLE barangay_cert_documents (
     FOREIGN KEY (code_id) REFERENCES users(code_id) ON DELETE CASCADE,
     INDEX idx_code_id (code_id)
 );
+

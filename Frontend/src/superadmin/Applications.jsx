@@ -258,7 +258,6 @@ const Applications = () => {
                 <td>{`${app.first_name} ${app.middle_name || ''} ${app.last_name}`}</td>
                 <td>{app.barangay || 'N/A'}</td>
                 <td>
-                  <div className="action-buttons">
                     <button className="btn view-btn" onClick={() => openModal(app, "view")}> 
                       <i className="fas fa-eye"></i> View
                     </button>
@@ -268,7 +267,6 @@ const Applications = () => {
                     <button className="btn decline-btnsadmin" onClick={() => openModal(app, "decline")}> 
                       <i className="fas fa-times"></i> Decline
                     </button>
-                  </div>
                 </td>
               </tr>
             ))}

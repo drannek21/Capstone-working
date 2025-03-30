@@ -4,9 +4,8 @@ import SuperAdminSideBar from './SuperAdminSideBar';
 import SDashboard from './SDashboard';
 import Applications from './Applications';
 import './SuperAdminDashboard.css';
-import UserManagement from './UserManagement';
-import Remarks from './Remarks';
-import Renewal from './Renewal';
+import AdminManagement from './AdminManagement';
+import SoloParentManagement from './SoloParentManagement';
 
 const SuperAdminDashboard = () => {
   return (
@@ -17,9 +16,8 @@ const SuperAdminDashboard = () => {
         <Routes caseSensitive={false}>
           <Route path="sdashboard" element={<SDashboard />} />
           <Route path="applications" element={<Applications />} />
-          <Route path="user-management" element={<UserManagement />} />
-          <Route path="remarks" element={<Remarks />} />
-          <Route path="renewal" element={<Renewal />} />
+          <Route path="admin-management" element={<AdminManagement />} />
+          <Route path="solo-parent-management" element={<SoloParentManagement />} />
         </Routes>
 
         </div>

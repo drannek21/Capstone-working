@@ -1728,3 +1728,20 @@
     min-width: 50px;
   }
 }
+
+.beneficiary-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background-color: #e8f5e9;
+  color: #2e7d32;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  margin-left: 8px;
+  font-weight: 500;
+}
+
+.beneficiary-badge i {
+  font-size: 0.8rem;
+}

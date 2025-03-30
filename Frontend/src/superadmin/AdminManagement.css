@@ -85,9 +85,11 @@
 
 .users-table th,
 .users-table td {
-  padding: 1rem;
-  text-align: left;
-  border-bottom: 1px solid #e5e7eb;
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid #e2e8f0;
+  color: #334155;
+  font-size: 0.95rem;
+  vertical-align: middle;
 }
 
 .users-table th:last-child,
@@ -113,10 +115,10 @@
 
 .action-buttons {
   display: flex;
-  gap: 0.5rem;
+  gap: 1rem;
   justify-content: flex-end;
   align-items: center;
-  min-width: 250px;
+  min-width: 150px;
 }
 
 .action-buttons button {
@@ -125,7 +127,6 @@
 }
 
 .edit-btn,
-.view-details-btn,
 .submit-btn,
 .cancel-btn,
 .add-user-btn {
@@ -152,15 +153,6 @@
 
 .edit-btn:hover {
   background-color: #059669;
-}
-
-.view-details-btn {
-  background-color: #eab308;
-  color: white;
-}
-
-.view-details-btn:hover {
-  background-color: #ca8a04;
 }
 
 .submit-btn {
@@ -594,16 +586,29 @@
   }
 
   .action-buttons {
-    min-width: 200px;
+    min-width: 120px;
+    gap: 0.75rem;
+  }
+
+  .action-buttons button {
+    max-width: 100px;
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .action-buttons {
+    min-width: 100px;
     gap: 0.5rem;
   }
 
   .action-buttons button {
-    width: 120px;
+    max-width: 90px;
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
   }
 }
-
-
 
 .super-admin-container {
   flex: 1;

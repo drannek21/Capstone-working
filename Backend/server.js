@@ -289,6 +289,125 @@ app.get('/pendingUsers', async (req, res) => {
   }
 });
 
+
+app.get('/verifiedUsersSA', async (req, res) => {
+  try {
+    const users = await queryDatabase(`
+      SELECT u.id AS userId, u.email, u.name, u.status, u.code_id,
+             s1.first_name, s1.middle_name, s1.last_name, s1.age, s1.gender, 
+             s1.date_of_birth, s1.place_of_birth, s1.barangay, s1.education, 
+             s1.civil_status, s1.occupation, s1.religion, s1.company, 
+             s1.income, s1.employment_status, s1.contact_number, s1.email, 
+             s1.pantawid_beneficiary, s1.indigenous,
+             s3.classification,
+             s4.needs_problems,
+             s5.emergency_name, s5.emergency_relationship, 
+             s5.emergency_address, s5.emergency_contact,
+             ur.remarks as latest_remarks,
+             ur.remarks_at
+      FROM users u
+      JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
+      LEFT JOIN step3_classification s3 ON u.code_id = s3.code_id
+      LEFT JOIN step4_needs_problems s4 ON u.code_id = s4.code_id
+      LEFT JOIN step5_in_case_of_emergency s5 ON u.code_id = s5.code_id
+      LEFT JOIN (
+        SELECT code_id, remarks, remarks_at
+        FROM user_remarks
+        WHERE (code_id, remarks_at) IN (
+          SELECT code_id, MAX(remarks_at)
+          FROM user_remarks
+          GROUP BY code_id
+        )
+      ) ur ON u.code_id = ur.code_id
+      WHERE u.status IN ('Verified', 'Pending Remarks', 'Terminated', 'Renewal')
+    `);
+
+    if (users.length === 0) {
+      return res.status(200).json([]);
+    }
+
+    const codeIds = users.map(user => user.code_id);
+
+    const familyQuery = `
+      SELECT code_id, 
+             family_member_name,
+             birthdate,
+             educational_attainment,
+             age
+      FROM step2_family_occupation
+      WHERE code_id IN (?)
+    `;
+
+    const familyMembers = await queryDatabase(familyQuery, [codeIds]);
+
+    const familyByUser = {};
+    familyMembers.forEach(member => {
+      if (!familyByUser[member.code_id]) {
+        familyByUser[member.code_id] = [];
+      }
+      familyByUser[member.code_id].push(member);
+    });
+
+    // Fetch documents for each user from all document tables
+    const documentTables = [
+      'psa_documents',
+      'itr_documents', 
+      'med_cert_documents', 
+      'marriage_documents', 
+      'cenomar_documents', 
+      'death_cert_documents',
+      'barangay_cert_documents'
+    ];
+    
+    let allDocuments = [];
+    
+    // Query each document table and combine results
+    for (const table of documentTables) {
+      const documentsQuery = `
+        SELECT code_id,
+               file_name,
+               uploaded_at,
+               display_name,
+               status,
+               '${table}' as document_type,
+               CASE 
+                 WHEN file_name LIKE 'http%' THEN file_name 
+                 ELSE CONCAT('http://localhost:8081/uploads/', file_name) 
+               END as file_url
+        FROM ${table}
+        WHERE code_id IN (?)
+      `;
+
+      try {
+        const docs = await queryDatabase(documentsQuery, [codeIds]);
+        allDocuments = [...allDocuments, ...docs];
+      } catch (err) {
+        console.error(`Error fetching from ${table}:`, err);
+      }
+    }
+
+    const documentsByUser = {};
+    allDocuments.forEach(doc => {
+      if (!documentsByUser[doc.code_id]) {
+        documentsByUser[doc.code_id] = [];
+      }
+      documentsByUser[doc.code_id].push(doc);
+    });
+
+    const usersWithFamily = users.map(user => ({
+      ...user,
+      familyMembers: familyByUser[user.code_id] || [],
+      documents: documentsByUser[user.code_id] || []
+    }));
+
+    res.status(200).json(usersWithFamily);
+  } catch (err) {
+    console.error('Error fetching users:', err);
+    res.status(500).json({ error: 'Error fetching users' });
+  }
+});
+
+
 app.post('/pendingUsers/updateClassification', async (req, res) => {
   const { code_id, classification } = req.body;
 
@@ -310,7 +429,7 @@ app.post('/pendingUsers/updateClassification', async (req, res) => {
   }
 });
 
-app.get('/verified-users', async (req, res) => {
+app.get('/verifiedUsers', async (req, res) => {
   try {
     const query = `
       SELECT * FROM users 
@@ -388,7 +507,17 @@ app.post('/getUserDetails', async (req, res) => {
   const { userId } = req.body;
   try {
     const userResults = await queryDatabase(`
-      SELECT u.*, s1.* 
+      SELECT u.*, s1.*, 
+             (SELECT remarks 
+              FROM user_remarks ur 
+              WHERE ur.user_id = u.id 
+              ORDER BY ur.remarks_at DESC 
+              LIMIT 1) as latest_remarks,
+             (SELECT remarks_at 
+              FROM user_remarks ur 
+              WHERE ur.user_id = u.id 
+              ORDER BY ur.remarks_at DESC 
+              LIMIT 1) as remarks_at
       FROM users u
       LEFT JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
       WHERE u.id = ?`, [userId]);
@@ -396,10 +525,18 @@ app.post('/getUserDetails', async (req, res) => {
     if (userResults.length > 0) {
       const user = userResults[0];
       
-      // We'll let the frontend handle the default avatar
-      // No need to set a default profilePic here
+      // If status is Pending Remarks, return only remarks information
+      if (user.status === 'Pending Remarks') {
+        return res.status(200).json({
+          id: user.id,
+          code_id: user.code_id,
+          status: user.status,
+          remarks: user.latest_remarks || 'No remarks',
+          remarks_at: user.remarks_at
+        });
+      }
 
-      // Fetch documents from all document tables
+      // For other statuses (like Verified), return all details
       const documentTables = [
         'psa_documents',
         'itr_documents', 
@@ -434,7 +571,6 @@ app.post('/getUserDetails', async (req, res) => {
           allDocuments = [...allDocuments, ...docs];
         } catch (err) {
           console.error(`Error fetching from ${table}:`, err);
-          // Continue with other tables even if one fails
         }
       }
 
@@ -449,8 +585,6 @@ app.post('/getUserDetails', async (req, res) => {
           [userId]
         );
 
-        console.log('Valid date result:', validDateResult);
-
         const familyResults = await queryDatabase(
           `SELECT family_member_name, birthdate, educational_attainment, age
            FROM step2_family_occupation
@@ -458,16 +592,13 @@ app.post('/getUserDetails', async (req, res) => {
           [user.code_id]
         );
 
-        const userDetails = { 
+        return res.status(200).json({ 
           ...user,
           classification: classificationResult.length > 0 ? classificationResult[0].classification : null,
           validUntil: validDateResult.length > 0 ? validDateResult[0].accepted_at : null,
           familyMembers: familyResults || [],
           documents: allDocuments || []
-        };
-
-        console.log('User details with validUntil:', userDetails);
-        return res.status(200).json(userDetails);
+        });
       } else {
         return res.status(200).json({
           ...user,
@@ -1037,11 +1168,11 @@ app.post('/unTerminateUser', async (req, res) => {
 
     await queryDatabase('COMMIT');
 
-    res.status(200).json({ message: 'User status updated to Verified' });
+    res.status(200).json({ success: true, message: 'User status updated to Verified' });
   } catch (error) {
     await queryDatabase('ROLLBACK');
     console.error('Error updating status:', error);
-    res.status(500).json({ error: 'Failed to update status' });
+    res.status(500).json({ success: false, message: 'Failed to update status' });
   }
 });
 
@@ -1074,16 +1205,21 @@ app.get('/verifiedUsers/:adminId', async (req, res) => {
              s4.needs_problems,
              s5.emergency_name, s5.emergency_relationship, 
              s5.emergency_address, s5.emergency_contact,
-             (SELECT remarks 
-              FROM user_remarks ur 
-              WHERE ur.user_id = u.id 
-              ORDER BY ur.remarks_at DESC 
-              LIMIT 1) as latest_remarks
+             ur.remarks as latest_remarks
       FROM users u
       JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
       LEFT JOIN step3_classification s3 ON u.code_id = s3.code_id
       LEFT JOIN step4_needs_problems s4 ON u.code_id = s4.code_id
       LEFT JOIN step5_in_case_of_emergency s5 ON u.code_id = s5.code_id
+      LEFT JOIN (
+        SELECT user_id, remarks
+        FROM user_remarks
+        WHERE (user_id, remarks_at) IN (
+          SELECT user_id, MAX(remarks_at)
+          FROM user_remarks
+          GROUP BY user_id
+        )
+      ) ur ON u.id = ur.user_id
       WHERE ${statusCondition} AND s1.barangay = ?
     `, status ? [status, adminBarangay] : [adminBarangay]);
 
@@ -1184,16 +1320,16 @@ app.post('/acceptRemarks', async (req, res) => {
   const { code_id } = req.body;
 
   try {
-    const userResult = await queryDatabase('SELECT id FROM users WHERE code_id = ?', [code_id]);
-    if (userResult.length === 0) {
-      return res.status(404).json({ success: false, message: 'User not found' });
-    }
-    const user_id = userResult[0].id;
-
-    // Just update the user status since we don't have notifications table yet
+    // Update user status
     await queryDatabase(
       'UPDATE users SET status = ? WHERE code_id = ?',
       ['Verified', code_id]
+    );
+
+    // Add to accepted_users table
+    await queryDatabase(
+      'INSERT INTO accepted_users (user_id, message, accepted_at, is_read) VALUES ((SELECT id FROM users WHERE code_id = ?), ?, NOW(), 0)',
+      [code_id, 'Your account has been verified.']
     );
 
     res.status(200).json({ success: true, message: 'User verified successfully' });
@@ -1207,23 +1343,17 @@ app.post('/declineRemarks', async (req, res) => {
   const { code_id } = req.body;
 
   try {
-    const userResult = await queryDatabase('SELECT id FROM users WHERE code_id = ?', [code_id]);
-    if (userResult.length === 0) {
-      return res.status(404).json({ success: false, message: 'User not found' });
-    }
-    const user_id = userResult[0].id;
+    // Update user status
+    await queryDatabase(
+      'UPDATE users SET status = ? WHERE code_id = ?',
+      ['Terminated', code_id]
+    );
 
-    // Update user status and add to terminated_users
-    await Promise.all([
-      queryDatabase(
-        'UPDATE users SET status = ? WHERE code_id = ?',
-        ['Terminated', code_id]
-      ),
-      queryDatabase(
-        'INSERT INTO terminated_users (user_id, message, terminated_at, is_read) VALUES (?, ?, NOW(), 0)',
-        [user_id, 'Your application has been terminated.']
-      )
-    ]);
+    // Add to terminated_users table
+    await queryDatabase(
+      'INSERT INTO terminated_users (user_id, message, terminated_at, is_read) VALUES ((SELECT id FROM users WHERE code_id = ?), ?, NOW(), 0)',
+      [code_id, 'Your account has been terminated.']
+    );
 
     res.status(200).json({ success: true, message: 'User terminated successfully' });
   } catch (error) {
