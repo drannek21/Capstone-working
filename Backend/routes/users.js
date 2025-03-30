@@ -112,7 +112,15 @@ router.get('/accepted-users', async (req, res) => {
         u.name,
         au.accepted_at
       FROM users u
-      JOIN accepted_users au ON u.id = au.user_id
+      INNER JOIN (
+        SELECT user_id, MAX(accepted_at) as latest_accepted_at
+        FROM accepted_users
+        WHERE message = 'Your application has been accepted.'
+        GROUP BY user_id
+      ) latest_au ON u.id = latest_au.user_id
+      INNER JOIN accepted_users au ON u.id = au.user_id 
+        AND au.accepted_at = latest_au.latest_accepted_at
+      WHERE u.status IN ('Verified', 'Created')
       ORDER BY au.accepted_at DESC
       LIMIT 5
     `;
@@ -131,6 +139,226 @@ router.get('/accepted-users', async (req, res) => {
     console.error('Error fetching accepted users:', error);
     res.status(500).json({ 
       error: 'Failed to fetch accepted users', 
+      details: error.message,
+      stack: error.stack 
+    });
+  }
+});
+
+
+router.get('/polulations-users', async (req, res) => {
+  try {
+    console.log('Fetching population users...');
+    const { barangay, startDate, endDate } = req.query;
+    
+    // List of valid barangays
+    const validBarangays = [
+      'Adia', 'Bagong Pook', 'Bagumbayan', 'Bubucal', 'Cabooan', 'Calangay',
+      'Cambuja', 'Coralan', 'Cueva', 'Inayapan', 'Jose P. Laurel, Sr.',
+      'Jose P. Rizal', 'Juan Santiago', 'Kayhacat', 'Macasipac', 'Masinao',
+      'Matalinting', 'Pao-o', 'Parang ng Buho', 'Poblacion Dos',
+      'Poblacion Quatro', 'Poblacion Tres', 'Poblacion Uno', 'Talangka', 'Tungkod'
+    ];
+    
+    let query = `
+        SELECT 
+          au.id,
+          au.accepted_at,
+          u.status,
+          s1.barangay,
+          u.id as user_id,
+          u.code_id
+        FROM users u
+        INNER JOIN (
+          SELECT user_id, MAX(accepted_at) as latest_accepted_at
+          FROM accepted_users
+          WHERE message = 'Your application has been accepted.'
+          GROUP BY user_id
+        ) latest_au ON u.id = latest_au.user_id
+        INNER JOIN accepted_users au ON u.id = au.user_id 
+          AND au.accepted_at = latest_au.latest_accepted_at
+        INNER JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
+        WHERE u.status IN ('Verified', 'Renewal', 'Pending Remarks', 'Terminated')
+    `;
+
+    const params = [];
+
+    // Add barangay filter if specified and valid
+    if (barangay && validBarangays.includes(barangay)) {
+      query += ` AND s1.barangay = ?`;
+      params.push(barangay);
+    }
+
+    // Add date range filter if specified
+    if (startDate && endDate) {
+      query += ` AND DATE(au.accepted_at) BETWEEN ? AND ?`;
+      params.push(startDate, endDate);
+    }
+
+    query += ` ORDER BY au.accepted_at ASC`;
+    
+    console.log('Executing query:', query);
+    console.log('Query params:', params);
+    const results = await queryDatabase(query, params);
+    console.log('Query results:', JSON.stringify(results, null, 2));
+    
+    if (!results || results.length === 0) {
+      console.log('No users found');
+      return res.json([]);
+    }
+    
+    // Log unique status counts
+    const statusCounts = results.reduce((acc, curr) => {
+      acc[curr.status] = (acc[curr.status] || 0) + 1;
+      return acc;
+    }, {});
+    console.log('Status counts:', statusCounts);
+    
+    res.json(results);
+  } catch (error) {
+    console.error('Error fetching population users:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch population users', 
+      details: error.message,
+      stack: error.stack 
+    });
+  }
+});
+
+router.get('/beneficiaries-users', async (req, res) => {
+  try {
+    console.log('Fetching beneficiaries users...');
+    const { barangay, startDate, endDate } = req.query;
+
+    let query = `
+      SELECT 
+        u.id,
+        u.status,
+        s1.barangay,
+        s1.income,
+        au.accepted_at,
+        CASE 
+          WHEN s1.income = 'Below ₱10,000' THEN 10000
+          WHEN s1.income = '₱11,000-₱20,000' THEN 20000
+          WHEN s1.income = '₱21,000-₱43,000' THEN 43000
+          WHEN s1.income = '₱44,000 and above' THEN 250001
+          ELSE CAST(REPLACE(REPLACE(s1.income, '₱', ''), ',', '') AS DECIMAL(10, 2))
+        END as income_value
+      FROM users u
+      INNER JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
+      INNER JOIN (
+        SELECT user_id, MAX(accepted_at) as latest_accepted_at
+        FROM accepted_users
+        WHERE message = 'Your application has been accepted.'
+        GROUP BY user_id
+      ) latest_au ON u.id = latest_au.user_id
+      INNER JOIN accepted_users au ON u.id = au.user_id 
+        AND au.accepted_at = latest_au.latest_accepted_at
+      WHERE u.status = 'Verified'
+    `;
+
+    const params = [];
+
+    // Add barangay filter if specified
+    if (barangay && barangay !== 'All') {
+      query += ` AND s1.barangay = ?`;
+      params.push(barangay);
+    }
+
+    // Add date range filter if specified
+    if (startDate && endDate) {
+      query += ` AND DATE(au.accepted_at) BETWEEN ? AND ?`;
+      params.push(startDate, endDate);
+    }
+
+    query += ` ORDER BY u.id ASC`;
+    
+    console.log('Executing query:', query);
+    console.log('Query params:', params);
+    const results = await queryDatabase(query, params);
+    console.log('Query results:', results);
+    
+    if (!results || results.length === 0) {
+      console.log('No users found');
+      return res.json({
+        beneficiaries: 0,
+        nonBeneficiaries: 0,
+        users: []
+      });
+    }
+
+    // Process results to count beneficiaries and non-beneficiaries
+    const processedResults = {
+      beneficiaries: results.filter(user => user.income_value < 250000).length,
+      nonBeneficiaries: results.filter(user => user.income_value >= 250000).length,
+      users: results
+    };
+    
+    res.json(processedResults);
+  } catch (error) {
+    console.error('Error fetching beneficiaries users:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch beneficiaries users', 
+      details: error.message,
+      stack: error.stack 
+    });
+  }
+});
+
+// Add the new application-status endpoint
+router.get('/application-status', async (req, res) => {
+  try {
+    console.log('Fetching application status...');
+    const { barangay } = req.query;
+    
+    let query = `
+      SELECT 
+        u.status,
+        COUNT(*) as count
+      FROM users u
+      INNER JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
+      WHERE u.status IN ('Declined', 'Pending', 'Verified', 'Created', 'Pending Remarks', 'Terminated')
+    `;
+
+    const params = [];
+
+    // Add barangay filter if specified
+    if (barangay && barangay !== 'All') {
+      query += ` AND s1.barangay = ?`;
+      params.push(barangay);
+    }
+
+    query += ` GROUP BY u.status`;
+    
+    console.log('Executing query:', query);
+    console.log('Query params:', params);
+    const results = await queryDatabase(query, params);
+    console.log('Query results:', results);
+    
+    // Initialize counts
+    const statusCounts = {
+      declined: 0,
+      pending: 0,
+      accepted: 0
+    };
+
+    // Process results
+    results.forEach(row => {
+      if (row.status === 'Declined') {
+        statusCounts.declined = row.count;
+      } else if (row.status === 'Pending') {
+        statusCounts.pending = row.count;
+      } else if (row.status === 'Verified' || row.status === 'Created' || 
+                 row.status === 'Pending Remarks' || row.status === 'Terminated') {
+        statusCounts.accepted += row.count;  // Add all accepted-type statuses to accepted count
+      }
+    });
+    
+    res.json(statusCounts);
+  } catch (error) {
+    console.error('Error fetching application status:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch application status', 
       details: error.message,
       stack: error.stack 
     });

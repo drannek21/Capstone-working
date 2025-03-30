@@ -3,17 +3,56 @@ import ReactECharts from "echarts-for-react";
 import * as XLSX from 'xlsx';
 import "./SDashboard.css";
 
+const API_URL = 'http://localhost:8081';
+
 const SDashboard = () => {
   const [selectedBrgy, setSelectedBrgy] = useState("All");
-  const [selectedYear, setSelectedYear] = useState("2024");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const [acceptedUsers, setAcceptedUsers] = useState([]);
+  const [monthlyPopulation, setMonthlyPopulation] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const chartsRef = useRef([]);
+  const [beneficiariesData, setBeneficiariesData] = useState({
+    beneficiaries: 0,
+    nonBeneficiaries: 0
+  });
+  const [applicationStatusData, setApplicationStatusData] = useState({
+    declined: 0,
+    pending: 0,
+    accepted: 0
+  });
   
-  const barangays = ["All", "Brgy 1", "Brgy 2", "Brgy 3", "Brgy 4"];
-  const years = ["2024", "2023", "2022"];
+  const barangays = [
+    "All",
+    "Adia",
+    "Bagong Pook",
+    "Bagumbayan",
+    "Bubucal",
+    "Cabooan",
+    "Calangay",
+    "Cambuja",
+    "Coralan",
+    "Cueva",
+    "Inayapan",
+    "Jose P. Laurel, Sr.",
+    "Jose P. Rizal",
+    "Juan Santiago",
+    "Kayhacat",
+    "Macasipac",
+    "Masinao",
+    "Matalinting",
+    "Pao-o",
+    "Parang ng Buho",
+    "Poblacion Dos",
+    "Poblacion Quatro",
+    "Poblacion Tres",
+    "Poblacion Uno",
+    "Talangka",
+    "Tungkod"
+  ];
 
   // Mock data structure
   const dashboardData = {
@@ -22,13 +61,52 @@ const SDashboard = () => {
       growth: [10, 12, 8, 15],
       distribution: [150, 80, 10],
       ageGroups: [25, 45, 30, 15, 10],
-      employmentStatus: [120, 80, 40],
+      employmentStatus: [120, 80],  // [Beneficiaries, Non-Beneficiaries]
       educationLevel: [30, 45, 55, 35],
       incomeDistribution: [20, 35, 45, 30, 10],
       applicationStatus: [150, 50, 30],
       assistanceTypes: [40, 35, 45, 30, 20]
     },
+    "Adia": {
+      population: [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
+      growth: [2, 3, 1, 4],
+      distribution: [20, 10, 5],
+      ageGroups: [5, 8, 6, 3, 2],
+      employmentStatus: [15, 10],  // [Beneficiaries, Non-Beneficiaries]
+      educationLevel: [5, 8, 10, 7],
+      incomeDistribution: [3, 5, 7, 5, 2],
+      applicationStatus: [20, 5, 3],
+      assistanceTypes: [5, 4, 6, 4, 3]
+    },
+    "Bagong Pook": {
+      population: [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+      growth: [1, 2, 1, 3],
+      distribution: [15, 8, 4],
+      ageGroups: [4, 7, 5, 2, 1],
+      employmentStatus: [12, 8],  // [Beneficiaries, Non-Beneficiaries]
+      educationLevel: [4, 6, 8, 5],
+      incomeDistribution: [2, 4, 6, 4, 1],
+      applicationStatus: [15, 4, 2],
+      assistanceTypes: [4, 3, 5, 3, 2]
+    }
   };
+
+  // Add default data for other barangays
+  barangays.forEach(brgy => {
+    if (!dashboardData[brgy] && brgy !== "All") {
+      dashboardData[brgy] = {
+        population: [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
+        growth: [1, 2, 1, 2],
+        distribution: [10, 5, 3],
+        ageGroups: [3, 5, 4, 2, 1],
+        employmentStatus: [8, 5, 3],
+        educationLevel: [3, 4, 6, 3],
+        incomeDistribution: [2, 3, 4, 3, 1],
+        applicationStatus: [10, 3, 2],
+        assistanceTypes: [3, 2, 4, 2, 1]
+      };
+    }
+  });
 
   // Fetch accepted users data
   useEffect(() => {
@@ -58,6 +136,137 @@ const SDashboard = () => {
 
     fetchAcceptedUsers();
   }, []);
+
+  // Fetch monthly population data
+  useEffect(() => {
+    const fetchMonthlyPopulation = async () => {
+      try {
+        // Build the query string with filters
+        let queryParams = [];
+        if (selectedBrgy !== "All") {
+          queryParams.push(`barangay=${selectedBrgy}`);
+        }
+        if (startDate && endDate) {
+          queryParams.push(`startDate=${startDate}`);
+          queryParams.push(`endDate=${endDate}`);
+        }
+        const queryString = queryParams.length > 0 ? `?${queryParams.join('&')}` : '';
+
+        const response = await fetch(`${API_URL}/api/users/polulations-users${queryString}`);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        
+        // Initialize data for all months of the selected year
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const monthlyData = Array(12).fill(0);
+        
+        // Fill in actual data
+        data.forEach(user => {
+          const date = new Date(user.accepted_at);
+          const month = date.getMonth();
+          monthlyData[month]++;
+        });
+
+        setMonthlyPopulation({
+          labels: monthNames,
+          datasets: [{
+            label: 'Monthly Population',
+            data: monthlyData,
+            borderColor: '#4CAF50',
+            backgroundColor: 'rgba(76, 175, 80, 0.1)',
+            tension: 0.4,
+            fill: true
+          }]
+        });
+      } catch (error) {
+        console.error('Error fetching monthly population:', error);
+        setError('Failed to load monthly population data.');
+        // Set empty data instead of mock data when there's an error
+        setMonthlyPopulation({
+          labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+          datasets: [{
+            label: 'Monthly Population',
+            data: Array(12).fill(0), // Set all months to 0 instead of mock data
+            borderColor: '#4CAF50',
+            backgroundColor: 'rgba(76, 175, 80, 0.1)',
+            tension: 0.4,
+            fill: true
+          }]
+        });
+      }
+    };
+
+    fetchMonthlyPopulation();
+  }, [selectedBrgy, startDate, endDate]);
+
+  // Update useEffect for beneficiaries to use selectedBrgy
+  useEffect(() => {
+    const fetchBeneficiariesData = async () => {
+      try {
+        const response = await fetch(`${API_URL}/api/users/beneficiaries-users${
+          selectedBrgy !== "All" ? `?barangay=${selectedBrgy}` : ''
+        }`);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        setBeneficiariesData({
+          beneficiaries: data.beneficiaries,
+          nonBeneficiaries: data.nonBeneficiaries
+        });
+      } catch (error) {
+        console.error('Error fetching beneficiaries data:', error);
+        // Use mock data on error
+        setBeneficiariesData({
+          beneficiaries: 120,
+          nonBeneficiaries: 80
+        });
+      }
+    };
+
+    fetchBeneficiariesData();
+  }, [selectedBrgy]); // Add selectedBrgy as dependency
+
+  // Add new useEffect for application status
+  useEffect(() => {
+    const fetchApplicationStatus = async () => {
+      try {
+        // Build the query string with filters
+        let queryParams = [];
+        if (selectedBrgy !== "All") {
+          queryParams.push(`barangay=${selectedBrgy}`);
+        }
+        if (startDate && endDate) {
+          queryParams.push(`startDate=${startDate}`);
+          queryParams.push(`endDate=${endDate}`);
+        }
+        const queryString = queryParams.length > 0 ? `?${queryParams.join('&')}` : '';
+
+        const response = await fetch(`${API_URL}/api/users/application-status${queryString}`);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+
+        setApplicationStatusData({
+          declined: data.declined || 0,
+          pending: data.pending || 0,
+          accepted: data.accepted || 0  // This will include both Created and Verified
+        });
+      } catch (error) {
+        console.error('Error fetching application status:', error);
+        setApplicationStatusData({
+          declined: 0,
+          pending: 0,
+          accepted: 0
+        });
+      }
+    };
+
+    fetchApplicationStatus();
+  }, [selectedBrgy, startDate, endDate]);
 
   useEffect(() => {
     let resizeTimeout;
@@ -129,7 +338,7 @@ const SDashboard = () => {
     ...commonConfig,
     xAxis: {
       type: 'category',
-      data: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+      data: monthlyPopulation.labels || [],
       axisLabel: { 
         fontSize: getFontSize(11),
         color: '#666'
@@ -156,7 +365,7 @@ const SDashboard = () => {
       type: 'line',
       smooth: true,
       symbolSize: 8,
-      data: dashboardData[selectedBrgy].population,
+      data: monthlyPopulation.datasets?.[0]?.data || [],
       areaStyle: {
         color: {
           type: 'linear',
@@ -187,7 +396,7 @@ const SDashboard = () => {
 
   const ageDistributionOption = {
     title: {
-      text: 'Age Distribution',
+      text: 'Application Status',
       left: 'center',
       top: 20,
       textStyle: { 
@@ -196,13 +405,29 @@ const SDashboard = () => {
         color: '#333'
       }
     },
+    tooltip: {
+      trigger: 'axis',
+      formatter: function(params) {
+        const param = params[0];
+        let statusText = param.name;
+        if (param.name === 'Accepted') {
+          statusText = 'Accepted (Verified and Created)';
+        }
+        return `${statusText}: ${param.value}`;
+      }
+    },
     ...commonConfig,
     xAxis: {
       type: 'category',
-      data: ['18-25', '26-35', '36-45', '46-55', '55+'],
+      data: ['Declined', 'Pending', 'Accepted'],
       axisLabel: { 
         fontSize: getFontSize(11),
-        color: '#666'
+        color: '#666',
+        interval: 0,  // Force show all labels
+        rotate: 0     // No rotation
+      },
+      axisTick: {
+        alignWithLabel: true
       },
       axisLine: {
         lineStyle: { color: '#eee' }
@@ -223,33 +448,42 @@ const SDashboard = () => {
     },
     series: [{
       type: 'bar',
-      data: dashboardData[selectedBrgy].ageGroups,
+      barWidth: '50%',  // Adjust bar width
+      data: [
+        applicationStatusData.declined,
+        applicationStatusData.pending,
+        applicationStatusData.accepted
+      ],
       itemStyle: {
-        color: {
-          type: 'linear',
-          x: 0, y: 0, x2: 0, y2: 1,
-          colorStops: [{
-            offset: 0,
-            color: '#16C47F'
-          }, {
-            offset: 1,
-            color: '#4ECDC4'
-          }]
+        color: function(params) {
+          // Different colors for each status
+          const colors = {
+            0: '#FF6B6B',  // Red for Declined
+            1: '#FFB236',  // Orange for Pending
+            2: '#16C47F'   // Green for Accepted
+          };
+          return colors[params.dataIndex];
         },
         borderRadius: [4, 4, 0, 0]
       },
       emphasis: {
         itemStyle: {
           shadowBlur: 10,
-          shadowColor: 'rgba(22, 196, 127, 0.3)'
+          shadowColor: 'rgba(0,0,0,0.3)'
         }
+      },
+      label: {
+        show: true,
+        position: 'top',
+        fontSize: getFontSize(11),
+        color: '#666'
       }
     }]
   };
 
   const employmentOption = {
     title: {
-      text: 'User Status',
+      text: 'Beneficiary Status',
       left: 'center',
       top: 20,
       textStyle: { 
@@ -293,38 +527,147 @@ const SDashboard = () => {
       },
       data: [
         { 
-          value: dashboardData[selectedBrgy].employmentStatus[0], 
-          name: 'Verified',
+          value: beneficiariesData.beneficiaries, 
+          name: 'Beneficiaries',
           itemStyle: { color: '#16C47F' }
         },
         { 
-          value: dashboardData[selectedBrgy].employmentStatus[1], 
-          name: 'Unverified',
+          value: beneficiariesData.nonBeneficiaries, 
+          name: 'Non-Beneficiaries',
           itemStyle: { color: '#FF6B6B' }
-        },
-        { 
-          value: dashboardData[selectedBrgy].employmentStatus[2], 
-          name: 'Pending',
-          itemStyle: { color: '#4ECDC4' }
         }
       ]
     }]
   };
 
-  const generateExcelReport = () => {
-    const ws = XLSX.utils.json_to_sheet([
-      { 
-        Barangay: selectedBrgy,
-        Year: selectedYear,
-        TotalPopulation: dashboardData[selectedBrgy].population.reduce((a, b) => a + b, 0),
-        VerifiedUsers: dashboardData[selectedBrgy].employmentStatus[0],
-        UnverifiedUsers: dashboardData[selectedBrgy].employmentStatus[1],
-        PendingUsers: dashboardData[selectedBrgy].employmentStatus[2]
+  // Update generateExcelReport to include beneficiary data
+  const generateExcelReport = async () => {
+    if (!startDate || !endDate) {
+      alert('Please select both start and end dates for the report');
+      return;
+    }
+
+    try {
+      // Fetch population data with date range
+      const populationResponse = await fetch(
+        `${API_URL}/api/users/polulations-users?${
+          selectedBrgy !== "All" ? `barangay=${selectedBrgy}&` : ''
+        }startDate=${startDate}&endDate=${endDate}`
+      );
+      
+      if (!populationResponse.ok) {
+        throw new Error('Failed to fetch population data');
       }
-    ]);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Dashboard Report");
-    XLSX.writeFile(wb, `Dashboard_Report_${selectedBrgy}_${selectedYear}.xlsx`);
+
+      const populationData = await populationResponse.json();
+
+      // Fetch beneficiaries data with date range
+      const beneficiariesResponse = await fetch(
+        `${API_URL}/api/users/beneficiaries-users?${
+          selectedBrgy !== "All" ? `barangay=${selectedBrgy}&` : ''
+        }startDate=${startDate}&endDate=${endDate}`
+      );
+
+      if (!beneficiariesResponse.ok) {
+        throw new Error('Failed to fetch beneficiaries data');
+      }
+
+      const beneficiariesData = await beneficiariesResponse.json();
+
+      // Fetch application status data
+      const applicationStatusResponse = await fetch(
+        `${API_URL}/api/users/application-status?${
+          selectedBrgy !== "All" ? `barangay=${selectedBrgy}&` : ''
+        }startDate=${startDate}&endDate=${endDate}`
+      );
+
+      if (!applicationStatusResponse.ok) {
+        throw new Error('Failed to fetch application status data');
+      }
+
+      const applicationStatusData = await applicationStatusResponse.json();
+
+      // Count users by status
+      const statusCounts = populationData.reduce((acc, user) => {
+        acc[user.status] = (acc[user.status] || 0) + 1;
+        return acc;
+      }, {});
+
+      // Create workbook
+      const wb = XLSX.utils.book_new();
+
+      // Sheet 1: Summary
+      const summarySheet = XLSX.utils.json_to_sheet([
+        { 
+          Barangay: selectedBrgy,
+          StartDate: new Date(startDate).toLocaleDateString(),
+          EndDate: new Date(endDate).toLocaleDateString(),
+          TotalPopulation: populationData.length,
+          VerifiedUsers: statusCounts['Verified'] || 0,
+          PendingRemarksUsers: statusCounts['Pending Remarks'] || 0,
+          TerminatedUsers: statusCounts['Terminated'] || 0,
+          BeneficiariesInDateRange: beneficiariesData.beneficiaries,
+          NonBeneficiariesInDateRange: beneficiariesData.nonBeneficiaries
+        }
+      ]);
+      XLSX.utils.book_append_sheet(wb, summarySheet, "Summary");
+
+      // Sheet 2: Monthly Population Data
+      const monthNames = ["January", "February", "March", "April", "May", "June", 
+                         "July", "August", "September", "October", "November", "December"];
+      const monthlyData = Array(12).fill(0);
+      
+      populationData.forEach(user => {
+        const date = new Date(user.accepted_at);
+        const month = date.getMonth();
+        monthlyData[month]++;
+      });
+
+      const monthlyPopulationSheet = XLSX.utils.json_to_sheet(
+        monthNames.map((month, index) => ({
+          Month: month,
+          Population: monthlyData[index]
+        }))
+      );
+      XLSX.utils.book_append_sheet(wb, monthlyPopulationSheet, "Monthly Population");
+
+      // Sheet 3: Beneficiaries Data
+      const beneficiariesSheet = XLSX.utils.json_to_sheet([
+        {
+          Category: 'Beneficiaries',
+          Count: beneficiariesData.beneficiaries
+        },
+        {
+          Category: 'Non-Beneficiaries',
+          Count: beneficiariesData.nonBeneficiaries
+        }
+      ]);
+      XLSX.utils.book_append_sheet(wb, beneficiariesSheet, "Beneficiaries Status");
+
+      // Sheet 4: Application Status
+      const applicationStatusSheet = XLSX.utils.json_to_sheet([
+        {
+          Status: 'Declined',
+          Count: applicationStatusData.declined || 0
+        },
+        {
+          Status: 'Pending',
+          Count: applicationStatusData.pending || 0
+        },
+        {
+          Status: 'Accepted',
+          Count: applicationStatusData.accepted || 0  // This includes both Verified and Created
+        }
+      ]);
+      XLSX.utils.book_append_sheet(wb, applicationStatusSheet, "Application Status");
+
+      // Save the workbook
+      XLSX.writeFile(wb, `Dashboard_Report_${selectedBrgy}_${startDate}_to_${endDate}.xlsx`);
+
+    } catch (error) {
+      console.error('Error generating report:', error);
+      alert('Failed to generate report. Please try again.');
+    }
   };
 
   return (
@@ -350,17 +693,24 @@ const SDashboard = () => {
               </select>
             </div>
             <div className="superadmin-filter-item">
-              <label htmlFor="superadmin-year-select">Year</label>
-              <select 
-                id="superadmin-year-select"
-                value={selectedYear} 
-                onChange={(e) => setSelectedYear(e.target.value)}
+              <label htmlFor="start-date">Start Date</label>
+              <input
+                type="date"
+                id="start-date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
                 className="superadmin-filter-select"
-              >
-                {years.map((year) => (
-                  <option key={year} value={year}>{year}</option>
-                ))}
-              </select>
+              />
+            </div>
+            <div className="superadmin-filter-item">
+              <label htmlFor="end-date">End Date</label>
+              <input
+                type="date"
+                id="end-date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="superadmin-filter-select"
+              />
             </div>
             <button 
               className="superadmin-generate-btn" 
