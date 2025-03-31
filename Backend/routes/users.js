@@ -309,14 +309,44 @@ router.get('/beneficiaries-users', async (req, res) => {
 router.get('/application-status', async (req, res) => {
   try {
     console.log('Fetching application status...');
-    const { barangay } = req.query;
+    const { barangay, startDate, endDate } = req.query;
     
     let query = `
       SELECT 
         u.status,
-        COUNT(*) as count
+        COUNT(*) as count,
+        MAX(
+          CASE 
+            WHEN u.status = 'Verified' THEN au.accepted_at
+            WHEN u.status = 'Created' THEN au.accepted_at
+            WHEN u.status = 'Pending Remarks' THEN ur.remarks_at
+            WHEN u.status = 'Terminated' THEN tu.terminated_at
+            WHEN u.status = 'Declined' THEN du.declined_at
+            WHEN u.status = 'Pending' THEN u.created_at
+          END
+        ) as latest_status_date
       FROM users u
       INNER JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
+      LEFT JOIN (
+        SELECT user_id, MAX(accepted_at) as accepted_at
+        FROM accepted_users
+        GROUP BY user_id
+      ) au ON u.id = au.user_id
+      LEFT JOIN (
+        SELECT user_id, MAX(remarks_at) as remarks_at
+        FROM user_remarks
+        GROUP BY user_id
+      ) ur ON u.id = ur.user_id
+      LEFT JOIN (
+        SELECT user_id, MAX(terminated_at) as terminated_at
+        FROM terminated_users
+        GROUP BY user_id
+      ) tu ON u.id = tu.user_id
+      LEFT JOIN (
+        SELECT user_id, MAX(declined_at) as declined_at
+        FROM declined_users
+        GROUP BY user_id
+      ) du ON u.id = du.user_id
       WHERE u.status IN ('Declined', 'Pending', 'Verified', 'Created', 'Pending Remarks', 'Terminated')
     `;
 
@@ -326,6 +356,21 @@ router.get('/application-status', async (req, res) => {
     if (barangay && barangay !== 'All') {
       query += ` AND s1.barangay = ?`;
       params.push(barangay);
+    }
+
+    // Add date range filter if specified
+    if (startDate && endDate) {
+      query += ` AND DATE(
+        CASE 
+          WHEN u.status = 'Verified' THEN au.accepted_at
+          WHEN u.status = 'Created' THEN au.accepted_at
+          WHEN u.status = 'Pending Remarks' THEN ur.remarks_at
+          WHEN u.status = 'Terminated' THEN tu.terminated_at
+          WHEN u.status = 'Declined' THEN du.declined_at
+          WHEN u.status = 'Pending' THEN u.created_at
+        END
+      ) BETWEEN ? AND ?`;
+      params.push(startDate, endDate);
     }
 
     query += ` GROUP BY u.status`;
