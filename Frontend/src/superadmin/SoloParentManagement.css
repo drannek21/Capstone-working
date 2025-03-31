@@ -294,7 +294,7 @@
   background: white;
   border-radius: 12px;
   width: 100%;
-  max-width: 800px;
+  max-width: 600px;
   max-height: 90vh;
   overflow-y: auto;
   position: relative;
@@ -319,6 +319,11 @@
 
 .modal-content {
   padding: 1.5rem;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin: 0 auto;
+  width: 90%;
 }
 
 .step-indicators {
@@ -454,4 +459,4 @@
   .documents-list {
     grid-template-columns: 1fr;
   }
-} 
+}
