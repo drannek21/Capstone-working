@@ -1,164 +1,131 @@
 .superadmin-dashboard {
-  padding: 0;
+  padding: 20px;
   background-color: #f8fafc;
   min-height: 100vh;
-  width: 100%;
+  width: 97%;
 }
 
 .superadmin-dashboard-header {
-  margin-bottom: 2rem;
-  padding: 1.5rem 2rem;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  background-color: white;
+  padding: 24px;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-bottom: 24px;
 }
 
 .superadmin-header-content {
-  margin-bottom: 1.5rem;
+  margin-bottom: 20px;
 }
 
 .superadmin-dashboard-title {
-  color: #16C47F;
-  font-size: 1.75rem;
+  font-size: 24px;
   font-weight: 600;
-  margin: 0;
-  margin-bottom: 0.5rem;
+  margin-bottom: 8px;
+  color: #1a1a1a;
 }
 
 .superadmin-dashboard-subtitle {
   color: #64748b;
-  font-size: 1rem;
-  margin: 0;
+  font-size: 14px;
 }
 
 .superadmin-controls-wrapper {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
+  margin-top: 16px;
 }
 
 .superadmin-filters-container {
   display: flex;
-  gap: 1rem;
-  align-items: center;
   flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-end;
 }
 
 .superadmin-filter-item {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 4px;
+  min-width: 200px;
 }
 
 .superadmin-filter-item label {
-  color: #475569;
+  font-size: 13px;
+  color: #4a5568;
   font-weight: 500;
-  font-size: 0.875rem;
 }
 
 .superadmin-filter-select {
-  min-width: 160px;
-  padding: 0.625rem 2.5rem 0.625rem 1rem;
+  padding: 8px 12px;
   border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #4a5568;
   background-color: white;
-  color: #334155;
-  font-size: 0.875rem;
-  cursor: pointer;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23475569' viewBox='0 0 16 16'%3E%3Cpath d='M8 10.5l4-4H4l4 4z'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 1rem center;
-  transition: all 0.2s ease;
-}
-
-.superadmin-filter-select:hover {
-  border-color: #cbd5e1;
-}
-
-.superadmin-filter-select:focus {
-  outline: none;
-  border-color: #16C47F;
-  box-shadow: 0 0 0 3px rgba(22, 196, 127, 0.1);
 }
 
 .superadmin-generate-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.625rem 1.25rem;
-  background-color: #16C47F;
+  background-color: #10b981;
   color: white;
+  padding: 8px 16px;
+  border-radius: 6px;
   border: none;
-  border-radius: 8px;
-  font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
 }
 
 .superadmin-generate-btn:hover {
-  background-color: #14b374;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-
-.superadmin-generate-btn:active {
-  transform: translateY(0);
-}
-
-.superadmin-generate-btn i {
-  font-size: 1rem;
+  background-color: #059669;
 }
 
 .superadmin-charts-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr 1.5fr;
-  gap: 15px;
-  padding: 15px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+  padding: 20px;
+}
+
+.superadmin-population-trend {
+  grid-column: 1 / -1;
 }
 
 .superadmin-chart-card {
   background: white;
   border-radius: 8px;
-  padding: 15px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-  height: 250px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  padding: 24px;
 }
 
-/* Make population trend chart span full width */
-.superadmin-population-trend {
-  grid-column: 1 / -1;
-  height: 350px;
+.superadmin-chart-card h2 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 16px;
 }
 
 .superadmin-data-table-container {
   background: white;
-  border-radius: 12px;
-  padding: 15px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-  height: 250px;
-  overflow: hidden;
-  width: fit-content;
-  min-width: 100%;
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  padding: 24px;
+  grid-column: 1 / -1;
+  margin-top: 12px;
 }
 
 .superadmin-data-table-container h2 {
-  margin-bottom: 15px;
-  color: #1a1a1a;
-  font-size: 0.8rem;
+  font-size: 16px;
   font-weight: 600;
-  padding-bottom: 10px;
-  border-bottom: 2px solid #f0f0f0;
+  color: #1a1a1a;
+  margin-bottom: 20px;
 }
 
 .table-responsive {
-  overflow-y: auto;
-  height: calc(100% - 50px);
+  overflow-x: auto;
   border-radius: 8px;
-  background: #fff;
+  margin-top: 12px;
 }
 
 .accepted-users-table {
@@ -303,74 +270,25 @@
   background: #a0aec0;
 }
 
-/* Responsive Design */
-@media screen and (max-width: 1200px) {
-  .superadmin-charts-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  
-  .superadmin-data-table-container {
-    grid-column: 1 / -1;
-  }
-}
-
-@media screen and (max-width: 768px) {
+/* Responsive adjustments */
+@media (max-width: 1024px) {
   .superadmin-charts-grid {
     grid-template-columns: 1fr;
   }
   
   .superadmin-chart-card,
   .superadmin-data-table-container {
-    grid-column: 1 / -1;
-  }
-
-  .superadmin-dashboard-header {
-    padding: 1rem;
-  }
-
-  .superadmin-controls-wrapper {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .superadmin-filters-container {
-    flex-direction: column;
-    width: 100%;
-  }
-
-  .superadmin-filter-item {
-    width: 100%;
-  }
-
-  .superadmin-filter-select {
-    width: 100%;
-    min-width: unset;
-  }
-
-  .superadmin-generate-btn {
-    width: 100%;
-    justify-content: center;
-  }
-
-  .superadmin-chart-card {
-    padding: 1rem;
+    padding: 20px;
   }
 }
 
-@media screen and (max-width: 480px) {
-  .superadmin-dashboard-header {
-    padding: 1rem;
+@media (max-width: 768px) {
+  .superadmin-dashboard {
+    padding: 16px;
   }
-
-  .superadmin-dashboard-title {
-    font-size: 1.5rem;
-  }
-
-  .superadmin-dashboard-subtitle {
-    font-size: 0.875rem;
-  }
-
-  .superadmin-chart-card {
-    padding: 0.75rem;
+  
+  .superadmin-charts-grid {
+    padding: 16px;
+    gap: 16px;
   }
 }

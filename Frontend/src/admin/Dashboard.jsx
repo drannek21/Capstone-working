@@ -263,7 +263,7 @@ const Dashboard = () => {
   };
 
   // Monthly Registrations Chart
-  const registrationsOption = {
+  const remarksOption = {
     title: {
       text: 'Monthly Remarks',
       left: 'center',
@@ -665,38 +665,42 @@ const Dashboard = () => {
   return (
     <div className="dashboard">
       <div className="dashboard-header">
-        <h2 className="dashboard-title">
-          {dashboardTitle}
-        </h2>
+        <div>
+          <h1 className="dashboard-title">{dashboardTitle}</h1>
+          <p className="dashboard-subtitle">View and analyze your barangay's population data</p>
+        </div>
+        
         <div className="dashboard-controls">
           <div className="date-filters">
             <div className="date-input-group">
+              <label htmlFor="start-date">Start Date</label>
               <input
+                id="start-date"
                 type="date"
+                className="date-input"
                 value={startDate}
-                onChange={handleStartDateChange}
-                className="date-input"
-                max={getMaxDateForInput()} // Use the end of current year
-              />
-              <input
-                type="date"
-                value={endDate}
-                onChange={handleEndDateChange}
-                className="date-input"
-                max={getMaxDateForInput()} // Use the end of current year
+                onChange={(e) => setStartDate(e.target.value)}
               />
             </div>
-            {dateError && <div className="date-error">{dateError}</div>}
+            <div className="date-input-group">
+              <label htmlFor="end-date">End Date</label>
+              <input
+                id="end-date"
+                type="date"
+                className="date-input"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+              />
+            </div>
           </div>
-          <button 
-            className="export-btn" 
-            onClick={generateExcelReport}
-            title="Generate Excel Report"
-          >
-            <i className="fas fa-file-excel"></i>
-            Export Report
+          
+          <button className="export-btn" onClick={generateExcelReport}>
+            <i className="fas fa-download"></i>
+            Export Data
           </button>
         </div>
+        
+        {dateError && <p className="date-error">{dateError}</p>}
       </div>
 
       {loading ? (
@@ -705,44 +709,41 @@ const Dashboard = () => {
           <p>Loading dashboard data...</p>
         </div>
       ) : (
-        <div className="dashboard-content">
-
-          <div className="charts-grid">
-            {/* First row: Population and Monthly Remarks */}
-            <div className="charts-row">
-              <div className="chart-card">
-                <ReactECharts 
-                  ref={(e) => { chartsRef.current[0] = e; }}
-                  option={populationOption}
-                  style={{ height: '300px' }}
-                />
-              </div>
-              <div className="chart-card">
-                <ReactECharts 
-                  ref={(e) => { chartsRef.current[1] = e; }}
-                  option={registrationsOption}
-                  style={{ height: '300px' }}
-                />
-              </div>
-            </div>
-
-            {/* Second row: Gender and Employment */}
-            <div className="charts-row">
-              <div className="chart-card">
-                <ReactECharts 
-                  ref={(e) => { chartsRef.current[2] = e; }}
-                  option={genderOption}
-                  style={{ height: '300px' }}
-                />
-              </div>
-              <div className="chart-card">
-                <ReactECharts 
-                  ref={(e) => { chartsRef.current[3] = e; }}
-                  option={employmentOption}
-                  style={{ height: '300px' }}
-                />
-              </div>
-            </div>
+        <div className="charts-grid">
+          <div className="chart-card population-trend">
+            <h2>Population Growth</h2>
+            <ReactECharts
+              ref={(e) => { chartsRef.current[0] = e; }}
+              option={populationOption}
+              style={{ height: '400px' }}
+            />
+          </div>
+          
+          <div className="chart-card">
+            <h2>Gender Distribution</h2>
+            <ReactECharts
+              ref={(e) => { chartsRef.current[1] = e; }}
+              option={genderOption}
+              style={{ height: '300px' }}
+            />
+          </div>
+          
+          <div className="chart-card">
+            <h2>Employment Status</h2>
+            <ReactECharts
+              ref={(e) => { chartsRef.current[2] = e; }}
+              option={employmentOption}
+              style={{ height: '300px' }}
+            />
+          </div>
+          
+          <div className="chart-card">
+            <h2>Monthly Remarks</h2>
+            <ReactECharts
+              ref={(e) => { chartsRef.current[3] = e; }}
+              option={remarksOption}
+              style={{ height: '300px' }}
+            />
           </div>
         </div>
       )}
@@ -751,4 +752,3 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
-

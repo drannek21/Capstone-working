@@ -1,144 +1,243 @@
-/* General Styling */
+/* Modern Announcements Section */
 .announcements {
+  padding: 40px 20px;
+  background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+  min-height: 600px;
+  position: relative;
+}
+
+.announcements-header {
   text-align: center;
-  padding: 50px 20px;
-  background: #f9f9f9;
-  font-family: 'Roboto', sans-serif;
+  margin-bottom: 40px;
 }
 
 .announcement-title {
-  font-size: 2rem;
-  color: #16C47F; /* ✅ Updated to theme color */
-  margin-bottom: 20px;
-  font-weight: bold;
-  text-transform: uppercase;
-  transition: color 0.3s ease;
+  font-size: 2.5rem;
+  color: #1a1a1a;
+  margin-bottom: 16px;
+  font-weight: 800;
+  background: linear-gradient(120deg, #16C47F 0%, #0E9B64 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: inline-block;
 }
 
-/* ✅ Hover effect for the title */
-.announcement-title:hover {
-  color: #0E9B64;
+.announcement-subtitle {
+  color: #64748b;
+  font-size: 1.1rem;
+  max-width: 600px;
+  margin: 0 auto;
 }
 
 .announcement-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  position: relative;
-  width: 100%;
-  max-width: 1200px; /* Limited width for large screens */
+  max-width: 1200px;
   margin: 0 auto;
-  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  position: relative;
 }
 
 .announcement-card {
-  width: 100%;
-  height: 500px;
   background: white;
-  border-radius: 12px;
-  box-shadow: 0px 10px 30px rgba(0, 0, 0, 0.1);
-  max-width: 900px;
-  text-align: center;
-  transition: opacity 0.5s ease, transform 0.5s ease;
-  text-decoration: none;
-  color: inherit;
+  border-radius: 20px;
   overflow: hidden;
-  cursor: pointer;
-  animation: fadeIn 1.5s ease-in-out;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  text-decoration: none;
+  width: 100%;
+  max-width: 1000px;
+  position: relative;
 }
 
-/* ✅ Hover effect for announcement card */
 .announcement-card:hover {
-  box-shadow: 0px 15px 40px rgba(0, 0, 0, 0.15);
+  transform: translateY(-5px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+}
+
+.card-image-container {
+  position: relative;
+  height: 300px;
+  overflow: hidden;
 }
 
 .announcement-image {
   width: 100%;
-  height: 60%;
+  height: 100%;
   object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.announcement-card:hover .announcement-image {
+  transform: scale(1.05);
 }
 
 .announcement-content {
-  padding: 20px;
+  padding: 30px;
+  position: relative;
+}
+
+.announcement-tag {
+  background: #16C47F20;
+  color: #16C47F;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  display: inline-block;
+  margin-bottom: 16px;
 }
 
 .announcement-content h3 {
-  color: #16C47F; /* ✅ Updated to theme color */
-  margin: 15px 0;
+  color: #1a1a1a;
   font-size: 1.5rem;
-  transition: color 0.3s ease;
-}
-
-/* ✅ Hover effect for headings */
-.announcement-content h3:hover {
-  color: #0E9B64;
+  font-weight: 700;
+  margin-bottom: 12px;
+  line-height: 1.4;
 }
 
 .announcement-content p {
-  color: #555;
+  color: #64748b;
   font-size: 1rem;
+  line-height: 1.6;
+  margin-bottom: 20px;
+}
+
+.read-more {
+  color: #16C47F;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: gap 0.3s ease;
+}
+
+.announcement-card:hover .read-more {
+  gap: 12px;
+}
+
+.arrow {
+  transition: transform 0.3s ease;
+}
+
+.announcement-card:hover .arrow {
+  transform: translateX(4px);
+}
+
+/* Navigation Buttons */
+.nav-button {
+  background: white;
+  border: none;
+  width: 50px;
+  height: 50px;
+  border-radius: 25px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: #1a1a1a;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+}
+
+.nav-button:hover {
+  background: #16C47F;
+  color: white;
+  box-shadow: 0 6px 16px rgba(22, 196, 127, 0.2);
+}
+
+.prev {
+  left: -25px;
+}
+
+.next {
+  right: -25px;
 }
 
 /* Pagination */
 .pagination {
-  margin-top: 15px;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 30px;
 }
 
 .dot {
-  height: 12px;
-  width: 12px;
-  margin: 0 5px;
-  background-color: #bbb;
-  border-radius: 50%;
-  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border: none;
+  padding: 0;
+  border-radius: 5px;
+  background: #e2e8f0;
   cursor: pointer;
-  transition: background 0.3s, transform 0.3s;
+  transition: all 0.3s ease;
 }
 
-/* ✅ Updated active dot color */
 .dot.active {
-  background-color: #16C47F;
-  transform: scale(1.3);
+  width: 24px;
+  background: #16C47F;
 }
 
-/* ✅ Hover effect for dots */
-.dot:hover {
-  background-color: #0E9B64;
+/* Animation */
+.announcement-card.animating {
+  animation: cardTransition 0.5s ease;
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
+@keyframes cardTransition {
+  0% {
+    opacity: 0.7;
+    transform: scale(0.98);
   }
-  to {
+  100% {
     opacity: 1;
     transform: scale(1);
   }
 }
 
-/* Mobile Responsiveness */
+/* Responsive Design */
 @media (max-width: 768px) {
-  .announcement-card {
-    width: 100%;
-    height: auto;
-    padding: 10px;
+  .announcements {
+    padding: 40px 16px;
   }
 
   .announcement-title {
-    font-size: 1.5rem;
+    font-size: 2rem;
+  }
+
+  .announcement-subtitle {
+    font-size: 1rem;
+  }
+
+  .card-image-container {
+    height: 200px;
+  }
+
+  .announcement-content {
+    padding: 20px;
   }
 
   .announcement-content h3 {
-    font-size: 1.3rem;
+    font-size: 1.25rem;
   }
 
-  .announcement-content p {
-    font-size: 0.9rem;
+  .nav-button {
+    width: 40px;
+    height: 40px;
+    font-size: 20px;
   }
 
-  .dot {
-    height: 8px;
-    width: 8px;
+  .prev {
+    left: -10px;
+  }
+
+  .next {
+    right: -10px;
   }
 }

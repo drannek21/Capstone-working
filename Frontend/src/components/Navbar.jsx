@@ -1,91 +1,83 @@
-import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom"; // Add useNavigate import
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import styles from "./Navbar.module.css";
+import { FaHome, FaInfoCircle, FaPhone, FaUserCircle } from 'react-icons/fa';
 
 const Navbar = () => {
   const [menuOpen, setMenuOpen] = useState(false);
-  const navigate = useNavigate(); // Initialize navigation
+  const [scrolled, setScrolled] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  const scrollToAbout = (e) => {
+  useEffect(() => {
+    const handleScroll = () => {
+      const isScrolled = window.scrollY > 20;
+      setScrolled(isScrolled);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const scrollToSection = (sectionId, e) => {
     e.preventDefault();
-    const aboutSection = document.getElementById("about");
-    if (aboutSection) {
-      aboutSection.scrollIntoView({ behavior: "smooth" });
+    const section = document.getElementById(sectionId);
+    if (section) {
+      section.scrollIntoView({ behavior: "smooth" });
     }
     setMenuOpen(false);
   };
 
-  const scrollToContacts = (e) => {
-    e.preventDefault();
-    const contactsSection = document.getElementById("contacts");
-    if (contactsSection) {
-      contactsSection.scrollIntoView({ behavior: "smooth" });
-    }
-    setMenuOpen(false);
-  };
-
-  const scrollToTop = (e) => {
-    e.preventDefault();
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    setMenuOpen(false);
-  };
+  const navItems = [
+    { path: '/', label: 'Home', icon: <FaHome />, action: () => window.scrollTo({ top: 0, behavior: 'smooth' }) },
+    { path: '/about', label: 'About', icon: <FaInfoCircle />, action: (e) => scrollToSection('about', e) },
+    { path: '/contacts', label: 'Contacts', icon: <FaPhone />, action: (e) => scrollToSection('contacts', e) },
+  ];
 
   return (
-    <nav className={styles.navbar}>
+    <nav className={`${styles.navbar} ${scrolled ? styles.scrolled : ''}`}>
       <div className={styles["navbar-container"]}>
-        {/* ✅ Logo */}
         <Link to="/" className={styles["navbar-logo"]}>
-          Solo Parent Welfare
+          <span className={styles["logo-text"]}>Solo Parent Welfare</span>
         </Link>
 
-        {/* ✅ Hamburger Button */}
         <button
           className={`${styles.hamburger} ${menuOpen ? styles.open : ""}`}
           onClick={() => setMenuOpen(!menuOpen)}
           aria-label="Toggle menu"
+          aria-expanded={menuOpen}
         >
-          <div className={styles.bar}></div>
-          <div className={styles.bar}></div>
-          <div className={styles.bar}></div>
+          <span className={styles.bar}></span>
+          <span className={styles.bar}></span>
+          <span className={styles.bar}></span>
         </button>
 
-        {/* ✅ Navigation Menu */}
-        <ul
-          className={`${styles["nav-links"]} ${menuOpen ? styles.open : ""}`}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <li>
-            <Link to="/" className={styles["nav-link"]} onClick={scrollToTop}>
-              Home
-            </Link>
-          </li>
-          <li>
-            <Link
-              to="/about"
-              className={styles["nav-link"]}
-              onClick={scrollToAbout}
-            >
-              About
-            </Link>
-          </li>
-          <li>
-            <Link
-              to="/Contacts"
-              className={styles["nav-link"]}
-              onClick={scrollToContacts}
-            >
-              Contacts
-            </Link>
-          </li>
-          <li>
-            <button
-              className={styles["login-nav"]}
-              onClick={() => navigate("/login")}
-            >
-              Login
-            </button>
-          </li>
-        </ul>
+        <div className={`${styles["nav-menu"]} ${menuOpen ? styles.open : ""}`}>
+          <ul className={styles["nav-links"]}>
+            {navItems.map((item) => (
+              <li key={item.path}>
+                <Link
+                  to={item.path}
+                  className={`${styles["nav-link"]} ${
+                    location.pathname === item.path ? styles.active : ""
+                  }`}
+                  onClick={item.action}
+                >
+                  <span className={styles["nav-icon"]}>{item.icon}</span>
+                  <span className={styles["nav-label"]}>{item.label}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+          
+          <button
+            className={styles["login-button"]}
+            onClick={() => navigate("/login")}
+          >
+            <FaUserCircle className={styles["login-icon"]} />
+            <span>Login</span>
+          </button>
+        </div>
       </div>
     </nav>
   );

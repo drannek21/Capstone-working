@@ -701,6 +701,10 @@ const ProfilePage = () => {
             src={addCacheBuster(getImageUrl(profilePicUrl))} 
             alt="Profile" 
             className="profile-image"
+            style={{
+              border: '4px solid #16C47F',
+              boxShadow: '0 0 15px rgba(22, 196, 127, 0.2)'
+            }}
             onError={(e) => {
               console.log("Image load error, using default avatar");
               e.target.onerror = null;
@@ -710,8 +714,25 @@ const ProfilePage = () => {
             }}
           />
           <div className="profile-image-overlay" onClick={() => setShowUploadModal(true)}>
-            <FaCamera className="camera-icon" />
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              height: '100%',
+              color: 'white'
+            }}>
+              <FaCamera size={24} style={{ marginBottom: '8px' }} />
+              <span>Change Photo</span>
+            </div>
           </div>
+          <input
+            type="file"
+            id="profilePicInput"
+            accept="image/*"
+            onChange={(e) => handleFileChange(e)}
+            style={{ display: "none" }}
+          />
         </div>
         <div className="profile-info">
           <h1>{user.name || "User"}</h1>

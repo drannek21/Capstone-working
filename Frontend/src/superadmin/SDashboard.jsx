@@ -782,55 +782,55 @@ const SDashboard = () => {
 
       <div className="superadmin-charts-grid">
         <div className="superadmin-chart-card superadmin-population-trend">
+          <h2>Monthly Population Trend</h2>
           <ReactECharts 
             ref={(e) => { chartsRef.current[0] = e; }}
             option={populationOption}
-            style={{ height: '400px' }}
+            style={{ height: '350px', width: '100%' }}
           />
         </div>
 
-        <div className="superadmin-chart-card superadmin-age-distribution">
+        <div className="superadmin-chart-card">
+          <h2>Age Distribution</h2>
           <ReactECharts 
             ref={(e) => { chartsRef.current[1] = e; }}
             option={ageDistributionOption}
-            style={{ height: '300px' }}
+            style={{ height: '300px', width: '100%' }}
           />
         </div>
 
-      
-        <div className="superadmin-chart-card superadmin-user-status">
+        <div className="superadmin-chart-card">
+          <h2>Employment Status</h2>
           <ReactECharts 
             ref={(e) => { chartsRef.current[2] = e; }}
             option={employmentOption}
-            style={{ height: '300px' }}
+            style={{ height: '300px', width: '100%' }}
           />
         </div>
 
         <div className="superadmin-data-table-container">
           <h2>Accepted Users</h2>
           {error && (
-            <div className="error-message">
-              {error}
-            </div>
+            <div className="error-message">{error}</div>
           )}
           <div className="table-responsive">
             {isLoading ? (
-              <div className="loading-message">
-                Loading accepted users...
-              </div>
+              <div className="loading-message">Loading accepted users...</div>
             ) : (
               <table className="accepted-users-table">
                 <thead>
                   <tr>
-                    <th></th>
+                    <th>#</th>
                     <th>Name</th>
+                    <th>Accepted At</th>
                   </tr>
                 </thead>
                 <tbody>
                   {acceptedUsers.map((user, index) => (
                     <tr key={`${user.name}-${user.accepted_at}-${index}`}>
                       <td>{index + 1}</td>
-                      <td><strong>{user.name}</strong> accepted <strong>{new Date(user.accepted_at).toLocaleString()}</strong></td>
+                      <td><strong>{user.name}</strong></td>
+                      <td>{new Date(user.accepted_at).toLocaleString()}</td>
                     </tr>
                   ))}
                 </tbody>
