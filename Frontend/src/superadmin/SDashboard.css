@@ -275,6 +275,15 @@
   font-size: 0.8rem;
 }
 
+.superadmin-date-error {
+  color: #e74c3c;
+  font-size: 12px;
+  margin-top: 4px;
+  margin-bottom: 8px;
+  text-align: left;
+  width: 100%;
+}
+
 /* Custom scrollbar for table */
 .table-responsive::-webkit-scrollbar {
   width: 8px;

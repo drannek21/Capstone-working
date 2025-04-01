@@ -1,10 +1,110 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import "./IdentifyingInformation.css";
 import barangays from '../../data/santaMariaBarangays.json';
+import philippineData from '../../data/philippines.json';
 
 export default function IdentifyingInformation({ nextStep, updateFormData, formData }) {
   const [errors, setErrors] = useState({});
   const [successMessage, setSuccessMessage] = useState("");
+  const [selectedProvince, setSelectedProvince] = useState("");
+  const [selectedMunicipality, setSelectedMunicipality] = useState("");
+  const [selectedBarangayOfBirth, setSelectedBarangayOfBirth] = useState("");
+  const [municipalities, setMunicipalities] = useState([]);
+  const [barangaysOfBirth, setBarangaysOfBirth] = useState([]);
+  const prevPlaceOfBirthRef = useRef('');
+  const updateFormDataRef = useRef(updateFormData);
+
+  // Keep the reference to updateFormData function up to date
+  useEffect(() => {
+    updateFormDataRef.current = updateFormData;
+  }, [updateFormData]);
+
+  // Get provinces from the data structure only once
+  const provinces = React.useMemo(() => {
+    return Object.values(philippineData)
+      .flatMap(region => 
+        Object.keys(region.province_list)
+      )
+      .sort((a, b) => a.localeCompare(b));
+  }, []);
+
+  useEffect(() => {
+    // When province changes, update the municipalities list
+    if (selectedProvince) {
+      // Find the region that contains this province
+      const region = Object.values(philippineData).find(region => 
+        Object.keys(region.province_list).includes(selectedProvince)
+      );
+      
+      if (region) {
+        // Get municipalities for this province
+        const municipalitiesList = Object.keys(region.province_list[selectedProvince].municipality_list);
+        setMunicipalities(municipalitiesList.sort((a, b) => a.localeCompare(b)));
+      } else {
+        setMunicipalities([]);
+      }
+    } else {
+      setMunicipalities([]);
+    }
+    
+    // Reset selected municipality when province changes
+    setSelectedMunicipality("");
+    setSelectedBarangayOfBirth("");
+  }, [selectedProvince]);
+
+  useEffect(() => {
+    // Update barangays list when municipality changes
+    if (selectedProvince && selectedMunicipality) {
+      try {
+        // Find the region that contains this province
+        const region = Object.values(philippineData).find(region => 
+          Object.keys(region.province_list).includes(selectedProvince)
+        );
+        
+        if (region && 
+            region.province_list[selectedProvince] && 
+            region.province_list[selectedProvince].municipality_list && 
+            region.province_list[selectedProvince].municipality_list[selectedMunicipality] &&
+            region.province_list[selectedProvince].municipality_list[selectedMunicipality].barangay_list) {
+          // Get barangays for this municipality
+          const barangaysList = region.province_list[selectedProvince].municipality_list[selectedMunicipality].barangay_list;
+          setBarangaysOfBirth(barangaysList.sort((a, b) => 
+            typeof a === 'string' && typeof b === 'string' ? a.localeCompare(b) : 0
+          ));
+        } else {
+          setBarangaysOfBirth([]);
+        }
+      } catch (error) {
+        console.error("Error loading barangays:", error);
+        setBarangaysOfBirth([]);
+      }
+    } else {
+      setBarangaysOfBirth([]);
+    }
+
+    // Reset selected barangay when municipality changes
+    setSelectedBarangayOfBirth("");
+  }, [selectedProvince, selectedMunicipality]);
+
+  useEffect(() => {
+    // Update place_of_birth when province, municipality, or barangay of birth changes
+    let newPlaceOfBirth = "";
+    
+    if (selectedProvince && selectedMunicipality && selectedBarangayOfBirth) {
+      newPlaceOfBirth = `${selectedBarangayOfBirth}, ${selectedMunicipality}, ${selectedProvince}`;
+    } else if (selectedProvince && selectedMunicipality) {
+      newPlaceOfBirth = `${selectedMunicipality}, ${selectedProvince}`;
+    } else if (selectedProvince) {
+      newPlaceOfBirth = selectedProvince;
+    }
+
+    // Only update if the place of birth value has actually changed
+    if (newPlaceOfBirth !== prevPlaceOfBirthRef.current) {
+      prevPlaceOfBirthRef.current = newPlaceOfBirth;
+      // Use the ref to avoid the dependency on updateFormData
+      updateFormDataRef.current({ place_of_birth: newPlaceOfBirth });
+    }
+  }, [selectedProvince, selectedMunicipality, selectedBarangayOfBirth]);
 
   const calculateAge = (dateOfBirth) => {
     const today = new Date();
@@ -15,6 +115,31 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
       age--;
     }
     return age;
+  };
+
+  // Add text validation to prevent numeric input
+  const handleTextInput = (e) => {
+    const { name, value } = e.target;
+    
+    // Filter out numeric characters and special characters for name fields, occupation, and religion
+    if (
+      name === 'first_name' || 
+      name === 'middle_name' || 
+      name === 'last_name' || 
+      name === 'occupation' || 
+      name === 'religion'
+    ) {
+      // Allow only letters, spaces, periods, hyphens, and apostrophes
+      const filteredValue = value.replace(/[^A-Za-zÀ-ÖØ-öø-ÿ\s.\-']/g, '');
+      
+      if (filteredValue !== value) {
+        // Update the input field with the filtered value
+        e.target.value = filteredValue;
+        
+        // Update form data with filtered value
+        updateFormData({ [name]: filteredValue });
+      }
+    }
   };
 
   const handleChange = (e) => {
@@ -34,6 +159,12 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
     } else if (name === 'income') {
       // Ensure income is saved as the selected text value
       updateFormData({ [name]: value || '' });
+    } else if (name === 'province') {
+      setSelectedProvince(value);
+    } else if (name === 'municipality') {
+      setSelectedMunicipality(value);
+    } else if (name === 'barangay_of_birth') {
+      setSelectedBarangayOfBirth(value);
     } else {
       updateFormData({ [name]: value });
     }
@@ -45,18 +176,26 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
 
     if (!formData.first_name) {
       newErrors.first_name = "First Name is required.";
+    } else if (!/^[A-Za-zÀ-ÖØ-öø-ÿ\s.\-']+$/.test(formData.first_name)) {
+      newErrors.first_name = "First Name must contain only letters, spaces, and basic punctuation.";
     }
 
     if (!formData.middle_name) {
       newErrors.middle_name = "Middle Name is required.";
+    } else if (!/^[A-Za-zÀ-ÖØ-öø-ÿ\s.\-']+$/.test(formData.middle_name)) {
+      newErrors.middle_name = "Middle Name must contain only letters, spaces, and basic punctuation.";
     }
 
     if (!formData.last_name) {
       newErrors.last_name = "Last Name is required.";
+    } else if (!/^[A-Za-zÀ-ÖØ-öø-ÿ\s.\-']+$/.test(formData.last_name)) {
+      newErrors.last_name = "Last Name must contain only letters, spaces, and basic punctuation.";
     }
 
     if (!formData.age || formData.age <= 0 || formData.age > 999) {
       newErrors.age = "Age must be a positive number between 1 and 999.";
+    } else if (formData.age <= 11) {
+      newErrors.age = "You must be older than 11 years old to register.";
     }
 
     if (!formData.gender) {
@@ -85,10 +224,14 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
 
     if (!formData.occupation) {
       newErrors.occupation = "Occupation is required.";
+    } else if (!/^[A-Za-zÀ-ÖØ-öø-ÿ\s.\-']+$/.test(formData.occupation)) {
+      newErrors.occupation = "Occupation must contain only letters, spaces, and basic punctuation.";
     }
 
     if (!formData.religion) {
       newErrors.religion = "Religion is required.";
+    } else if (!/^[A-Za-zÀ-ÖØ-öø-ÿ\s.\-']+$/.test(formData.religion)) {
+      newErrors.religion = "Religion must contain only letters, spaces, and basic punctuation.";
     }
 
     if (!formData.company) {
@@ -168,6 +311,7 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
             name="first_name"
             value={formData.first_name || ''}
             onChange={handleChange}
+            onInput={handleTextInput}
             className="identifying-input"
             placeholder="Enter your first name"
             maxLength={20}
@@ -181,6 +325,7 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
             name="middle_name"
             value={formData.middle_name || ''}
             onChange={handleChange}
+            onInput={handleTextInput}
             className="identifying-input"
             placeholder="Enter your middle name"
             maxLength={20}
@@ -194,6 +339,7 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
             name="last_name"
             value={formData.last_name || ''}
             onChange={handleChange}
+            onInput={handleTextInput}
             className="identifying-input"
             placeholder="Enter your last name"
             maxLength={20}
@@ -213,6 +359,16 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
             onChange={handleChange}
             className="identifying-input"
             placeholder="Select your birth date"
+            max={(() => {
+              const today = new Date();
+              const minAge = 12; // Minimum age required is 12 (older than 11)
+              const maxDate = new Date(
+                today.getFullYear() - minAge,
+                today.getMonth(),
+                today.getDate()
+              );
+              return maxDate.toISOString().split('T')[0];
+            })()}
           />
           {errors.date_of_birth && <span className="error">{errors.date_of_birth}</span>}
         </div>
@@ -247,20 +403,71 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
           </select>
           {errors.gender && <span className="error">{errors.gender}</span>}
         </div>
+      </div>
+
+      {/* Place of Birth - Province and Municipality */}
+      <div className="identifying-row">
         <div className="form-group">
-          <label className="identifying-label">Place of Birth</label>
-          <input
-            type="text"
-            name="place_of_birth"
-            value={formData.place_of_birth || ''}
+          <label className="identifying-label">Province of Birth</label>
+          <select
+            name="province"
+            value={selectedProvince}
             onChange={handleChange}
             className="identifying-input"
-            placeholder="Enter your place of birth"
-            maxLength={50}
-          />
-          {errors.place_of_birth && <span className="error">{errors.place_of_birth}</span>}
+          >
+            <option value="" disabled>Select Province</option>
+            {provinces.map((province) => (
+              <option key={province} value={province}>
+                {province}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="form-group">
+          <label className="identifying-label">Municipality/City of Birth</label>
+          <select
+            name="municipality"
+            value={selectedMunicipality}
+            onChange={handleChange}
+            className="identifying-input"
+            disabled={!selectedProvince}
+          >
+            <option value="" disabled>Select Municipality/City</option>
+            {municipalities.map((municipality) => (
+              <option key={municipality} value={municipality}>
+                {municipality}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
+
+      {/* Barangay of Birth */}
+      <div className="form-group">
+        <label className="identifying-label">Barangay of Birth</label>
+        <select
+          name="barangay_of_birth"
+          value={selectedBarangayOfBirth}
+          onChange={handleChange}
+          className="identifying-input"
+          disabled={!selectedMunicipality}
+        >
+          <option value="" disabled>Select Barangay</option>
+          {barangaysOfBirth.map((barangay) => (
+            <option key={barangay} value={barangay}>
+              {barangay}
+            </option>
+          ))}
+        </select>
+      </div>
+      
+      {/* Display the combined place of birth (hidden) */}
+      <input 
+        type="hidden" 
+        name="place_of_birth" 
+        value={formData.place_of_birth || ''} 
+      />
+      {errors.place_of_birth && <span className="error">{errors.place_of_birth}</span>}
 
       {/* Address */}
       <div className="identifying-row">
@@ -330,6 +537,7 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
             name="occupation"
             value={formData.occupation || ''}
             onChange={handleChange}
+            onInput={handleTextInput}
             className="identifying-input"
             placeholder="Enter your occupation"
             maxLength={20}
@@ -347,6 +555,7 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
             name="religion"
             value={formData.religion || ''}
             onChange={handleChange}
+            onInput={handleTextInput}
             className="identifying-input"
             placeholder="Enter your religion"
             maxLength={20}

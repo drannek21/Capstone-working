@@ -20,7 +20,7 @@ const AdminSideBar = () => {
     const handleLogout = () => {
         localStorage.removeItem("userToken");
         localStorage.removeItem("id");
-        localStorage.removeItem("adminBarangay");
+        localStorage.removeItem("barangay");
         navigate("/", { replace: true });
         setTimeout(() => {
             window.history.pushState(null, "", window.location.href);
@@ -50,7 +50,7 @@ const AdminSideBar = () => {
                     <div className="admin-sidebar-logo-container">
                         <img src={logo} alt="Logo" className="admin-sidebar-logo" />
                         <h2 className="admin-sidebar-title">
-                            Admin Panel - {localStorage.getItem("barangay") || "No barangay assigned"}
+                            Admin Panel - {localStorage.getItem("barangay") || "Loading..."}
                         </h2>
                     </div>
                 </div>

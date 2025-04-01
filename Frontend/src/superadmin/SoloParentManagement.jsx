@@ -51,7 +51,7 @@ const SoloParentManagement = () => {
     { value: 'pending_remarks', label: 'Pending Remarks' },
     { value: 'terminated', label: 'Terminated Users' },
     { value: 'renewal', label: 'Renewal' },
-    { value: 'beneficiaries', label: 'Beneficiaries' }
+    { value: 'beneficiaries', label: 'Verified Beneficiaries' }
   ];
 
   useEffect(() => {
@@ -207,6 +207,12 @@ const SoloParentManagement = () => {
           matchesStatus = user.status === 'Renewal';
           break;
         case 'beneficiaries':
+          // Only show verified users as beneficiaries
+          if (user.status !== 'Verified') {
+            matchesStatus = false;
+            break;
+          }
+          
           // Convert income string to number for comparison
           const income = user.income;
           let incomeValue = 0;
@@ -227,7 +233,8 @@ const SoloParentManagement = () => {
             }
           }
           
-          matchesStatus = user.status === 'Verified' && incomeValue < 250000;
+          // Only show benefits badge if income is strictly less than 250000
+          matchesStatus = incomeValue < 250001;
           break;
         default:
           matchesStatus = true;

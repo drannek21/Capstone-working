@@ -9,6 +9,7 @@ const SDashboard = () => {
   const [selectedBrgy, setSelectedBrgy] = useState("All");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [dateError, setDateError] = useState("");
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const [acceptedUsers, setAcceptedUsers] = useState([]);
   const [monthlyPopulation, setMonthlyPopulation] = useState([]);
@@ -25,6 +26,54 @@ const SDashboard = () => {
     accepted: 0
   });
   
+  // Add date validation function
+  const validateDates = (start, end) => {
+    // Clear previous error
+    setDateError("");
+
+    // Get current year
+    const currentYear = new Date().getFullYear();
+
+    if (start && end) {
+      const startDate = new Date(start);
+      const endDate = new Date(end);
+      
+      // Check if either date's year is in the future
+      if (startDate.getFullYear() > currentYear || endDate.getFullYear() > currentYear) {
+        setDateError("Cannot select future years");
+        return false;
+      }
+
+      // Check if end date is before start date
+      if (endDate < startDate) {
+        setDateError("End date cannot be earlier than start date");
+        return false;
+      }
+    }
+    return true;
+  };
+
+  // Update the date change handlers
+  const handleStartDateChange = (e) => {
+    const newStartDate = e.target.value;
+    if (validateDates(newStartDate, endDate)) {
+      setStartDate(newStartDate);
+    }
+  };
+
+  const handleEndDateChange = (e) => {
+    const newEndDate = e.target.value;
+    if (validateDates(startDate, newEndDate)) {
+      setEndDate(newEndDate);
+    }
+  };
+
+  // Function to get max date allowed (last day of current year)
+  const getMaxDateForInput = () => {
+    const currentYear = new Date().getFullYear();
+    return `${currentYear}-12-31`;
+  };
+
   const barangays = [
     "All",
     "Adia",
@@ -543,7 +592,11 @@ const SDashboard = () => {
   // Update generateExcelReport to include beneficiary data
   const generateExcelReport = async () => {
     if (!startDate || !endDate) {
-      alert('Please select both start and end dates for the report');
+      setDateError('Please select both start and end dates for the report');
+      return;
+    }
+
+    if (!validateDates(startDate, endDate)) {
       return;
     }
 
@@ -698,8 +751,9 @@ const SDashboard = () => {
                 type="date"
                 id="start-date"
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                onChange={handleStartDateChange}
                 className="superadmin-filter-select"
+                max={getMaxDateForInput()}
               />
             </div>
             <div className="superadmin-filter-item">
@@ -708,10 +762,12 @@ const SDashboard = () => {
                 type="date"
                 id="end-date"
                 value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
+                onChange={handleEndDateChange}
                 className="superadmin-filter-select"
+                max={getMaxDateForInput()}
               />
             </div>
+            {dateError && <div className="superadmin-date-error">{dateError}</div>}
             <button 
               className="superadmin-generate-btn" 
               onClick={generateExcelReport}

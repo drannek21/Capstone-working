@@ -8,16 +8,22 @@ export default function FamilyOccupation({ prevStep, nextStep, formData, updateF
     defaultValues: formData
   });
 
-  const numberOfChildren = watch("Number of children") || 0;
+  const rawNumberOfChildren = watch("Number of children") || 0;
+  // Ensure numberOfChildren is always a safe integer between 0 and 100
+  const numberOfChildren = Number.isInteger(parseInt(rawNumberOfChildren)) && 
+    parseInt(rawNumberOfChildren) >= 0 && parseInt(rawNumberOfChildren) <= 100 
+    ? parseInt(rawNumberOfChildren) 
+    : 0;
 
   // Clear children data when number of children changes
   useEffect(() => {
     // Clear existing children data when number changes
     const currentChildren = formData.children || [];
+    
     if (currentChildren.length !== numberOfChildren) {
       updateFormData({ 
         ...formData,
-        children: Array(parseInt(numberOfChildren)).fill({
+        children: Array(numberOfChildren).fill({
           first_name: "",
           middle_name: "",
           last_name: "",
@@ -42,9 +48,32 @@ export default function FamilyOccupation({ prevStep, nextStep, formData, updateF
     return age;
   };
 
-  const birthdates = Array.from({ length: numberOfChildren }).map((_, index) =>
-    watch(`children[${index}].birthdate`)
-  );
+  // Handle text input to filter out numbers and special characters
+  const handleTextInput = (e) => {
+    const { name, value } = e.target;
+    
+    // Allow only letters, spaces, periods, hyphens, and apostrophes
+    const filteredValue = value.replace(/[^A-Za-zÀ-ÖØ-öø-ÿ\s.\-']/g, '');
+    
+    if (filteredValue !== value) {
+      // Update the input field with the filtered value
+      e.target.value = filteredValue;
+      
+      // Update the form value
+      const fieldNameParts = name.match(/children\[(\d+)\]\.(\w+)/);
+      if (fieldNameParts && fieldNameParts.length === 3) {
+        const index = fieldNameParts[1];
+        const field = fieldNameParts[2];
+        setValue(`children[${index}].${field}`, filteredValue);
+      }
+    }
+  };
+
+  const birthdates = numberOfChildren > 0 
+    ? Array.from({ length: numberOfChildren }).map((_, index) =>
+        watch(`children[${index}].birthdate`)
+      )
+    : [];
 
   useEffect(() => {
     birthdates.forEach((birthdate, index) => {
@@ -59,14 +88,16 @@ export default function FamilyOccupation({ prevStep, nextStep, formData, updateF
     const isValid = await trigger();
     if (!isValid) return;
   
-    const childrenData = Array.from({ length: numberOfChildren }).map((_, index) => ({
-      first_name: data.children?.[index]?.["first_name"] || "",
-      middle_name: data.children?.[index]?.["middle_name"] || "",
-      last_name: data.children?.[index]?.["last_name"] || "",
-      birthdate: data.children?.[index]?.["birthdate"] || "",
-      age: data.children?.[index]?.["age"] || "",
-      educational_attainment: data.children?.[index]?.["educational_attainment"] || ""
-    }));
+    const childrenData = numberOfChildren > 0
+      ? Array.from({ length: numberOfChildren }).map((_, index) => ({
+          first_name: data.children?.[index]?.["first_name"] || "",
+          middle_name: data.children?.[index]?.["middle_name"] || "",
+          last_name: data.children?.[index]?.["last_name"] || "",
+          birthdate: data.children?.[index]?.["birthdate"] || "",
+          age: data.children?.[index]?.["age"] || "",
+          educational_attainment: data.children?.[index]?.["educational_attainment"] || ""
+        }))
+      : [];
   
     updateFormData({ 
       ...formData,
@@ -74,6 +105,15 @@ export default function FamilyOccupation({ prevStep, nextStep, formData, updateF
       children: childrenData 
     });
     nextStep();
+  };
+  
+  // Validation function for name fields
+  const validateName = (value) => {
+    if (!value) return "This field is required";
+    if (!/^[A-Za-zÀ-ÖØ-öø-ÿ\s.\-']+$/.test(value)) {
+      return "Name must contain only letters, spaces, and basic punctuation";
+    }
+    return true;
   };
   
   return (
@@ -89,9 +129,13 @@ export default function FamilyOccupation({ prevStep, nextStep, formData, updateF
           className={`form-input step-input ${errors["Number of children"] ? 'error' : ''}`}
           type="number"
           placeholder="Enter number of children"
+          min="0"
+          max="100"
           {...register("Number of children", {
             required: "This field is required",
-            min: { value: 0, message: "Number of children cannot be negative" }
+            min: { value: 0, message: "Number of children cannot be negative" },
+            max: { value: 100, message: "Number of children cannot exceed 100" },
+            valueAsNumber: true
           })}
           onBlur={() => trigger("Number of children")}
         />
@@ -112,7 +156,13 @@ export default function FamilyOccupation({ prevStep, nextStep, formData, updateF
                   className="form-input step-input"
                   type="text"
                   placeholder="First name"
-                  {...register(`children[${index}].first_name`, { required: "First name is required" })}
+                  maxLength={20}
+                  onInput={handleTextInput}
+                  {...register(`children[${index}].first_name`, { 
+                    required: "First name is required",
+                    validate: validateName,
+                    maxLength: { value: 20, message: "First name cannot exceed 20 characters" }
+                  })}
                 />
                 {errors.children?.[index]?.["first_name"] &&
                   <span className="error-message step-error">{errors.children[index]["first_name"].message}</span>
@@ -123,7 +173,13 @@ export default function FamilyOccupation({ prevStep, nextStep, formData, updateF
                   className="form-input step-input"
                   type="text"
                   placeholder="Middle name"
-                  {...register(`children[${index}].middle_name`, { required: "Middle name is required" })}
+                  maxLength={20}
+                  onInput={handleTextInput}
+                  {...register(`children[${index}].middle_name`, { 
+                    required: "Middle name is required",
+                    validate: validateName,
+                    maxLength: { value: 20, message: "Middle name cannot exceed 20 characters" }
+                  })}
                 />
                 {errors.children?.[index]?.["middle_name"] &&
                   <span className="error-message step-error">{errors.children[index]["middle_name"].message}</span>
@@ -134,7 +190,13 @@ export default function FamilyOccupation({ prevStep, nextStep, formData, updateF
                   className="form-input step-input"
                   type="text"
                   placeholder="Last name"
-                  {...register(`children[${index}].last_name`, { required: "Last name is required" })}
+                  maxLength={20}
+                  onInput={handleTextInput}
+                  {...register(`children[${index}].last_name`, { 
+                    required: "Last name is required",
+                    validate: validateName,
+                    maxLength: { value: 20, message: "Last name cannot exceed 20 characters" }
+                  })}
                 />
                 {errors.children?.[index]?.["last_name"] &&
                   <span className="error-message step-error">{errors.children[index]["last_name"].message}</span>
@@ -189,8 +251,10 @@ export default function FamilyOccupation({ prevStep, nextStep, formData, updateF
               className="form-input step-input"
               type="text"
               placeholder="Educational Attainment (N/A if none)"
+              maxLength={40}
               {...register(`children[${index}].educational_attainment`, {
-                required: "Educational Attainment is required"
+                required: "Educational Attainment is required",
+                maxLength: { value: 40, message: "Educational Attainment cannot exceed 40 characters" }
               })}
             />
             {errors.children?.[index]?.["educational_attainment"] &&

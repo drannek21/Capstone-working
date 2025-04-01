@@ -782,6 +782,9 @@ const ProfilePage = () => {
                   <span className="value">
                     {user.income}
                     {(() => {
+                      // Only show beneficiary badge if user is verified
+                      if (user.status !== 'Verified') return null;
+                      
                       let incomeValue = 0;
                       // If income is a direct number from database, use it directly
                       if (!isNaN(user.income)) {

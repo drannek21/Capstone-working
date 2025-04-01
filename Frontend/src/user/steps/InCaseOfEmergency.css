@@ -67,6 +67,32 @@
   background-color: var(--error-light);
 }
 
+/* Address fields styling */
+.ice-address-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.ice-form-subgroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.ice-form-sublabel {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-dark);
+}
+
+.ice-error-message {
+  color: var(--error-color);
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+}
+
 .ice-form-buttons {
   display: flex;
   gap: 1rem;
@@ -255,5 +281,23 @@
     width: 100%;
     min-width: 0;
     padding: 0.875rem 1.5rem;
+  }
+  
+  /* Responsive address fields */
+  .ice-address-fields {
+    gap: 0.75rem;
+  }
+}
+
+/* For larger screens, show address fields side by side */
+@media (min-width: 768px) {
+  .ice-address-fields {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  
+  .ice-form-subgroup {
+    flex: 1;
+    min-width: 30%;
   }
 }

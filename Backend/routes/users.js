@@ -294,6 +294,7 @@ router.get('/beneficiaries-users', async (req, res) => {
       users: results
     };
     
+    console.log('Processed results:', processedResults);
     res.json(processedResults);
   } catch (error) {
     console.error('Error fetching beneficiaries users:', error);
@@ -409,5 +410,206 @@ router.get('/application-status', async (req, res) => {
     });
   }
 });
+
+// Add new endpoint for admin population data
+router.get('/admin-population-users', async (req, res) => {
+  try {
+    console.log('Fetching population data...');
+    const { adminId, startDate, endDate } = req.query;
+    
+    if (!adminId) {
+      return res.status(400).json({ error: 'Admin ID is required' });
+    }
+
+    // First get the admin's barangay
+    const adminQuery = 'SELECT barangay FROM admin WHERE id = ?';
+    const adminResult = await queryDatabase(adminQuery, [adminId]);
+    
+    if (!adminResult || adminResult.length === 0) {
+      return res.status(404).json({ error: 'Admin not found' });
+    }
+
+    const adminBarangay = adminResult[0].barangay;
+
+    let query = `
+      SELECT 
+        au.id,
+        au.accepted_at,
+        u.status,
+        s1.barangay,
+        u.id as user_id,
+        u.code_id,
+        s1.employment_status,
+        s1.gender
+      FROM users u
+      INNER JOIN (
+        SELECT user_id, MAX(accepted_at) as latest_accepted_at
+        FROM accepted_users
+        WHERE message = 'Your application has been accepted.'
+        GROUP BY user_id
+      ) latest_au ON u.id = latest_au.user_id
+      INNER JOIN accepted_users au ON u.id = au.user_id 
+        AND au.accepted_at = latest_au.latest_accepted_at
+      INNER JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
+      WHERE u.status IN ('Verified', 'Renewal', 'Pending Remarks', 'Terminated')
+      AND s1.barangay = ?
+    `;
+
+    const params = [adminBarangay];
+
+    // Add date range filter if specified
+    if (startDate && endDate) {
+      query += ` AND DATE(au.accepted_at) BETWEEN ? AND ?`;
+      params.push(startDate, endDate);
+    }
+
+    query += ` ORDER BY au.accepted_at ASC`;
+    
+    console.log('Executing query:', query);
+    console.log('Query params:', params);
+    const results = await queryDatabase(query, params);
+    console.log('Query results:', JSON.stringify(results, null, 2));
+    
+    if (!results || results.length === 0) {
+      console.log('No users found for barangay:', adminBarangay);
+      return res.json([]);
+    }
+
+    // Log unique status counts
+    const statusCounts = results.reduce((acc, curr) => {
+      acc[curr.status] = (acc[curr.status] || 0) + 1;
+      return acc;
+    }, {});
+    console.log('Status counts:', statusCounts);
+    
+    res.json(results);
+  } catch (error) {
+    console.error('Error fetching population data:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch population data', 
+      details: error.message,
+      stack: error.stack 
+    });
+  }
+});
+
+// Helper function to standardize employment status
+function standardizeEmploymentStatus(status) {
+  if (!status) return 'Not employed';
+  
+  status = status.toLowerCase().trim();
+  
+  if (status.includes('self') || status.includes('self-employed') || status.includes('business')) {
+    return 'Self-employed';
+  } else if (status.includes('employ') || status.includes('working')) {
+    return 'Employed';
+  } else {
+    return 'Not employed';
+  }
+}
+
+// Add endpoint to fetch admin info
+router.get('/admin-info', async (req, res) => {
+  try {
+    console.log('Fetching admin info...');
+    const adminId = req.query.id || req.headers['x-admin-id'];
+    
+    if (!adminId) {
+      return res.status(400).json({ error: 'Admin ID is required' });
+    }
+
+    const query = 'SELECT id, barangay FROM admin WHERE id = ?';
+    const results = await queryDatabase(query, [adminId]);
+    
+    if (!results || results.length === 0) {
+      return res.status(404).json({ error: 'Admin not found' });
+    }
+
+    res.json(results[0]);
+  } catch (error) {
+    console.error('Error fetching admin info:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch admin info', 
+      details: error.message 
+    });
+  }
+});
+
+// Add endpoint to fetch remarks data
+router.get('/remarks-users', async (req, res) => {
+  try {
+    console.log('Fetching remarks data...');
+    const { adminId, startDate, endDate } = req.query;
+    
+    if (!adminId) {
+      return res.status(400).json({ error: 'Admin ID is required' });
+    }
+
+    // First get the admin's barangay
+    const adminQuery = 'SELECT barangay FROM admin WHERE id = ?';
+    const adminResult = await queryDatabase(adminQuery, [adminId]);
+    
+    if (!adminResult || adminResult.length === 0) {
+      return res.status(404).json({ error: 'Admin not found' });
+    }
+
+    const adminBarangay = adminResult[0].barangay;
+
+    let query = `
+      SELECT 
+        ur.id,
+        ur.remarks,
+        ur.remarks_at,
+        ur.is_read,
+        ur.user_id,
+        ur.admin_id,
+        u.status,
+        s1.barangay,
+        u.code_id,
+        DATE_FORMAT(ur.remarks_at, '%Y-%m') as remark_month
+      FROM user_remarks ur
+      INNER JOIN users u ON ur.user_id = u.id
+      INNER JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
+      WHERE ur.admin_id = ?
+      AND s1.barangay = ?
+      AND ur.id IN (
+        SELECT MAX(id)
+        FROM user_remarks ur2
+        GROUP BY user_id, DATE_FORMAT(remarks_at, '%Y-%m')
+      )
+    `;
+
+    const params = [adminId, adminBarangay];
+
+    // Add date range filter if specified
+    if (startDate && endDate) {
+      query += ` AND DATE(ur.remarks_at) BETWEEN ? AND ?`;
+      params.push(startDate, endDate);
+    }
+
+    query += ` ORDER BY ur.remarks_at ASC`;
+    
+    console.log('Executing query:', query);
+    console.log('Query params:', params);
+    const results = await queryDatabase(query, params);
+    console.log('Query results:', JSON.stringify(results, null, 2));
+    
+    if (!results || results.length === 0) {
+      console.log('No remarks found for barangay:', adminBarangay);
+      return res.json([]);
+    }
+    
+    res.json(results);
+  } catch (error) {
+    console.error('Error fetching remarks data:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch remarks data', 
+      details: error.message,
+      stack: error.stack 
+    });
+  }
+});
+
+
 
 module.exports = router;
