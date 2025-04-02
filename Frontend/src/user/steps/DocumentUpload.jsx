@@ -165,13 +165,12 @@ const DocumentUpload = ({ formData, updateFormData, prevStep, handleSubmit }) =>
       return;
     }
 
-    // Add additional validation to check if any required documents are missing
-    const requiredDocuments = ['psa']; // Add other required documents if needed
-    const missingRequired = requiredDocuments.filter(type => !selectedFiles[type]);
+    // Check if all required documents are uploaded
+    const missingRequired = getMissingRequiredDocuments();
     
     if (missingRequired.length > 0) {
       const missingNames = missingRequired.map(type => documentTypes[type]).join(', ');
-      toast.error(`Required document(s) missing: ${missingNames}`);
+      toast.error(`Please upload all required documents before submitting. Missing: ${missingNames}`);
       return;
     }
 
@@ -267,11 +266,11 @@ const DocumentUpload = ({ formData, updateFormData, prevStep, handleSubmit }) =>
           code_id: code_id // Ensure code_id is in the form data
         });
         
-        toast.success("Document upload complete! Redirecting to login...");
+        toast.success("Document upload complete! Redirecting to success page...");
         
-        // Redirect to login page after a short delay to show the success message
+        // Redirect to the submission success page after a short delay to show the success message
         setTimeout(() => {
-          navigate('/login');
+          navigate('/submission-success');
         }, 2000);
       } else {
         toast.error("No documents were uploaded successfully");
@@ -285,6 +284,36 @@ const DocumentUpload = ({ formData, updateFormData, prevStep, handleSubmit }) =>
         setIsUploading(false);
       }, 1000);
     }
+  };
+
+  // Helper function to determine which documents are required based on civil status
+  const getRequiredDocuments = () => {
+    let requiredDocuments = ['psa', 'itr', 'med_cert']; // Base required documents for all statuses
+    
+    // Add specific documents based on civil status
+    if (formData.civil_status === "Single") {
+      requiredDocuments.push('cenomar');
+    } else if (formData.civil_status === "Married") {
+      requiredDocuments.push('marriage');
+    } else if (formData.civil_status === "Widowed") {
+      requiredDocuments.push('marriage', 'death_cert');
+    } else if (formData.civil_status === "Divorced") {
+      requiredDocuments.push('marriage');
+    }
+    
+    return requiredDocuments;
+  };
+
+  // Check if all required documents are uploaded
+  const isAllRequiredDocumentsUploaded = () => {
+    const requiredDocuments = getRequiredDocuments();
+    return requiredDocuments.every(type => selectedFiles[type]);
+  };
+
+  // Get list of missing required documents
+  const getMissingRequiredDocuments = () => {
+    const requiredDocuments = getRequiredDocuments();
+    return requiredDocuments.filter(type => !selectedFiles[type]);
   };
 
   // Function to get a shortened file ID
@@ -469,8 +498,8 @@ const DocumentUpload = ({ formData, updateFormData, prevStep, handleSubmit }) =>
         <button 
           type="button" 
           onClick={handleRegistrationSubmit}
-          disabled={isUploading || Object.keys(selectedFiles).length === 0}
-          className={`submit-button ${Object.keys(selectedFiles).length > 0 ? 'active' : ''}`}
+          disabled={isUploading || !isAllRequiredDocumentsUploaded()}
+          className={`submit-button ${isAllRequiredDocumentsUploaded() ? 'active' : ''}`}
         >
           {isUploading ? "Uploading..." : "Submit Registration"}
         </button>

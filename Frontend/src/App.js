@@ -8,7 +8,8 @@ import ResetPassword from "./login/ResetPassword";
 import MultiStepForm from "./user/MultiStepForm";
 import AdminDashboard from "./admin/AdminDashboard";
 import Userui from "./user/Userui";
-import SuperAdminDashboard from "./superadmin/SuperAdminDashboard"; // ✅ Add this
+import SuperAdminDashboard from "./superadmin/SuperAdminDashboard"; // 
+import SubmissionSuccess from "./user/SubmissionSuccess"; // Add SubmissionSuccess import
 import { AdminProvider } from './contexts/AdminContext';
 import './App.css';
 
@@ -32,7 +33,8 @@ const MainContent = () => {
     "/signup", 
     "/form",
     "/profile",
-    "/forgot-password"
+    "/forgot-password",
+    "/submission-success"
   ].some(path => location.pathname.startsWith(path)) 
   || location.pathname.startsWith("/superadmin");
 
@@ -45,6 +47,7 @@ const MainContent = () => {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />
         <Route path="/signup" element={<MultiStepForm />} />
+        <Route path="/submission-success" element={<SubmissionSuccess />} /> {/* Add SubmissionSuccess route */}
         <Route path="/admin-dashboard/*" element={<AdminDashboard />} />
         <Route path="/userui" element={<Userui />} />
         <Route path="/superadmin/*" element={<SuperAdminDashboard />} />
