@@ -412,7 +412,7 @@ const SDashboard = () => {
     series: [{
       name: 'Population',
       type: 'line',
-      smooth: true,
+      smooth: false,
       symbolSize: 8,
       data: monthlyPopulation.datasets?.[0]?.data || [],
       areaStyle: {

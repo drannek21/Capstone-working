@@ -231,7 +231,7 @@ const Dashboard = () => {
     series: [{
       name: adminInfo.barangay ? `Population (${adminInfo.barangay})` : 'Population',
       type: 'line',
-      smooth: true,
+      smooth: false,
       symbol: 'circle',
       symbolSize: 4,
       data: dashboardData.population,
