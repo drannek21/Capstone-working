@@ -211,7 +211,7 @@ router.post('/', async (req, res) => {
         console.log(`User ${user.id} - distance: ${distance.toFixed(4)}, similarity: ${similarity}%`);
         
         // Use a threshold of 65% to make face recognition less sensitive to lighting
-        if (parseFloat(similarity) > 65) {
+        if (parseFloat(similarity) > 60) {
             // Remove sensitive information before sending response
             delete user.faceRecognitionPhoto;
             
@@ -229,7 +229,7 @@ router.post('/', async (req, res) => {
                 message: 'Face authentication successful'
             });
         } else {
-            console.log(`Similarity (${similarity}%) is below required threshold of 65%`);
+            console.log(`Similarity (${similarity}%) is below required threshold of 60%`);
             return res.status(401).json({ 
                 success: false, 
                 error: 'Face not recognized. Try adjusting lighting or position your face more clearly in the camera.'
