@@ -1,18 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
-  faUser,
-  faFile,
   faCheckCircle,
-  faEdit,
-  faBell,
-  faEye,
-  faDownload,
-  faCloudUploadAlt,
-  faCalendar,
-  faUsers,
   faTimes,
-  faCog,
   faCamera
 } from '@fortawesome/free-solid-svg-icons';
 import './Profile.css';
@@ -309,9 +299,6 @@ const Profile = () => {
             <div className="children-section">
               <div className="section-header">
                 <h2>Children</h2>
-                <button className="add-child-button" aria-label="Add child">
-                  <FontAwesomeIcon icon={faEdit} />
-                </button>
               </div>
               <div className="children-list">
               {user?.familyMembers?.length > 0 && (
@@ -335,9 +322,6 @@ const Profile = () => {
             <div className="announcements-section">
               <div className="section-header">
                 <h2>Announcements</h2>
-                <button className="notification-settings" aria-label="Notification settings">
-                  <FontAwesomeIcon icon={faBell} />
-                </button>
               </div>
               <div className="announcements-list">
                 {[
@@ -372,6 +356,7 @@ const Profile = () => {
             </div>
           </div>
         </div>
+        
       </div>
     </div>
   );
