@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import styles from "./Login.module.css";
 import FaceAuth from "./FaceAuth";
+import { toast } from 'react-toastify';
 
 // Define the FaceAuthModal component outside the main component to prevent re-rendering
 const FaceAuthModal = ({ 
@@ -122,7 +123,7 @@ const Login = () => {
           localStorage.removeItem('savedCredentials');
         }
 
-        navigateToDashboard(user.role);
+        handleLoginSuccess(user.role);
       } else if (response.status === 403 && data.error === 'Account is pending approval') {
         // Handle pending account status
         setError(
@@ -174,7 +175,7 @@ const Login = () => {
         navigate("/superadmin/sdashboard");
         break;
       default:
-        navigate("/userui");
+        navigate("/user");
     }
   };
 
@@ -263,6 +264,18 @@ const Login = () => {
       setModalError("Email not found. Please check your email or register a new account.");
     } finally {
       setCheckingUser(false);
+    }
+  };
+
+  const handleLoginSuccess = (role) => {
+    // Check if user was trying to access profile before login
+    const fromProfile = localStorage.getItem('fromProfile');
+    
+    if (fromProfile) {
+      localStorage.removeItem('fromProfile');
+      navigate('/profile');
+    } else {
+      navigateToDashboard(role);
     }
   };
 

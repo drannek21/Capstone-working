@@ -7,9 +7,10 @@ import ForgotPassword from "./login/ForgotPassword";
 import ResetPassword from "./login/ResetPassword";
 import MultiStepForm from "./user/MultiStepForm";
 import AdminDashboard from "./admin/AdminDashboard";
-import Userui from "./user/Userui";
+import User from "./user/User"; // Update User import
 import SuperAdminDashboard from "./superadmin/SuperAdminDashboard"; // 
 import SubmissionSuccess from "./user/SubmissionSuccess"; // Add SubmissionSuccess import
+import Profile from "./user/Profile"; // Add Profile import
 import { AdminProvider } from './contexts/AdminContext';
 import './App.css';
 
@@ -28,7 +29,7 @@ const MainContent = () => {
   const location = useLocation();
   const hideNavbar = [
     "/admin-dashboard", 
-    "/userui", 
+    "/user", 
     "/login", 
     "/signup", 
     "/form",
@@ -48,8 +49,9 @@ const MainContent = () => {
         <Route path="/reset-password/:token" element={<ResetPassword />} />
         <Route path="/signup" element={<MultiStepForm />} />
         <Route path="/submission-success" element={<SubmissionSuccess />} /> {/* Add SubmissionSuccess route */}
+        <Route path="/profile" element={<Profile />} />
         <Route path="/admin-dashboard/*" element={<AdminDashboard />} />
-        <Route path="/userui" element={<Userui />} />
+        <Route path="/user" element={<User />} /> // Update User route
         <Route path="/superadmin/*" element={<SuperAdminDashboard />} />
       </Routes>
     </>

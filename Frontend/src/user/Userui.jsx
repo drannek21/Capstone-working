@@ -1,14 +1,16 @@
-import React from 'react'
-import ProfilePage from './ProfilePage'
-import UserNavbar from './UserNavbar'
+import React from 'react';
+import { Routes, Route } from 'react-router-dom';
+import UserNavbar from './UserNavbar';
+import Profile from './Profile';
 
-function Userui() {
+export default function Userui() {
   return (
     <div>
-      <UserNavbar />  
-      <ProfilePage />
+      <UserNavbar />
+      <Routes>
+        <Route path="/" element={<Profile />} />
+        <Route path="/profile" element={<Profile />} />
+      </Routes>
     </div>
-  )
+  );
 }
-
-export default Userui
