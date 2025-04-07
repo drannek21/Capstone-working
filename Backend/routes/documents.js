@@ -231,8 +231,9 @@ router.post('/deleteDocument', async (req, res) => {
 router.post('/submitAllSteps', async (req, res) => {
   let connection;
   try {
-    const { step1, step2, step3, step4, step5 } = req.body;
+    const { step1, step2, step3, step4, step5, step6 } = req.body;
     console.log('Received all steps data:', req.body);
+    console.log('Step 6 data:', step6);
     
     // Get connection and start transaction
     connection = await new Promise((resolve, reject) => {
@@ -282,7 +283,7 @@ router.post('/submitAllSteps', async (req, res) => {
         existing_code_id: existingEmail[0].code_id
       });
     }
-    
+
     // Generate a code_id with the format XXXX_XX_XXXXXX
     const date = new Date();
     const year = date.getFullYear();
@@ -290,7 +291,6 @@ router.post('/submitAllSteps', async (req, res) => {
     // Generate a random 6-digit number for the last part
     const randomDigits = Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
     const code_id = `${year}_${month}_${randomDigits}`;
-    
     console.log(`[${timestamp}] Generated code_id: ${code_id}`);
     console.log(`[${timestamp}] Starting transaction with code_id: ${code_id}`);
 
@@ -306,7 +306,6 @@ router.post('/submitAllSteps', async (req, res) => {
           pantawid_beneficiary, indigenous
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
-      
       await new Promise((resolve, reject) => {
         connection.query(step1Query, [
           code_id,
@@ -423,6 +422,7 @@ router.post('/submitAllSteps', async (req, res) => {
 
       // Create user account in the same transaction
       console.log(`[${timestamp}] Creating user account...`);
+      console.log(`[${timestamp}] Face recognition photo URL:`, step6?.faceRecognitionPhoto);
       
       // First check if user with this email already exists
       const checkEmailQuery = `SELECT id, email FROM users WHERE email = ? LIMIT 1`;
@@ -440,23 +440,23 @@ router.post('/submitAllSteps', async (req, res) => {
       const password = step1.date_of_birth;
       
       if (existingUser && existingUser.length > 0) {
-        // If user already exists, update their code_id
-        console.log(`[${timestamp}] User with email ${step1.email} already exists, updating code_id`);
-        const updateQuery = `UPDATE users SET code_id = ? WHERE id = ?`;
+        // If user already exists, update their code_id and faceRecognitionPhoto
+        console.log(`[${timestamp}] User with email ${step1.email} already exists, updating code_id and faceRecognitionPhoto`);
+        const updateQuery = `UPDATE users SET code_id = ?, faceRecognitionPhoto = ? WHERE id = ?`;
         await new Promise((resolve, reject) => {
-          connection.query(updateQuery, [code_id, existingUser[0].id], (err, result) => {
+          connection.query(updateQuery, [code_id, step6?.faceRecognitionPhoto || null, existingUser[0].id], (err, result) => {
             if (err) reject(err);
             else resolve(result);
           });
         });
-        console.log(`[${timestamp}] Updated existing user with new code_id`);
+        console.log(`[${timestamp}] Updated existing user with new code_id and faceRecognitionPhoto`);
       } else {
-        // If user doesn't exist, create new user
+        // If user doesn't exist, create new user with faceRecognitionPhoto
         console.log(`[${timestamp}] Creating new user with email ${step1.email}`);
         const userQuery = `
           INSERT INTO users (
-            email, code_id, status, name, password
-          ) VALUES (?, ?, ?, ?, ?)
+            email, code_id, status, name, password, faceRecognitionPhoto
+          ) VALUES (?, ?, ?, ?, ?, ?)
         `;
         
         await new Promise((resolve, reject) => {
@@ -465,13 +465,14 @@ router.post('/submitAllSteps', async (req, res) => {
             code_id, 
             'Pending',
             fullName,
-            password
+            password,
+            step6?.faceRecognitionPhoto || null
           ], (err, result) => {
             if (err) reject(err);
             else resolve(result);
           });
         });
-        console.log(`[${timestamp}] User account created with password set to birthdate`);
+        console.log(`[${timestamp}] User account created with password set to birthdate and faceRecognitionPhoto`);
       }
 
       // Commit transaction only after all operations succeed

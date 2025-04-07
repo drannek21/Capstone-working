@@ -7,6 +7,7 @@ import Classification from "./steps/Classification";
 import NeedsProblems from "./steps/NeedsProblems";
 import InCaseOfEmergency from "./steps/InCaseOfEmergency";
 import DocumentUpload from "./steps/DocumentUpload";
+import FaceDetection from "./FaceDetection";
 import "./MultiStepForm.css";
 
 export default function MultiStepForm() {
@@ -61,12 +62,15 @@ export default function MultiStepForm() {
     emergency_address: "",
     emergency_relationship: "",
 
-    // Step 6: Documents
+    // Step 6: Face Recognition Photo
+    faceRecognitionPhoto: "",
+
+    // Step 7: Documents
     documents: {}
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submissionInProgress = useRef(false);
-  const totalSteps = 6;
+  const totalSteps = 7;
 
   const updateFormData = (newData) => {
     // Add age calculation when date of birth is updated
@@ -85,6 +89,37 @@ export default function MultiStepForm() {
   };
 
   const prevStep = () => setStep(step - 1);
+
+  const handlePhotoCapture = async (photoData) => {
+    try {
+      // Convert base64 to blob
+      const response = await fetch(photoData);
+      const blob = await response.blob();
+      const file = new File([blob], "face_recognition.jpg", { type: "image/jpeg" });
+
+      // Create form data for Cloudinary
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', 'soloparent');
+      formData.append('folder', 'soloparent/users/face_recognition');
+
+      // Upload to Cloudinary
+      const cloudinaryResponse = await fetch(
+        `https://api.cloudinary.com/v1_1/dskj7oxr7/image/upload`,
+        {
+          method: 'POST',
+          body: formData
+        }
+      );
+
+      const cloudinaryData = await cloudinaryResponse.json();
+      updateFormData({ faceRecognitionPhoto: cloudinaryData.secure_url });
+      nextStep();
+    } catch (error) {
+      console.error('Error uploading face photo:', error);
+      toast.error('Failed to upload face photo. Please try again.');
+    }
+  };
 
   const handleFinalSubmit = async () => {
     // Prevent duplicate submissions
@@ -147,6 +182,9 @@ export default function MultiStepForm() {
           emergency_relationship: formData.emergency_relationship,
           emergency_address: formData.emergency_address,
           emergency_contact: formData.emergency_contact
+        },
+        step6: {
+          faceRecognitionPhoto: formData.faceRecognitionPhoto || null
         }
       });
 
@@ -270,6 +308,17 @@ export default function MultiStepForm() {
           />
         );
       case 6:
+        return (
+          <div className="face-recognition-step">
+            <h2>Take a Face Recognition Photo</h2>
+            <p>Please take a clear photo of your face for identity verification.</p>
+            <FaceDetection onPhotoCapture={handlePhotoCapture} />
+            <button className="prev-btn" onClick={prevStep}>
+              Previous
+            </button>
+          </div>
+        );
+      case 7:
         return (
           <DocumentUpload
             formData={formData}

@@ -160,20 +160,6 @@ const DocumentUpload = ({ formData, updateFormData, prevStep, handleSubmit }) =>
   };
 
   const handleRegistrationSubmit = async () => {
-    if (Object.keys(selectedFiles).length === 0) {
-      toast.error("Please upload at least one document");
-      return;
-    }
-
-    // Check if all required documents are uploaded
-    const missingRequired = getMissingRequiredDocuments();
-    
-    if (missingRequired.length > 0) {
-      const missingNames = missingRequired.map(type => documentTypes[type]).join(', ');
-      toast.error(`Please upload all required documents before submitting. Missing: ${missingNames}`);
-      return;
-    }
-
     // Prevent duplicate submissions
     if (isUploading) {
       console.log("Upload already in progress, preventing duplicate submission");
@@ -207,7 +193,7 @@ const DocumentUpload = ({ formData, updateFormData, prevStep, handleSubmit }) =>
             }
             throw new Error("Failed to submit form");
           }
-          
+
           // Extract the code_id from the result
           code_id = submitResult.code_id;
           
@@ -230,51 +216,49 @@ const DocumentUpload = ({ formData, updateFormData, prevStep, handleSubmit }) =>
 
       const uploadResults = {};
 
-      // Process each file sequentially
-      for (const [documentType, file] of Object.entries(selectedFiles)) {
-        try {
-          // Upload to Cloudinary
-          const cloudinaryUrl = await uploadToCloudinary(file, documentType, code_id);
-          
-          // Insert document info to database
-          await insertDocumentToDatabase(documentType, file.name, cloudinaryUrl, code_id);
-          
-          uploadResults[documentType] = {
-            success: true,
-            fileName: file.name,
-            url: cloudinaryUrl
-          };
-          
-          toast.success(`${documentTypes[documentType]} uploaded successfully`);
-        } catch (error) {
-          uploadResults[documentType] = {
-            success: false,
-            error: error.message
-          };
-          toast.error(`Failed to upload ${documentTypes[documentType]}: ${error.message}`);
+      // Process each file sequentially if any files are selected
+      if (Object.keys(selectedFiles).length > 0) {
+        for (const [documentType, file] of Object.entries(selectedFiles)) {
+          try {
+            // Upload to Cloudinary
+            const cloudinaryUrl = await uploadToCloudinary(file, documentType, code_id);
+            
+            // Insert document info to database
+            await insertDocumentToDatabase(documentType, file.name, cloudinaryUrl, code_id);
+            
+            uploadResults[documentType] = {
+              success: true,
+              fileName: file.name,
+              url: cloudinaryUrl
+            };
+            
+            toast.success(`${documentTypes[documentType]} uploaded successfully`);
+          } catch (error) {
+            uploadResults[documentType] = {
+              success: false,
+              error: error.message
+            };
+            toast.error(`Failed to upload ${documentTypes[documentType]}: ${error.message}`);
+          }
         }
       }
 
-      // Check if any uploads were successful
-      const successfulUploads = Object.values(uploadResults).filter(result => result.success);
-      
-      if (successfulUploads.length > 0) {
-        // Update form data with the upload results
+      // Update form data with the upload results if any files were uploaded
+      if (Object.keys(uploadResults).length > 0) {
         updateFormData({
           ...formData,
           documents: uploadResults,
-          code_id: code_id // Ensure code_id is in the form data
+          code_id: code_id
         });
-        
-        toast.success("Document upload complete! Redirecting to success page...");
-        
-        // Redirect to the submission success page after a short delay to show the success message
-        setTimeout(() => {
-          navigate('/submission-success');
-        }, 2000);
-      } else {
-        toast.error("No documents were uploaded successfully");
       }
+      
+      toast.success("Registration submitted successfully! Redirecting to success page...");
+      
+      // Redirect to the submission success page after a short delay to show the success message
+      setTimeout(() => {
+        navigate('/submission-success');
+      }, 2000);
+
     } catch (error) {
       console.error("Error in registration submission:", error);
       toast.error(`Registration submission failed: ${error.message}`);
@@ -306,8 +290,8 @@ const DocumentUpload = ({ formData, updateFormData, prevStep, handleSubmit }) =>
 
   // Check if all required documents are uploaded
   const isAllRequiredDocumentsUploaded = () => {
-    const requiredDocuments = getRequiredDocuments();
-    return requiredDocuments.every(type => selectedFiles[type]);
+    // Return true to allow submission without requiring all documents
+    return true;
   };
 
   // Get list of missing required documents
@@ -498,8 +482,8 @@ const DocumentUpload = ({ formData, updateFormData, prevStep, handleSubmit }) =>
         <button 
           type="button" 
           onClick={handleRegistrationSubmit}
-          disabled={isUploading || !isAllRequiredDocumentsUploaded()}
-          className={`submit-button ${isAllRequiredDocumentsUploaded() ? 'active' : ''}`}
+          disabled={isUploading}
+          className={`submit-button ${isUploading ? 'uploading' : ''}`}
         >
           {isUploading ? "Uploading..." : "Submit Registration"}
         </button>

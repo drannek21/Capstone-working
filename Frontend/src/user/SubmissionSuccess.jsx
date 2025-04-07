@@ -11,18 +11,17 @@ const SubmissionSuccess = () => {
     sessionStorage.setItem("applicationSubmitted", "true");
     
     const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          navigate("/");
-          return 0;
-        }
-        return prev - 1;
-      });
+      setCountdown((prev) => prev - 1);
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [navigate]);
+  }, []);
+
+  useEffect(() => {
+    if (countdown === 0) {
+      navigate("/");
+    }
+  }, [countdown, navigate]);
 
   return (
     <div className="submission-success-container">
@@ -37,10 +36,10 @@ const SubmissionSuccess = () => {
         <h1 className="success-title">Application Submitted Successfully!</h1>
         
         <div className="success-message">
-  <p>Thank you for submitting your Solo Parent ID application.</p>
-  <p>Your application is now pending approval.</p>
-  <p className="email-note">Please check both your inbox and spam folders for updates on your application status.</p>
-</div>
+          <p>Thank you for submitting your Solo Parent ID application.</p>
+          <p>Your application is now pending approval.</p>
+          <p className="email-note">Please check both your inbox and spam folders for updates on your application status.</p>
+        </div>
         
         <div className="redirect-message">
           <p>You will be redirected to the homepage in <span className="countdown">{countdown}</span> seconds</p>
