@@ -39,6 +39,12 @@ export default function FamilyOccupation({ prevStep, nextStep, formData, updateF
     if (!birthdate) return "";
     const birthDateObj = new Date(birthdate);
     const today = new Date();
+    
+    // Check if birthdate is in the future
+    if (birthDateObj > today) {
+      return "Invalid date";
+    }
+    
     let age = today.getFullYear() - birthDateObj.getFullYear();
     const monthDiff = today.getMonth() - birthDateObj.getMonth();
 
@@ -83,6 +89,15 @@ export default function FamilyOccupation({ prevStep, nextStep, formData, updateF
       }
     });
   }, [birthdates, setValue]);
+
+  // Add this function to get today's date in YYYY-MM-DD format
+  const getTodayDate = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
 
   const onSubmit = async (data) => {
     const isValid = await trigger();
@@ -212,9 +227,15 @@ export default function FamilyOccupation({ prevStep, nextStep, formData, updateF
                 <input
                   className="form-input step-input"
                   type="date"
+                  max={getTodayDate()}
                   {...register(`children[${index}].birthdate`, {
                     required: "Birthdate is required",
                     validate: value => {
+                      const birthDate = new Date(value);
+                      const today = new Date();
+                      if (birthDate > today) {
+                        return "Birthdate cannot be in the future";
+                      }
                       const age = calculateAge(value);
                       return age <= 21 || "Child must be 21 years old or younger";
                     }
