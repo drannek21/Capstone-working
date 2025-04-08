@@ -211,7 +211,7 @@ router.post('/', async (req, res) => {
         console.log(`User ${user.id} - distance: ${distance.toFixed(4)}, similarity: ${similarity}%`);
         
         // Use a threshold of 65% to make face recognition less sensitive to lighting
-        if (parseFloat(similarity) > 60) {
+        if (parseFloat(similarity) > 50) {
             // Remove sensitive information before sending response
             delete user.faceRecognitionPhoto;
             

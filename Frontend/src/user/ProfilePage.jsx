@@ -13,6 +13,17 @@ const ProfilePage = () => {
   const [activeTab, setActiveTab] = useState("Details");
   const [user, setUser] = useState(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
+
+  // Add polling interval for status updates
+  useEffect(() => {
+    const statusCheckInterval = setInterval(() => {
+      if (user?.id) {
+        fetchUserData(user.id);
+      }
+    }, 1000); // Check every 5 seconds
+
+    return () => clearInterval(statusCheckInterval);
+  }, [user?.id]);
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [previousStatus, setPreviousStatus] = useState(null);
