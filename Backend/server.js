@@ -1794,3 +1794,75 @@ app.post('/changePassword', async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+
+// Events routes
+app.get('/events', async (req, res) => {
+  try {
+    const events = await queryDatabase('SELECT * FROM events ORDER BY date DESC');
+    res.json(events);
+  } catch (error) {
+    console.error('Error fetching events:', error);
+    res.status(500).json({ error: 'Error fetching events' });
+  }
+});
+
+app.post('/events', async (req, res) => {
+  const { title, description, date, time, location, status } = req.body;
+  
+  try {
+    const result = await queryDatabase(
+      'INSERT INTO events (title, description, date, time, location, status) VALUES (?, ?, ?, ?, ?, ?)',
+      [title, description, date, time, location, status]
+    );
+    
+    res.status(201).json({
+      id: result.insertId,
+      title,
+      description,
+      date,
+      time,
+      location,
+      status
+    });
+  } catch (error) {
+    console.error('Error creating event:', error);
+    res.status(500).json({ error: 'Error creating event' });
+  }
+});
+
+app.put('/events/:id', async (req, res) => {
+  const { id } = req.params;
+  const { title, description, date, time, location, status } = req.body;
+  
+  try {
+    await queryDatabase(
+      'UPDATE events SET title = ?, description = ?, date = ?, time = ?, location = ?, status = ? WHERE id = ?',
+      [title, description, date, time, location, status, id]
+    );
+    
+    res.json({
+      id,
+      title,
+      description,
+      date,
+      time,
+      location,
+      status
+    });
+  } catch (error) {
+    console.error('Error updating event:', error);
+    res.status(500).json({ error: 'Error updating event' });
+  }
+});
+
+app.delete('/events/:id', async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    await queryDatabase('DELETE FROM events WHERE id = ?', [id]);
+    res.json({ message: 'Event deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting event:', error);
+    res.status(500).json({ error: 'Error deleting event' });
+  }
+});

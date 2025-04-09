@@ -35,6 +35,10 @@ const SuperAdminSideBar = () => {
     window.location.href = '/';
   };
 
+  const isActive = (path) => {
+    return location.pathname === path;
+  };
+
   return (
     <>
       {isMobile && (
@@ -90,6 +94,15 @@ const SuperAdminSideBar = () => {
           >
             <FaUsers className="nav-icon" />
             <span>Admin Management</span>
+          </NavLink>
+
+          <NavLink 
+            to="/superadmin/events" 
+            className={({isActive}) => `nav-link ${isActive ? 'active' : ''}`}
+            onClick={isMobile ? toggleSidebar : undefined}
+          >
+            <FaClipboardList className="nav-icon" />
+            <span>Events</span>
           </NavLink>
 
           <div className="nav-spacer"></div>

@@ -6,6 +6,7 @@ import Applications from './Applications';
 import './SuperAdminDashboard.css';
 import AdminManagement from './AdminManagement';
 import SoloParentManagement from './SoloParentManagement';
+import Events from './Events';
 
 const SuperAdminDashboard = () => {
   return (
@@ -18,6 +19,7 @@ const SuperAdminDashboard = () => {
           <Route path="applications" element={<Applications />} />
           <Route path="admin-management" element={<AdminManagement />} />
           <Route path="solo-parent-management" element={<SoloParentManagement />} />
+          <Route path="events" element={<Events />} />
         </Routes>
 
         </div>

@@ -1,0 +1,312 @@
+import React, { useState, useEffect } from 'react';
+import { toast } from 'react-toastify';
+import axios from 'axios';
+import './Events.css';
+
+const Events = () => {
+  const [events, setEvents] = useState([]);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    date: '',
+    time: '',
+    location: '',
+    status: 'Upcoming'
+  });
+
+  useEffect(() => {
+    fetchEvents();
+  }, []);
+
+  const fetchEvents = async () => {
+    try {
+      const response = await axios.get('http://localhost:8081/events');
+      setEvents(response.data);
+    } catch (error) {
+      console.error('Error fetching events:', error);
+      toast.error('Failed to fetch events');
+    }
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleAddEvent = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.post('http://localhost:8081/events', formData);
+      toast.success('Event added successfully');
+      setShowAddModal(false);
+      setFormData({
+        title: '',
+        description: '',
+        date: '',
+        time: '',
+        location: '',
+        status: 'Upcoming'
+      });
+      fetchEvents();
+    } catch (error) {
+      console.error('Error adding event:', error);
+      toast.error('Failed to add event');
+    }
+  };
+
+  const handleEditEvent = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.put(`http://localhost:8081/events/${selectedEvent.id}`, formData);
+      toast.success('Event updated successfully');
+      setShowEditModal(false);
+      fetchEvents();
+    } catch (error) {
+      console.error('Error updating event:', error);
+      toast.error('Failed to update event');
+    }
+  };
+
+  const handleDeleteEvent = async (id) => {
+    if (window.confirm('Are you sure you want to delete this event?')) {
+      try {
+        await axios.delete(`http://localhost:8081/events/${id}`);
+        toast.success('Event deleted successfully');
+        fetchEvents();
+      } catch (error) {
+        console.error('Error deleting event:', error);
+        toast.error('Failed to delete event');
+      }
+    }
+  };
+
+  const openEditModal = (event) => {
+    setSelectedEvent(event);
+    setFormData({
+      title: event.title,
+      description: event.description,
+      date: event.date,
+      time: event.time,
+      location: event.location,
+      status: event.status
+    });
+    setShowEditModal(true);
+  };
+
+  return (
+    <div className="events-container">
+      <div className="events-header">
+        <h2>Events Management</h2>
+        <button className="add-event-btn" onClick={() => setShowAddModal(true)}>
+          Add New Event
+        </button>
+      </div>
+
+      <div className="events-table-container">
+        <table className="events-table">
+          <thead>
+            <tr>
+              <th>Title</th>
+              <th>Date</th>
+              <th>Time</th>
+              <th>Location</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {events.map(event => (
+              <tr key={event.id}>
+                <td>{event.title}</td>
+                <td>{new Date(event.date).toLocaleDateString()}</td>
+                <td>{event.time}</td>
+                <td>{event.location}</td>
+                <td>
+                  <span className={`status-badge ${event.status.toLowerCase()}`}>
+                    {event.status}
+                  </span>
+                </td>
+                <td>
+                  <button className="edit-btn" onClick={() => openEditModal(event)}>
+                    Edit
+                  </button>
+                  <button className="delete-btn" onClick={() => handleDeleteEvent(event.id)}>
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Add Event Modal */}
+      {showAddModal && (
+        <div className="modal">
+          <div className="modal-content">
+            <h3>Add New Event</h3>
+            <form onSubmit={handleAddEvent}>
+              <div className="form-group">
+                <label>Title</label>
+                <input
+                  type="text"
+                  name="title"
+                  value={formData.title}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Description</label>
+                <textarea
+                  name="description"
+                  value={formData.description}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Date</label>
+                <input
+                  type="date"
+                  name="date"
+                  value={formData.date}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Time</label>
+                <input
+                  type="time"
+                  name="time"
+                  value={formData.time}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Location</label>
+                <input
+                  type="text"
+                  name="location"
+                  value={formData.location}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Status</label>
+                <select
+                  name="status"
+                  value={formData.status}
+                  onChange={handleInputChange}
+                  required
+                >
+                  <option value="Upcoming">Upcoming</option>
+                  <option value="Ongoing">Ongoing</option>
+                  <option value="Completed">Completed</option>
+                  <option value="Cancelled">Cancelled</option>
+                </select>
+              </div>
+              <div className="modal-buttons">
+                <button type="submit" className="save-btn">Save</button>
+                <button type="button" className="cancel-btn" onClick={() => setShowAddModal(false)}>
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Event Modal */}
+      {showEditModal && (
+        <div className="modal">
+          <div className="modal-content">
+            <h3>Edit Event</h3>
+            <form onSubmit={handleEditEvent}>
+              <div className="form-group">
+                <label>Title</label>
+                <input
+                  type="text"
+                  name="title"
+                  value={formData.title}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Description</label>
+                <textarea
+                  name="description"
+                  value={formData.description}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Date</label>
+                <input
+                  type="date"
+                  name="date"
+                  value={formData.date}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Time</label>
+                <input
+                  type="time"
+                  name="time"
+                  value={formData.time}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Location</label>
+                <input
+                  type="text"
+                  name="location"
+                  value={formData.location}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Status</label>
+                <select
+                  name="status"
+                  value={formData.status}
+                  onChange={handleInputChange}
+                  required
+                >
+                  <option value="Upcoming">Upcoming</option>
+                  <option value="Ongoing">Ongoing</option>
+                  <option value="Completed">Completed</option>
+                  <option value="Cancelled">Cancelled</option>
+                </select>
+              </div>
+              <div className="modal-buttons">
+                <button type="submit" className="save-btn">Update</button>
+                <button type="button" className="cancel-btn" onClick={() => setShowEditModal(false)}>
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default Events; 
