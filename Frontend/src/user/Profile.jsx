@@ -281,9 +281,43 @@ const Profile = () => {
                     {user?.income}
                     {user?.status === 'Verified' && user?.income && (
                       <span className={`benefit-badge ${
-                        parseInt(user.income.replace(/[^0-9]/g, '')) < 250000 ? 'eligible' : 'not-eligible'
+                        (() => {
+                          let incomeValue = 0;
+                          // If income is a direct number from database, use it directly
+                          if (!isNaN(user.income)) {
+                            incomeValue = parseFloat(user.income);
+                          } else {
+                            // Handle text-based income ranges
+                            if (user.income === 'Below ₱10,000') {
+                              incomeValue = 10000;
+                            } else if (user.income === '₱11,000-₱20,000') {
+                              incomeValue = 20000;
+                            } else if (user.income === '₱21,000-₱43,000') {
+                              incomeValue = 43000;
+                            } else if (user.income === '₱44,000 and above') {
+                              incomeValue = 250001; // Set high value to ensure no benefits
+                            }
+                          }
+                          return incomeValue < 250001 ? 'eligible' : 'not-eligible';
+                        })()
                       }`}>
-                        {parseInt(user.income.replace(/[^0-9]/g, '')) < 250000 ? 'Eligible for Benefits' : 'Not Eligible'}
+                        {(() => {
+                          let incomeValue = 0;
+                          if (!isNaN(user.income)) {
+                            incomeValue = parseFloat(user.income);
+                          } else {
+                            if (user.income === 'Below ₱10,000') {
+                              incomeValue = 10000;
+                            } else if (user.income === '₱11,000-₱20,000') {
+                              incomeValue = 20000;
+                            } else if (user.income === '₱21,000-₱43,000') {
+                              incomeValue = 43000;
+                            } else if (user.income === '₱44,000 and above') {
+                              incomeValue = 250001;
+                            }
+                          }
+                          return incomeValue < 250001 ? 'Eligible for Benefits' : 'Not Eligible';
+                        })()}
                       </span>
                     )}
                   </p>

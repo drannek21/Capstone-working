@@ -50,7 +50,7 @@ const ProfilePage = () => {
   const isIDExpired = () => {
     if (!user?.validUntil) return false;
     const expirationDate = new Date(user.validUntil);
-    const today = new Date('2026-03-19');
+    const today = new Date();
     today.setHours(0, 0, 0, 0);
     expirationDate.setHours(0, 0, 0, 0);
     return expirationDate <= today;
@@ -114,6 +114,8 @@ const ProfilePage = () => {
         });
 
         const data = await response.json();
+        console.log('User details response:', data);
+        console.log('Valid until date from response:', data.validUntil);
 
         if (response.ok) {
           // Check if status has changed

@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import './SoloParentManagement.css';
+import html2canvas from 'html2canvas';
+import dswdLogo from '../assets/dswd-logo.png';
+import avatar from '../assets/avatar.jpg';
 
 const SoloParentManagement = () => {
   const [verifiedUsers, setVerifiedUsers] = useState([]);
@@ -16,6 +19,8 @@ const SoloParentManagement = () => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const tableContainerRef = useRef(null);
+  const [showIDModal, setShowIDModal] = useState(false);
+  const [selectedIDUser, setSelectedIDUser] = useState(null);
 
   const barangays = [
     'All',
@@ -286,6 +291,70 @@ const SoloParentManagement = () => {
     setTouchStart(null);
   };
 
+  const downloadID = async (side) => {
+    try {
+      // Get the element to capture based on side
+      const targetElement = document.querySelector(side === 'back' ? '.id-back' : '.id-front');
+      if (!targetElement) {
+        console.error('Target element not found');
+        return;
+      }
+
+      // Get the actual dimensions
+      const rect = targetElement.getBoundingClientRect();
+
+      // Capture the current state
+      const canvas = await html2canvas(targetElement, {
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: 'white',
+        scale: 3,
+        width: rect.width,
+        height: rect.height,
+        logging: false,
+        onclone: (clonedDoc) => {
+          const clonedElement = clonedDoc.querySelector(side === 'back' ? '.id-back' : '.id-front');
+          if (clonedElement) {
+            clonedElement.style.transform = 'none';
+            clonedElement.style.position = 'relative';
+            clonedElement.style.display = 'flex';
+            clonedElement.style.opacity = '1';
+            
+            // Make sure all content is visible
+            const header = clonedElement.querySelector('.id-header');
+            const body = clonedElement.querySelector('.id-body');
+            const backContent = clonedElement.querySelector('.back-content');
+            
+            if (header) header.style.display = 'flex';
+            if (body) body.style.display = 'flex';
+            if (backContent) backContent.style.display = 'flex';
+          }
+        }
+      });
+
+      // Download the image
+      const image = canvas.toDataURL('image/png', 1.0);
+      const link = document.createElement('a');
+      link.href = image;
+      link.download = `${selectedIDUser.name}_SoloParent_ID_${side === 'back' ? 'Back' : 'Front'}.png`;
+      link.click();
+
+    } catch (error) {
+      console.error('Error generating ID:', error);
+      alert('Failed to download ID. Please try again.');
+    }
+  };
+
+  const openIDModal = (user) => {
+    setSelectedIDUser(user);
+    setShowIDModal(true);
+  };
+
+  const closeIDModal = () => {
+    setShowIDModal(false);
+    setSelectedIDUser(null);
+  };
+
   return (
     <div className="solo-parent-container">
       <div className="header-section">
@@ -356,6 +425,11 @@ const SoloParentManagement = () => {
                   <button className="btn view-btn" onClick={() => openModal(user)}> 
                     <i className="fas fa-eye"></i> View
                   </button>
+                  {user.status === 'Verified' && (
+                    <button className="btn download-btn" onClick={() => openIDModal(user)}>
+                      <i className="fas fa-download"></i> Download ID
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}
@@ -806,6 +880,129 @@ const SoloParentManagement = () => {
             <div className="success-content">
               <i className="fas fa-check-circle"></i>
               <p>{successMessage}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ID Card Modal */}
+      {showIDModal && selectedIDUser && (
+        <div className="modal-overlay">
+          <div className="modal id-card-modal">
+            <div className="modal-header">
+              <h3>Solo Parent ID Card</h3>
+              <button className="close-btn" onClick={closeIDModal}>
+                <i className="fas fa-times"></i>
+              </button>
+            </div>
+            <div className="modal-content">
+              <div className="id-card-container">
+                {/* Front of ID */}
+                <div className="digital-id">
+                  <div className="id-front">
+                    <div className="id-header">
+                      <img src={dswdLogo} alt="DSWD Logo" className="id-logo" />
+                      <div className="id-title">
+                        <h2>SOLO PARENT IDENTIFICATION CARD</h2>
+                        <p>Republic of the Philippines</p>
+                        <p className="id-subtitle">DSWD Region III</p>
+                      </div>
+                    </div>
+                    <div className="id-body">
+                      <div className="id-photo-container">
+                        <div className="id-photo">
+                          <img 
+                            src={selectedIDUser.profilePic || avatar} 
+                            alt="User" 
+                            crossOrigin="anonymous" 
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.src = avatar;
+                            }}
+                          />
+                        </div>
+                        <div className="id-validity">
+                          <strong>Category: </strong>
+                          <span>{selectedIDUser.classification}</span>
+                        </div>
+                        <div className="id-validity">
+                          <strong>Valid Until: </strong>
+                          {selectedIDUser.validUntil ? new Date(selectedIDUser.validUntil).toLocaleDateString() : 'N/A'}
+                        </div>
+                      </div>
+                      <div className="id-details">
+                        <div className="detail-row">
+                          <strong>ID No:</strong>
+                          <span>{String(selectedIDUser.code_id).padStart(6, '0')}</span>
+                        </div>
+                        <div className="detail-row">
+                          <strong>Name:</strong>
+                          <span>{`${selectedIDUser.first_name} ${selectedIDUser.middle_name || ''} ${selectedIDUser.last_name}`}</span>
+                        </div>
+                        <div className="detail-row">
+                          <strong>Barangay:</strong>
+                          <span>{selectedIDUser.barangay}</span>
+                        </div>
+                        <div className="detail-row">
+                          <strong>Birthdate:</strong>
+                          <span>{selectedIDUser.date_of_birth ? 
+                            new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' })
+                            .format(new Date(selectedIDUser.date_of_birth)) : ''}</span>
+                        </div>
+                        <div className="detail-row">
+                          <strong>Civil Status:</strong>
+                          <span>{selectedIDUser.civil_status}</span>
+                        </div>
+                        <div className="detail-row">
+                          <strong>Contact:</strong>
+                          <span>{selectedIDUser.contact_number}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <button className="download-id-btn" onClick={() => downloadID('front')}>
+                    Download Front
+                  </button>
+                </div>
+
+                {/* Back of ID */}
+                <div className="digital-id">
+                  <div className="id-back">
+                    <div className="id-header">
+                      <img src={dswdLogo} alt="DSWD Logo" className="id-logo" />
+                      <div className="id-title">
+                        <h2>SOLO PARENT IDENTIFICATION CARD</h2>
+                        <p>Republic of the Philippines</p>
+                        <p className="id-subtitle">DSWD Region III</p>
+                      </div>
+                    </div>
+                    <div className="back-content">
+                      <div className="terms-section">
+                        <h3>Terms and Conditions</h3>
+                        <ol>
+                          <li>This ID is non-transferable</li>
+                          <li>Report loss/damage to DSWD office</li>
+                          <li>Present this ID when availing benefits</li>
+                          <li>Tampering invalidates this ID</li>
+                        </ol>
+                      </div>
+                      <div className="signature-section">
+                        <div className="signature-line">
+                          <div className="line"></div>
+                          <p>Card Holder's Signature</p>
+                        </div>
+                        <div className="signature-line">
+                          <div className="line"></div>
+                          <p>Authorized DSWD Official</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <button className="download-id-btn" onClick={() => downloadID('back')}>
+                    Download Back
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>

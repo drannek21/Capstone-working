@@ -304,7 +304,8 @@ app.get('/verifiedUsersSA', async (req, res) => {
              s5.emergency_name, s5.emergency_relationship, 
              s5.emergency_address, s5.emergency_contact,
              ur.remarks as latest_remarks,
-             ur.remarks_at
+             ur.remarks_at,
+             DATE_FORMAT(DATE_ADD(au.accepted_at, INTERVAL 1 YEAR), "%Y-%m-%d") as validUntil
       FROM users u
       JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
       LEFT JOIN step3_classification s3 ON u.code_id = s3.code_id
@@ -319,6 +320,11 @@ app.get('/verifiedUsersSA', async (req, res) => {
           GROUP BY code_id
         )
       ) ur ON u.code_id = ur.code_id
+      LEFT JOIN (
+        SELECT user_id, MAX(accepted_at) as accepted_at
+        FROM accepted_users
+        GROUP BY user_id
+      ) au ON u.id = au.user_id
       WHERE u.status IN ('Verified', 'Pending Remarks', 'Terminated', 'Renewal')
     `);
 
@@ -483,8 +489,25 @@ app.post('/login', async (req, res) => {
 
     // Update status to Verified on first login if previously Created
     if (user.status === 'Created') {
-      await queryDatabase('UPDATE users SET status = ? WHERE id = ?', ['Verified', user.id]);
-      user.status = 'Verified';
+      try {
+        console.log(`Updating status from Created to Verified for user ${user.id}`);
+        const updateResult = await queryDatabase('UPDATE users SET status = ? WHERE id = ?', ['Verified', user.id]);
+        console.log('Update result:', updateResult);
+        
+        // Verify the update
+        const verifyResult = await queryDatabase('SELECT status FROM users WHERE id = ?', [user.id]);
+        console.log('Verification result:', verifyResult);
+        
+        if (verifyResult.length > 0 && verifyResult[0].status === 'Verified') {
+          user.status = 'Verified';
+          console.log('Status successfully updated to Verified');
+        } else {
+          console.error('Status update verification failed');
+        }
+      } catch (updateError) {
+        console.error('Error updating user status:', updateError);
+        // Continue with login even if status update fails
+      }
     }
 
     res.status(200).json({ 
@@ -584,6 +607,9 @@ app.post('/getUserDetails', async (req, res) => {
           'SELECT DATE_FORMAT(DATE_ADD(accepted_at, INTERVAL 1 YEAR), "%Y-%m-%d") as accepted_at FROM accepted_users WHERE user_id = ? ORDER BY accepted_at DESC LIMIT 1', 
           [userId]
         );
+
+        console.log('Valid date result:', validDateResult);
+        console.log('Valid until date:', validDateResult.length > 0 ? validDateResult[0].accepted_at : 'No date found');
 
         const familyResults = await queryDatabase(
           `SELECT family_member_name, birthdate, educational_attainment, age
