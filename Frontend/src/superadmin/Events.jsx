@@ -103,7 +103,7 @@ const Events = () => {
     <div className="events-container">
       <div className="events-header">
         <h2>Events Management</h2>
-        <button className="add-event-btn" onClick={() => setShowAddModal(true)}>
+        <button className="events-add-btn" onClick={() => setShowAddModal(true)}>
           Add New Event
         </button>
       </div>
@@ -128,15 +128,15 @@ const Events = () => {
                 <td>{event.time}</td>
                 <td>{event.location}</td>
                 <td>
-                  <span className={`status-badge ${event.status.toLowerCase()}`}>
+                  <span className={`events-status-badge ${event.status.toLowerCase()}`}>
                     {event.status}
                   </span>
                 </td>
                 <td>
-                  <button className="edit-btn" onClick={() => openEditModal(event)}>
+                  <button className="events-edit-btn" onClick={() => openEditModal(event)}>
                     Edit
                   </button>
-                  <button className="delete-btn" onClick={() => handleDeleteEvent(event.id)}>
+                  <button className="events-delete-btn" onClick={() => handleDeleteEvent(event.id)}>
                     Delete
                   </button>
                 </td>
@@ -148,11 +148,11 @@ const Events = () => {
 
       {/* Add Event Modal */}
       {showAddModal && (
-        <div className="modal">
-          <div className="modal-content">
+        <div className="events-modal">
+          <div className="events-modal-content">
             <h3>Add New Event</h3>
             <form onSubmit={handleAddEvent}>
-              <div className="form-group">
+              <div className="events-form-group">
                 <label>Title</label>
                 <input
                   type="text"
@@ -162,7 +162,7 @@ const Events = () => {
                   required
                 />
               </div>
-              <div className="form-group">
+              <div className="events-form-group">
                 <label>Description</label>
                 <textarea
                   name="description"
@@ -171,7 +171,7 @@ const Events = () => {
                   required
                 />
               </div>
-              <div className="form-group">
+              <div className="events-form-group">
                 <label>Date</label>
                 <input
                   type="date"
@@ -181,7 +181,7 @@ const Events = () => {
                   required
                 />
               </div>
-              <div className="form-group">
+              <div className="events-form-group">
                 <label>Time</label>
                 <input
                   type="time"
@@ -191,7 +191,7 @@ const Events = () => {
                   required
                 />
               </div>
-              <div className="form-group">
+              <div className="events-form-group">
                 <label>Location</label>
                 <input
                   type="text"
@@ -201,7 +201,7 @@ const Events = () => {
                   required
                 />
               </div>
-              <div className="form-group">
+              <div className="events-form-group">
                 <label>Status</label>
                 <select
                   name="status"
@@ -215,9 +215,9 @@ const Events = () => {
                   <option value="Cancelled">Cancelled</option>
                 </select>
               </div>
-              <div className="modal-buttons">
-                <button type="submit" className="save-btn">Save</button>
-                <button type="button" className="cancel-btn" onClick={() => setShowAddModal(false)}>
+              <div className="events-modal-buttons">
+                <button type="submit" className="events-save-btn">Save</button>
+                <button type="button" className="events-cancel-btn" onClick={() => setShowAddModal(false)}>
                   Cancel
                 </button>
               </div>
@@ -228,11 +228,11 @@ const Events = () => {
 
       {/* Edit Event Modal */}
       {showEditModal && (
-        <div className="modal">
-          <div className="modal-content">
+        <div className="events-modal">
+          <div className="events-modal-content">
             <h3>Edit Event</h3>
             <form onSubmit={handleEditEvent}>
-              <div className="form-group">
+              <div className="events-form-group">
                 <label>Title</label>
                 <input
                   type="text"
@@ -242,7 +242,7 @@ const Events = () => {
                   required
                 />
               </div>
-              <div className="form-group">
+              <div className="events-form-group">
                 <label>Description</label>
                 <textarea
                   name="description"
@@ -251,7 +251,7 @@ const Events = () => {
                   required
                 />
               </div>
-              <div className="form-group">
+              <div className="events-form-group">
                 <label>Date</label>
                 <input
                   type="date"
@@ -261,7 +261,7 @@ const Events = () => {
                   required
                 />
               </div>
-              <div className="form-group">
+              <div className="events-form-group">
                 <label>Time</label>
                 <input
                   type="time"
@@ -271,7 +271,7 @@ const Events = () => {
                   required
                 />
               </div>
-              <div className="form-group">
+              <div className="events-form-group">
                 <label>Location</label>
                 <input
                   type="text"
@@ -281,7 +281,7 @@ const Events = () => {
                   required
                 />
               </div>
-              <div className="form-group">
+              <div className="events-form-group">
                 <label>Status</label>
                 <select
                   name="status"
@@ -295,9 +295,9 @@ const Events = () => {
                   <option value="Cancelled">Cancelled</option>
                 </select>
               </div>
-              <div className="modal-buttons">
-                <button type="submit" className="save-btn">Update</button>
-                <button type="button" className="cancel-btn" onClick={() => setShowEditModal(false)}>
+              <div className="events-modal-buttons">
+                <button type="submit" className="events-save-btn">Update</button>
+                <button type="button" className="events-cancel-btn" onClick={() => setShowEditModal(false)}>
                   Cancel
                 </button>
               </div>
