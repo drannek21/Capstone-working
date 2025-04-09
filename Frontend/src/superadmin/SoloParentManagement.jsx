@@ -22,40 +22,6 @@ const SoloParentManagement = () => {
   const [showIDModal, setShowIDModal] = useState(false);
   const [selectedIDUser, setSelectedIDUser] = useState(null);
 
-  // Add these functions for validity date and profile picture handling
-  const isIDExpired = (validUntil) => {
-    if (!validUntil) return false;
-    const expirationDate = new Date(validUntil);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    expirationDate.setHours(0, 0, 0, 0);
-    return expirationDate <= today;
-  };
-
-  const getProfilePicture = (user) => {
-    if (!user) return avatar;
-    
-    // First check if user has profilePic property
-    if (user.profilePic) {
-      return user.profilePic;
-    }
-    
-    // Fallback to default avatar
-    return avatar;
-  };
-
-  const getImageUrl = (url) => {
-    if (!url || url === 'null' || url === 'undefined' || url === avatar) {
-      return avatar;
-    }
-    return url;
-  };
-
-  const addCacheBuster = (url) => {
-    if (!url || url === avatar) return url;
-    return `${url}?t=${new Date().getTime()}`;
-  };
-
   const barangays = [
     'All',
     'Adia',
@@ -1080,21 +1046,20 @@ const SoloParentManagement = () => {
                     <div className="id-left-section">
                       <div className="id-photo-container">
                         <img 
-                          src={addCacheBuster(getImageUrl(getProfilePicture(selectedIDUser)))} 
+                          src={selectedIDUser.profile_picture || avatar} 
                           alt="User" 
                           className="id-photo"
                           onError={(e) => {
-                            console.log("ID photo load error, using default avatar");
                             e.target.onerror = null;
                             e.target.src = avatar;
                           }}
                         />
                       </div>
                       <div className="id-category">
-                        Category: {selectedIDUser.classification || 'N/A'}
+                        Category: {selectedIDUser.category || '004'}
                       </div>
-                      <div className={`id-validity ${isIDExpired(selectedIDUser.validUntil) ? "expired" : ""}`}>
-                        Valid Until: {selectedIDUser.validUntil ? new Date(selectedIDUser.validUntil).toLocaleDateString() : 'N/A'}
+                      <div className="id-validity">
+                        Valid Until: {selectedIDUser.valid_until || '3/25/2026'}
                       </div>
                     </div>
                     <div className="id-details">

@@ -738,6 +738,41 @@ const Profile = () => {
                         })}
                       </tbody>
                     </table>
+                    <div className="mobile-documents-list">
+                      {getDocumentsByCivilStatus(user.civil_status).map((documentType) => {
+                        const document = documents.find(doc => doc.document_type === `${documentType}_documents`);
+                        return (
+                          <div className="document-card" key={documentType}>
+                            <div className="document-card-header">
+                              <div className="document-card-type">{documentTypes[documentType]}</div>
+                              <div className="document-card-status">
+                                {document ? 'Submitted' : 'Not submitted'}
+                              </div>
+                            </div>
+                            <div className="document-card-actions">
+                              {document ? (
+                                <button 
+                                  className="btn view-btn"
+                                  onClick={() => window.open(document.file_url, '_blank')}
+                                >
+                                  View
+                                </button>
+                              ) : (
+                                <label className="btn upload-btn">
+                                  Upload
+                                  <input
+                                    type="file"
+                                    accept="image/*,.pdf"
+                                    onChange={(e) => handleDocumentChange(e, documentType)}
+                                    style={{ display: 'none' }}
+                                  />
+                                </label>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
