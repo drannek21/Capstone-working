@@ -380,65 +380,87 @@
 
 .documents-section {
   background: white;
-  border-radius: 12px;
-  padding: 20px;
-  margin-top: 20px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  border-radius: 8px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  margin-bottom: 24px;
+}
+
+.documents-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 24px;
+  margin-top: 16px;
 }
 
 .document-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 15px;
-  border-bottom: 1px solid #eee;
+  background: var(--background, #f5f7fa);
+  border-radius: 10px;
+  padding: 16px;
+  transition: all 0.3s ease;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.document-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.document-preview {
+  position: relative;
+  padding-top: 75%;
+  background: #f1f5f9;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.document-preview img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  cursor: pointer;
 }
 
 .document-info {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  padding: 0;
 }
 
-.doc-icon {
-  color: #2E7D32;
-  font-size: 20px;
+.document-info h4 {
+  margin: 0 0 8px 0;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-primary, #333);
+}
+
+.document-info p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary, #666);
 }
 
 .document-actions {
-  display: flex;
-  gap: 10px;
+  padding: 0;
+  margin-top: 12px;
 }
 
-.view-btn, .delete-btn, .upload-btn {
-  padding: 8px 12px;
+.document-actions .btn {
+  width: 100%;
+  padding: 8px 16px;
+  background: #2E7D32;
+  color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
 }
 
-.view-btn {
-  background: #e3f2fd;
-  color: #1976d2;
-}
-
-.delete-btn {
-  background: #ffebee;
-  color: #d32f2f;
-}
-
-.upload-btn {
-  background: #e8f5e9;
-  color: #2e7d32;
-}
-
-.upload-progress {
-  margin-left: 10px;
-  color: #666;
+.document-actions .btn:hover {
+  background: #1b5e20;
+  transform: translateY(-1px);
 }
 
 .modal-overlay {
@@ -900,4 +922,257 @@
 .add-child-button:hover {
   opacity: 1;
   transform: scale(1.1);
+}
+
+.profile-tabs {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 0.5rem;
+}
+
+.tab-button {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  background: none;
+  font-size: 1rem;
+  font-weight: 500;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.tab-button:hover {
+  color: #2563eb;
+}
+
+.tab-button.active {
+  color: #2563eb;
+}
+
+.tab-button.active::after {
+  content: '';
+  position: absolute;
+  bottom: -0.5rem;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background-color: #2563eb;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .profile-tabs {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .tab-button {
+    padding: 0.5rem 1rem;
+    text-align: left;
+  }
+
+  .documents-list {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Documents Table Styles */
+.documents-table-container {
+  width: 100%;
+  overflow-x: auto;
+  margin-top: 1rem;
+}
+
+.documents-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.documents-table th,
+.documents-table td {
+  padding: 1rem;
+  text-align: left;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.documents-table th {
+  background: #f8fafc;
+  font-weight: 600;
+  color: #1e293b;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.documents-table td {
+  font-size: 0.875rem;
+  color: #334155;
+}
+
+.status-cell {
+  min-width: 120px;
+}
+
+.status-submitted {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #2E7D32;
+  font-weight: 500;
+}
+
+.status-submitted i {
+  color: #2E7D32;
+}
+
+.status-pending {
+  color: #64748b;
+  font-style: italic;
+}
+
+.btn {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.view-btn {
+  background: #e3f2fd;
+  color: #1976d2;
+  border: none;
+}
+
+.view-btn:hover {
+  background: #bbdefb;
+}
+
+.upload-btn {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border: none;
+  cursor: pointer;
+}
+
+.upload-btn:hover {
+  background: #c8e6c9;
+}
+
+.renewal-message {
+  background: #fff3e0;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.renewal-message h4 {
+  color: #e65100;
+  margin: 0 0 0.5rem 0;
+}
+
+.renewal-message p {
+  color: #666;
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.no-documents-message {
+  text-align: center;
+  padding: 2rem;
+  color: #64748b;
+  font-style: italic;
+}
+
+/* Delete Modal Styles */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.modal-header {
+  padding: 1rem;
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: #1e293b;
+}
+
+.close-button {
+  background: none;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  padding: 0.5rem;
+}
+
+.modal-body {
+  padding: 1.5rem;
+}
+
+.modal-footer {
+  padding: 1rem;
+  border-top: 1px solid #f1f5f9;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.delete-button {
+  background: #dc2626;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.delete-button:hover {
+  background: #b91c1c;
+}
+
+.cancel-button {
+  background: #f1f5f9;
+  color: #64748b;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.cancel-button:hover {
+  background: #e2e8f0;
 }

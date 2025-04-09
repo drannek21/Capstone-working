@@ -293,7 +293,7 @@ app.get('/pendingUsers', async (req, res) => {
 app.get('/verifiedUsersSA', async (req, res) => {
   try {
     const users = await queryDatabase(`
-      SELECT u.id AS userId, u.email, u.name, u.status, u.code_id,
+      SELECT u.id AS userId, u.email, u.name, u.status, u.code_id, u.profilePic,
              s1.first_name, s1.middle_name, s1.last_name, s1.age, s1.gender, 
              s1.date_of_birth, s1.place_of_birth, s1.barangay, s1.education, 
              s1.civil_status, s1.occupation, s1.religion, s1.company, 
@@ -332,84 +332,10 @@ app.get('/verifiedUsersSA', async (req, res) => {
       return res.status(200).json([]);
     }
 
-    const codeIds = users.map(user => user.code_id);
-
-    const familyQuery = `
-      SELECT code_id, 
-             family_member_name,
-             birthdate,
-             educational_attainment,
-             age
-      FROM step2_family_occupation
-      WHERE code_id IN (?)
-    `;
-
-    const familyMembers = await queryDatabase(familyQuery, [codeIds]);
-
-    const familyByUser = {};
-    familyMembers.forEach(member => {
-      if (!familyByUser[member.code_id]) {
-        familyByUser[member.code_id] = [];
-      }
-      familyByUser[member.code_id].push(member);
-    });
-
-    // Fetch documents for each user from all document tables
-    const documentTables = [
-      'psa_documents',
-      'itr_documents', 
-      'med_cert_documents', 
-      'marriage_documents', 
-      'cenomar_documents', 
-      'death_cert_documents',
-      'barangay_cert_documents'
-    ];
-    
-    let allDocuments = [];
-    
-    // Query each document table and combine results
-    for (const table of documentTables) {
-      const documentsQuery = `
-        SELECT code_id,
-               file_name,
-               uploaded_at,
-               display_name,
-               status,
-               '${table}' as document_type,
-               CASE 
-                 WHEN file_name LIKE 'http%' THEN file_name 
-                 ELSE CONCAT('http://localhost:8081/uploads/', file_name) 
-               END as file_url
-        FROM ${table}
-        WHERE code_id IN (?)
-      `;
-
-      try {
-        const docs = await queryDatabase(documentsQuery, [codeIds]);
-        allDocuments = [...allDocuments, ...docs];
-      } catch (err) {
-        console.error(`Error fetching from ${table}:`, err);
-      }
-    }
-
-    const documentsByUser = {};
-    allDocuments.forEach(doc => {
-      if (!documentsByUser[doc.code_id]) {
-        documentsByUser[doc.code_id] = [];
-      }
-      documentsByUser[doc.code_id].push(doc);
-    });
-
-    const usersWithFamily = users.map(user => ({
-      ...user,
-      familyMembers: familyByUser[user.code_id] || [],
-      documents: documentsByUser[user.code_id] || []
-    }));
-
-    res.status(200).json(usersWithFamily);
-  } catch (err) {
-    console.error('Error fetching users:', err);
-    res.status(500).json({ error: 'Error fetching users' });
+    res.status(200).json(users);
+  } catch (error) {
+    console.error('Error fetching verified users:', error);
+    res.status(500).json({ error: 'Failed to fetch verified users' });
   }
 });
 
