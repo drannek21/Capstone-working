@@ -182,6 +182,192 @@ const SoloParentManagement = () => {
     }
   };
 
+  const captureID = async (element) => {
+    // Create a clone of the element
+    const clone = element.cloneNode(true);
+    clone.classList.add('capturing');
+    document.body.appendChild(clone);
+    
+    try {
+      // Get the full scroll dimensions
+      const width = clone.scrollWidth;
+      const height = clone.scrollHeight;
+      
+      const options = {
+        scale: 2,
+        backgroundColor: '#fff',
+        logging: true,
+        useCORS: true,
+        allowTaint: true,
+        width: width,
+        height: height,
+        scrollX: 0,
+        scrollY: 0,
+        windowWidth: width,
+        windowHeight: height
+      };
+
+      const canvas = await html2canvas(clone, options);
+      return canvas;
+    } finally {
+      document.body.removeChild(clone);
+    }
+  };
+
+  const downloadID = async (side) => {
+    try {
+      // Get the element to capture based on side
+      const targetElement = document.querySelector(side === 'back' ? '.id-card.back' : '.id-card.front');
+      if (!targetElement) {
+        console.error('Target element not found');
+        return;
+      }
+
+      // Get the actual dimensions
+      const rect = targetElement.getBoundingClientRect();
+
+      // Capture the current state
+      const canvas = await html2canvas(targetElement, {
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: 'white',
+        scale: 3,
+        width: rect.width,
+        height: rect.height,
+        logging: false,
+        onclone: (clonedDoc) => {
+          const clonedElement = clonedDoc.querySelector(side === 'back' ? '.id-card.back' : '.id-card.front');
+          if (clonedElement) {
+            clonedElement.style.transform = 'none';
+            clonedElement.style.position = 'relative';
+            clonedElement.style.display = 'flex';
+            clonedElement.style.opacity = '1';
+            
+            // Make sure all content is visible
+            const header = clonedElement.querySelector('.id-card-header');
+            const body = clonedElement.querySelector('.id-card-body');
+            const terms = clonedElement.querySelector('.terms-section');
+            const signature = clonedElement.querySelector('.signature-section');
+            
+            if (header) header.style.display = 'flex';
+            if (body) body.style.display = 'flex';
+            if (terms) terms.style.display = 'block';
+            if (signature) signature.style.display = 'flex';
+          }
+        }
+      });
+
+      // Download the image
+      const image = canvas.toDataURL('image/png', 1.0);
+      const link = document.createElement('a');
+      link.href = image;
+      link.download = `solo_parent_id_${side === 'back' ? 'back' : 'front'}.png`;
+      link.click();
+
+    } catch (error) {
+      console.error('Error generating ID:', error);
+      alert('Failed to download ID. Please try again.');
+    }
+  };
+
+  const printID = async () => {
+    try {
+      // Get front and back elements
+      const frontElement = document.querySelector('.id-card.front');
+      const backElement = document.querySelector('.id-card.back');
+      
+      if (!frontElement || !backElement) {
+        console.error('ID card elements not found');
+        return;
+      }
+
+      // Get dimensions
+      const frontRect = frontElement.getBoundingClientRect();
+      const backRect = backElement.getBoundingClientRect();
+
+      // Capture options
+      const options = {
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: 'white',
+        scale: 3,
+        logging: false,
+        onclone: (clonedDoc) => {
+          const clonedFront = clonedDoc.querySelector('.id-card.front');
+          const clonedBack = clonedDoc.querySelector('.id-card.back');
+          
+          [clonedFront, clonedBack].forEach(element => {
+            if (element) {
+              element.style.transform = 'none';
+              element.style.position = 'relative';
+              element.style.display = 'flex';
+              element.style.opacity = '1';
+              
+              // Make sure all content is visible
+              const header = element.querySelector('.id-card-header');
+              const body = element.querySelector('.id-card-body');
+              const terms = element.querySelector('.terms-section');
+              const signature = element.querySelector('.signature-section');
+              
+              if (header) header.style.display = 'flex';
+              if (body) body.style.display = 'flex';
+              if (terms) terms.style.display = 'block';
+              if (signature) signature.style.display = 'flex';
+            }
+          });
+        }
+      };
+
+      // Capture both sides
+      const frontCanvas = await html2canvas(frontElement, { ...options, width: frontRect.width, height: frontRect.height });
+      const backCanvas = await html2canvas(backElement, { ...options, width: backRect.width, height: backRect.height });
+
+      // Open print window
+      const printWindow = window.open('', '_blank');
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Print Solo Parent ID</title>
+            <style>
+              @page {
+                size: 3.375in 2.125in;
+                margin: 0;
+              }
+              @media print {
+                body {
+                  margin: 0;
+                  padding: 0;
+                }
+                img {
+                  width: 3.375in;
+                  height: 2.125in;
+                  object-fit: contain;
+                  page-break-after: always;
+                  display: block;
+                }
+              }
+            </style>
+          </head>
+          <body>
+            <img src="${frontCanvas.toDataURL('image/png', 1.0)}" />
+            <img src="${backCanvas.toDataURL('image/png', 1.0)}" />
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+
+      // Wait for images to load before printing
+      setTimeout(() => {
+        printWindow.focus();
+        printWindow.print();
+      }, 500);
+
+    } catch (error) {
+      console.error('Error printing ID:', error);
+      alert('Failed to print ID. Please try again.');
+    }
+  };
+
   const filteredUsers = verifiedUsers.filter(user => {
     if (!user) return false;
     
@@ -289,60 +475,6 @@ const SoloParentManagement = () => {
 
   const handleTouchEnd = () => {
     setTouchStart(null);
-  };
-
-  const downloadID = async (side) => {
-    try {
-      // Get the element to capture based on side
-      const targetElement = document.querySelector(side === 'back' ? '.id-back' : '.id-front');
-      if (!targetElement) {
-        console.error('Target element not found');
-        return;
-      }
-
-      // Get the actual dimensions
-      const rect = targetElement.getBoundingClientRect();
-
-      // Capture the current state
-      const canvas = await html2canvas(targetElement, {
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: 'white',
-        scale: 3,
-        width: rect.width,
-        height: rect.height,
-        logging: false,
-        onclone: (clonedDoc) => {
-          const clonedElement = clonedDoc.querySelector(side === 'back' ? '.id-back' : '.id-front');
-          if (clonedElement) {
-            clonedElement.style.transform = 'none';
-            clonedElement.style.position = 'relative';
-            clonedElement.style.display = 'flex';
-            clonedElement.style.opacity = '1';
-            
-            // Make sure all content is visible
-            const header = clonedElement.querySelector('.id-header');
-            const body = clonedElement.querySelector('.id-body');
-            const backContent = clonedElement.querySelector('.back-content');
-            
-            if (header) header.style.display = 'flex';
-            if (body) body.style.display = 'flex';
-            if (backContent) backContent.style.display = 'flex';
-          }
-        }
-      });
-
-      // Download the image
-      const image = canvas.toDataURL('image/png', 1.0);
-      const link = document.createElement('a');
-      link.href = image;
-      link.download = `${selectedIDUser.name}_SoloParent_ID_${side === 'back' ? 'Back' : 'Front'}.png`;
-      link.click();
-
-    } catch (error) {
-      console.error('Error generating ID:', error);
-      alert('Failed to download ID. Please try again.');
-    }
   };
 
   const openIDModal = (user) => {
@@ -886,123 +1018,134 @@ const SoloParentManagement = () => {
       )}
 
       {/* ID Card Modal */}
-      {showIDModal && selectedIDUser && (
-        <div className="modal-overlay">
-          <div className="modal id-card-modal">
-            <div className="modal-header">
+      {showIDModal && (
+        <div className="id-modal-overlay">
+          <div className="id-modal">
+            <div className="id-modal-header">
               <h3>Solo Parent ID Card</h3>
-              <button className="close-btn" onClick={closeIDModal}>
-                <i className="fas fa-times"></i>
+              <button 
+                className="close-btn"
+                onClick={() => setShowIDModal(false)}
+              >
+                &times;
               </button>
             </div>
-            <div className="modal-content">
-              <div className="id-card-container">
+            <div className="id-modal-content">
+              <div className="id-cards-container">
                 {/* Front of ID */}
-                <div className="digital-id">
-                  <div className="id-front">
-                    <div className="id-header">
-                      <img src={dswdLogo} alt="DSWD Logo" className="id-logo" />
-                      <div className="id-title">
-                        <h2>SOLO PARENT IDENTIFICATION CARD</h2>
-                        <p>Republic of the Philippines</p>
-                        <p className="id-subtitle">DSWD Region III</p>
+                <div className="id-card front">
+                  <div className="id-card-header">
+                    <img src={dswdLogo} alt="DSWD Logo" className="id-logo" />
+                    <div className="id-title">
+                      <h3>SOLO PARENT IDENTIFICATION CARD</h3>
+                      <h4>Republic of the Philippines</h4>
+                      <h4>DSWD Region III</h4>
+                    </div>
+                  </div>
+                  <div className="id-card-body">
+                    <div className="id-left-section">
+                      <div className="id-photo-container">
+                        <img 
+                          src={selectedIDUser.profile_picture || avatar} 
+                          alt="User" 
+                          className="id-photo"
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = avatar;
+                          }}
+                        />
+                      </div>
+                      <div className="id-category">
+                        Category: {selectedIDUser.category || '004'}
+                      </div>
+                      <div className="id-validity">
+                        Valid Until: {selectedIDUser.valid_until || '3/25/2026'}
                       </div>
                     </div>
-                    <div className="id-body">
-                      <div className="id-photo-container">
-                        <div className="id-photo">
-                          <img 
-                            src={selectedIDUser.profilePic || avatar} 
-                            alt="User" 
-                            crossOrigin="anonymous" 
-                            onError={(e) => {
-                              e.target.onerror = null;
-                              e.target.src = avatar;
-                            }}
-                          />
-                        </div>
-                        <div className="id-validity">
-                          <strong>Category: </strong>
-                          <span>{selectedIDUser.classification}</span>
-                        </div>
-                        <div className="id-validity">
-                          <strong>Valid Until: </strong>
-                          {selectedIDUser.validUntil ? new Date(selectedIDUser.validUntil).toLocaleDateString() : 'N/A'}
-                        </div>
+                    <div className="id-details">
+                      <div className="id-detail">
+                        <span className="id-label">ID No:</span>
+                        <span className="id-value">{selectedIDUser.code_id || 'N/A'}</span>
                       </div>
-                      <div className="id-details">
-                        <div className="detail-row">
-                          <strong>ID No:</strong>
-                          <span>{String(selectedIDUser.code_id).padStart(6, '0')}</span>
-                        </div>
-                        <div className="detail-row">
-                          <strong>Name:</strong>
-                          <span>{`${selectedIDUser.first_name} ${selectedIDUser.middle_name || ''} ${selectedIDUser.last_name}`}</span>
-                        </div>
-                        <div className="detail-row">
-                          <strong>Barangay:</strong>
-                          <span>{selectedIDUser.barangay}</span>
-                        </div>
-                        <div className="detail-row">
-                          <strong>Birthdate:</strong>
-                          <span>{selectedIDUser.date_of_birth ? 
-                            new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' })
-                            .format(new Date(selectedIDUser.date_of_birth)) : ''}</span>
-                        </div>
-                        <div className="detail-row">
-                          <strong>Civil Status:</strong>
-                          <span>{selectedIDUser.civil_status}</span>
-                        </div>
-                        <div className="detail-row">
-                          <strong>Contact:</strong>
-                          <span>{selectedIDUser.contact_number}</span>
-                        </div>
+                      <div className="id-detail">
+                        <span className="id-label">Name:</span>
+                        <span className="id-value">
+                          {`${selectedIDUser.first_name || ''} ${selectedIDUser.middle_name || ''} ${selectedIDUser.last_name || ''}`}
+                        </span>
+                      </div>
+                      <div className="id-detail">
+                        <span className="id-label">Barangay:</span>
+                        <span className="id-value">{selectedIDUser.barangay || 'N/A'}</span>
+                      </div>
+                      <div className="id-detail">
+                        <span className="id-label">Birthdate:</span>
+                        <span className="id-value">
+                          {selectedIDUser.date_of_birth ? new Date(selectedIDUser.date_of_birth).toLocaleDateString() : 'N/A'}
+                        </span>
+                      </div>
+                      <div className="id-detail">
+                        <span className="id-label">Civil Status:</span>
+                        <span className="id-value">{selectedIDUser.civil_status || 'N/A'}</span>
+                      </div>
+                      <div className="id-detail">
+                        <span className="id-label">Contact:</span>
+                        <span className="id-value">{selectedIDUser.contact_number || 'N/A'}</span>
                       </div>
                     </div>
                   </div>
-                  <button className="download-id-btn" onClick={() => downloadID('front')}>
-                    Download Front
-                  </button>
                 </div>
 
                 {/* Back of ID */}
-                <div className="digital-id">
-                  <div className="id-back">
-                    <div className="id-header">
-                      <img src={dswdLogo} alt="DSWD Logo" className="id-logo" />
-                      <div className="id-title">
-                        <h2>SOLO PARENT IDENTIFICATION CARD</h2>
-                        <p>Republic of the Philippines</p>
-                        <p className="id-subtitle">DSWD Region III</p>
-                      </div>
-                    </div>
-                    <div className="back-content">
-                      <div className="terms-section">
-                        <h3>Terms and Conditions</h3>
-                        <ol>
-                          <li>This ID is non-transferable</li>
-                          <li>Report loss/damage to DSWD office</li>
-                          <li>Present this ID when availing benefits</li>
-                          <li>Tampering invalidates this ID</li>
-                        </ol>
-                      </div>
-                      <div className="signature-section">
-                        <div className="signature-line">
-                          <div className="line"></div>
-                          <p>Card Holder's Signature</p>
-                        </div>
-                        <div className="signature-line">
-                          <div className="line"></div>
-                          <p>Authorized DSWD Official</p>
-                        </div>
-                      </div>
+                <div className="id-card back">
+                  <div className="id-card-header">
+                    <img src={dswdLogo} alt="DSWD Logo" className="id-logo" />
+                    <div className="id-title">
+                      <h3>SOLO PARENT IDENTIFICATION CARD</h3>
+                      <h4>Republic of the Philippines</h4>
+                      <h4>DSWD Region III</h4>
                     </div>
                   </div>
-                  <button className="download-id-btn" onClick={() => downloadID('back')}>
-                    Download Back
-                  </button>
+                  <div className="terms-section">
+                    <h3>Terms and Conditions</h3>
+                    <ol>
+                      <li>This ID is non-transferable</li>
+                      <li>Report loss/damage to DSWD office</li>
+                      <li>Present this ID when availing benefits</li>
+                      <li>Tampering invalidates this ID</li>
+                    </ol>
+                  </div>
+                  <div className="signature-section">
+                    <div className="signature-block">
+                      <div className="signature-line"></div>
+                      <span>Card Holder's Signature</span>
+                    </div>
+                    <div className="signature-block">
+                      <div className="signature-line"></div>
+                      <span>Authorized DSWD Official</span>
+                    </div>
+                  </div>
                 </div>
               </div>
+            </div>
+            <div className="id-modal-actions">
+              <button 
+                className="download-btn"
+                onClick={() => downloadID('front')}
+              >
+                Download Front
+              </button>
+              <button 
+                className="download-btn"
+                onClick={() => downloadID('back')}
+              >
+                Download Back
+              </button>
+              <button 
+                className="print-btn"
+                onClick={printID}
+              >
+                Print ID
+              </button>
             </div>
           </div>
         </div>

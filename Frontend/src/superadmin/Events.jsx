@@ -11,7 +11,8 @@ const Events = () => {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    date: '',
+    startDate: '',
+    endDate: '',
     time: '',
     location: '',
     status: 'Upcoming'
@@ -48,7 +49,8 @@ const Events = () => {
       setFormData({
         title: '',
         description: '',
-        date: '',
+        startDate: '',
+        endDate: '',
         time: '',
         location: '',
         status: 'Upcoming'
@@ -91,7 +93,8 @@ const Events = () => {
     setFormData({
       title: event.title,
       description: event.description,
-      date: event.date,
+      startDate: event.startDate,
+      endDate: event.endDate,
       time: event.time,
       location: event.location,
       status: event.status
@@ -113,7 +116,8 @@ const Events = () => {
           <thead>
             <tr>
               <th>Title</th>
-              <th>Date</th>
+              <th>Start Date</th>
+              <th>End Date</th>
               <th>Time</th>
               <th>Location</th>
               <th>Status</th>
@@ -124,7 +128,8 @@ const Events = () => {
             {events.map(event => (
               <tr key={event.id}>
                 <td>{event.title}</td>
-                <td>{new Date(event.date).toLocaleDateString()}</td>
+                <td>{new Date(event.startDate).toLocaleDateString()}</td>
+                <td>{new Date(event.endDate).toLocaleDateString()}</td>
                 <td>{event.time}</td>
                 <td>{event.location}</td>
                 <td>
@@ -172,13 +177,24 @@ const Events = () => {
                 />
               </div>
               <div className="events-form-group">
-                <label>Date</label>
+                <label>Start Date</label>
                 <input
                   type="date"
-                  name="date"
-                  value={formData.date}
+                  name="startDate"
+                  value={formData.startDate}
                   onChange={handleInputChange}
                   required
+                />
+              </div>
+              <div className="events-form-group">
+                <label>End Date</label>
+                <input
+                  type="date"
+                  name="endDate"
+                  value={formData.endDate}
+                  onChange={handleInputChange}
+                  required
+                  min={formData.startDate}
                 />
               </div>
               <div className="events-form-group">
@@ -215,10 +231,19 @@ const Events = () => {
                   <option value="Cancelled">Cancelled</option>
                 </select>
               </div>
-              <div className="events-modal-buttons">
-                <button type="submit" className="events-save-btn">Save</button>
-                <button type="button" className="events-cancel-btn" onClick={() => setShowAddModal(false)}>
+              <div className="events-modal-actions">
+                <button 
+                  type="button" 
+                  className="events-cancel-btn"
+                  onClick={() => setShowAddModal(false)}
+                >
                   Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  className="events-save-btn"
+                >
+                  Save Event
                 </button>
               </div>
             </form>
@@ -252,13 +277,24 @@ const Events = () => {
                 />
               </div>
               <div className="events-form-group">
-                <label>Date</label>
+                <label>Start Date</label>
                 <input
                   type="date"
-                  name="date"
-                  value={formData.date}
+                  name="startDate"
+                  value={formData.startDate}
                   onChange={handleInputChange}
                   required
+                />
+              </div>
+              <div className="events-form-group">
+                <label>End Date</label>
+                <input
+                  type="date"
+                  name="endDate"
+                  value={formData.endDate}
+                  onChange={handleInputChange}
+                  required
+                  min={formData.startDate}
                 />
               </div>
               <div className="events-form-group">
@@ -295,10 +331,19 @@ const Events = () => {
                   <option value="Cancelled">Cancelled</option>
                 </select>
               </div>
-              <div className="events-modal-buttons">
-                <button type="submit" className="events-save-btn">Update</button>
-                <button type="button" className="events-cancel-btn" onClick={() => setShowEditModal(false)}>
+              <div className="events-modal-actions">
+                <button 
+                  type="button" 
+                  className="events-cancel-btn"
+                  onClick={() => setShowEditModal(false)}
+                >
                   Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  className="events-save-btn"
+                >
+                  Update Event
                 </button>
               </div>
             </form>
@@ -309,4 +354,4 @@ const Events = () => {
   );
 };
 
-export default Events; 
+export default Events;
