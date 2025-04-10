@@ -1799,19 +1799,18 @@ app.post('/changePassword', async (req, res) => {
 
 // Events routes
 app.get('/events', async (req, res) => {
-  const query = 'SELECT * FROM events ORDER BY created_at DESC';
-  db.query(query, (err, results) => {
-    if (err) {
-      console.error('Error fetching events:', err);
-      res.status(500).json({ error: 'Error fetching events' });
-      return;
-    }
+  try {
+    const results = await queryDatabase('SELECT * FROM events ORDER BY created_at DESC');
+    
     res.json(results.map(event => ({
       ...event,
       is_read: event.is_read || 0, // Ensure is_read is always defined
       created_at: event.created_at || new Date().toISOString() // Ensure created_at is always defined
     })));
-  });
+  } catch (error) {
+    console.error('Error fetching events:', error);
+    res.status(500).json({ error: 'Error fetching events' });
+  }
 });
 
 app.post('/events', async (req, res) => {
