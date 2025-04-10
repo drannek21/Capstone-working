@@ -332,7 +332,83 @@ app.get('/verifiedUsersSA', async (req, res) => {
       return res.status(200).json([]);
     }
 
-    res.status(200).json(users);
+    const codeIds = users.map(user => user.code_id);
+
+    // Fetch family composition
+    const familyQuery = `
+      SELECT code_id, 
+             family_member_name,
+             birthdate,
+             educational_attainment,
+             age
+      FROM step2_family_occupation
+      WHERE code_id IN (?)
+    `;
+
+    const familyMembers = await queryDatabase(familyQuery, [codeIds]);
+
+    const familyByUser = {};
+    familyMembers.forEach(member => {
+      if (!familyByUser[member.code_id]) {
+        familyByUser[member.code_id] = [];
+      }
+      familyByUser[member.code_id].push(member);
+    });
+
+    // Fetch documents for each user from all document tables
+    const documentTables = [
+      'psa_documents',
+      'itr_documents', 
+      'med_cert_documents', 
+      'marriage_documents', 
+      'cenomar_documents', 
+      'death_cert_documents',
+      'barangay_cert_documents'
+    ];
+    
+    let allDocuments = [];
+    
+    // Query each document table and combine results
+    for (const table of documentTables) {
+      const documentsQuery = `
+        SELECT code_id,
+               file_name,
+               uploaded_at,
+               display_name,
+               status,
+               '${table}' as document_type,
+               CASE 
+                 WHEN file_name LIKE 'http%' THEN file_name 
+                 ELSE CONCAT('http://localhost:8081/uploads/', file_name) 
+               END as file_url
+        FROM ${table}
+        WHERE code_id IN (?)
+      `;
+
+      try {
+        const docs = await queryDatabase(documentsQuery, [codeIds]);
+        allDocuments = [...allDocuments, ...docs];
+      } catch (err) {
+        console.error(`Error fetching from ${table}:`, err);
+        // Continue with other tables even if one fails
+      }
+    }
+
+    const documentsByUser = {};
+    allDocuments.forEach(doc => {
+      if (!documentsByUser[doc.code_id]) {
+        documentsByUser[doc.code_id] = [];
+      }
+      documentsByUser[doc.code_id].push(doc);
+    });
+
+    const usersWithFamily = users.map(user => ({
+      ...user,
+      familyMembers: familyByUser[user.code_id] || [],
+      documents: documentsByUser[user.code_id] || []
+    }));
+
+    res.status(200).json(usersWithFamily);
   } catch (error) {
     console.error('Error fetching verified users:', error);
     res.status(500).json({ error: 'Failed to fetch verified users' });
@@ -1723,30 +1799,38 @@ app.post('/changePassword', async (req, res) => {
 
 // Events routes
 app.get('/events', async (req, res) => {
-  try {
-    const events = await queryDatabase('SELECT * FROM events ORDER BY date DESC');
-    res.json(events);
-  } catch (error) {
-    console.error('Error fetching events:', error);
-    res.status(500).json({ error: 'Error fetching events' });
-  }
+  const query = 'SELECT * FROM events ORDER BY created_at DESC';
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error('Error fetching events:', err);
+      res.status(500).json({ error: 'Error fetching events' });
+      return;
+    }
+    res.json(results.map(event => ({
+      ...event,
+      is_read: event.is_read || 0, // Ensure is_read is always defined
+      created_at: event.created_at || new Date().toISOString() // Ensure created_at is always defined
+    })));
+  });
 });
 
 app.post('/events', async (req, res) => {
-  const { title, description, date, time, location, status } = req.body;
+  const { title, description, startDate, endDate, startTime, endTime, location, status } = req.body;
   
   try {
     const result = await queryDatabase(
-      'INSERT INTO events (title, description, date, time, location, status) VALUES (?, ?, ?, ?, ?, ?)',
-      [title, description, date, time, location, status]
+      'INSERT INTO events (title, description, startDate, endDate, startTime, endTime, location, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [title, description, startDate, endDate, startTime, endTime, location, status]
     );
     
     res.status(201).json({
       id: result.insertId,
       title,
       description,
-      date,
-      time,
+      startDate,
+      endDate,
+      startTime,
+      endTime,
       location,
       status
     });
@@ -1758,26 +1842,44 @@ app.post('/events', async (req, res) => {
 
 app.put('/events/:id', async (req, res) => {
   const { id } = req.params;
-  const { title, description, date, time, location, status } = req.body;
+  const { title, description, startDate, endDate, startTime, endTime, location, status } = req.body;
   
   try {
     await queryDatabase(
-      'UPDATE events SET title = ?, description = ?, date = ?, time = ?, location = ?, status = ? WHERE id = ?',
-      [title, description, date, time, location, status, id]
+      'UPDATE events SET title = ?, description = ?, startDate = ?, endDate = ?, startTime = ?, endTime = ?, location = ?, status = ? WHERE id = ?',
+      [title, description, startDate, endDate, startTime, endTime, location, status, id]
     );
     
     res.json({
       id,
       title,
       description,
-      date,
-      time,
+      startDate,
+      endDate,
+      startTime,
+      endTime,
       location,
       status
     });
   } catch (error) {
     console.error('Error updating event:', error);
     res.status(500).json({ error: 'Error updating event' });
+  }
+});
+
+app.put('/events/mark-as-read/:id', async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    await queryDatabase(
+      'UPDATE events SET is_read = 1 WHERE id = ?',
+      [id]
+    );
+    
+    res.json({ success: true, message: 'Event marked as read' });
+  } catch (error) {
+    console.error('Error marking event as read:', error);
+    res.status(500).json({ error: 'Error marking event as read' });
   }
 });
 

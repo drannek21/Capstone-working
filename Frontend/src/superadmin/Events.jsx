@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import axios from 'axios';
 import './Events.css';
+import { FaTimes } from 'react-icons/fa';
 
 const Events = () => {
   const [events, setEvents] = useState([]);
@@ -13,10 +14,12 @@ const Events = () => {
     description: '',
     startDate: '',
     endDate: '',
-    time: '',
+    startTime: '',
+    endTime: '',
     location: '',
     status: 'Upcoming'
   });
+  const [editingEvent, setEditingEvent] = useState(null);
 
   useEffect(() => {
     fetchEvents();
@@ -30,6 +33,20 @@ const Events = () => {
       console.error('Error fetching events:', error);
       toast.error('Failed to fetch events');
     }
+  };
+
+  const formatDate = (date) => {
+    if (!date) return '';
+    return new Date(date).toLocaleDateString();
+  };
+
+  const formatTime = (time) => {
+    if (!time) return '';
+    const [hours, minutes] = time.split(':');
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? 'pm' : 'am';
+    const formattedHour = hour % 12 || 12;
+    return `${formattedHour}:${minutes} ${ampm}`;
   };
 
   const handleInputChange = (e) => {
@@ -51,7 +68,8 @@ const Events = () => {
         description: '',
         startDate: '',
         endDate: '',
-        time: '',
+        startTime: '',
+        endTime: '',
         location: '',
         status: 'Upcoming'
       });
@@ -93,9 +111,10 @@ const Events = () => {
     setFormData({
       title: event.title,
       description: event.description,
-      startDate: event.startDate,
-      endDate: event.endDate,
-      time: event.time,
+      startDate: event.startDate.split('T')[0],
+      endDate: event.endDate.split('T')[0],
+      startTime: event.startTime,
+      endTime: event.endTime,
       location: event.location,
       status: event.status
     });
@@ -116,8 +135,7 @@ const Events = () => {
           <thead>
             <tr>
               <th>Title</th>
-              <th>Start Date</th>
-              <th>End Date</th>
+              <th>Date</th>
               <th>Time</th>
               <th>Location</th>
               <th>Status</th>
@@ -128,9 +146,12 @@ const Events = () => {
             {events.map(event => (
               <tr key={event.id}>
                 <td>{event.title}</td>
-                <td>{new Date(event.startDate).toLocaleDateString()}</td>
-                <td>{new Date(event.endDate).toLocaleDateString()}</td>
-                <td>{event.time}</td>
+                <td>
+                  {formatDate(event.startDate)} - {formatDate(event.endDate)}
+                </td>
+                <td>
+                  {formatTime(event.startTime)} - {formatTime(event.endTime)}
+                </td>
                 <td>{event.location}</td>
                 <td>
                   <span className={`events-status-badge ${event.status.toLowerCase()}`}>
@@ -198,11 +219,21 @@ const Events = () => {
                 />
               </div>
               <div className="events-form-group">
-                <label>Time</label>
+                <label>Start Time</label>
                 <input
                   type="time"
-                  name="time"
-                  value={formData.time}
+                  name="startTime"
+                  value={formData.startTime}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+              <div className="events-form-group">
+                <label>End Time</label>
+                <input
+                  type="time"
+                  name="endTime"
+                  value={formData.endTime}
                   onChange={handleInputChange}
                   required
                 />
@@ -277,35 +308,43 @@ const Events = () => {
                 />
               </div>
               <div className="events-form-group">
-                <label>Start Date</label>
-                <input
-                  type="date"
-                  name="startDate"
-                  value={formData.startDate}
-                  onChange={handleInputChange}
-                  required
-                />
+                <label>Start Date & Time</label>
+                <div className="date-time-inputs">
+                  <input
+                    type="date"
+                    name="startDate"
+                    value={formData.startDate}
+                    onChange={handleInputChange}
+                    required
+                  />
+                  <input
+                    type="time"
+                    name="startTime"
+                    value={formData.startTime}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </div>
               </div>
               <div className="events-form-group">
-                <label>End Date</label>
-                <input
-                  type="date"
-                  name="endDate"
-                  value={formData.endDate}
-                  onChange={handleInputChange}
-                  required
-                  min={formData.startDate}
-                />
-              </div>
-              <div className="events-form-group">
-                <label>Time</label>
-                <input
-                  type="time"
-                  name="time"
-                  value={formData.time}
-                  onChange={handleInputChange}
-                  required
-                />
+                <label>End Date & Time</label>
+                <div className="date-time-inputs">
+                  <input
+                    type="date"
+                    name="endDate"
+                    value={formData.endDate}
+                    onChange={handleInputChange}
+                    required
+                    min={formData.startDate}
+                  />
+                  <input
+                    type="time"
+                    name="endTime"
+                    value={formData.endTime}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </div>
               </div>
               <div className="events-form-group">
                 <label>Location</label>

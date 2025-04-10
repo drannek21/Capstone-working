@@ -7,7 +7,11 @@ import {
   faQuestionCircle,
   faTimes,
   faCheck,
-  faExclamationCircle
+  faExclamationCircle,
+  faCalendarAlt,
+  faFileAlt,
+  faFileUpload,
+  faInfoCircle
 } from '@fortawesome/free-solid-svg-icons';
 import './UserTopNavbar.css';
 import defaultAvatar from '../assets/avatar.jpg';
@@ -108,11 +112,35 @@ const UserTopNavbar = () => {
         const userId = localStorage.getItem("UserId");
         if (!userId) return;
 
-        const response = await fetch(`http://localhost:8081/notifications/${userId}`);
-        const data = await response.json();
+        // Fetch regular notifications
+        const notificationsResponse = await fetch(`http://localhost:8081/notifications/${userId}`);
+        const notificationsData = await notificationsResponse.json();
 
-        console.log("Fetched Notifications:", data);
-        setNotifications(Array.isArray(data) ? data : []);
+        // Fetch events
+        const eventsResponse = await fetch('http://localhost:8081/events');
+        const eventsData = await eventsResponse.json();
+
+        // Convert events to notification format
+        const eventNotifications = eventsData.map(event => ({
+          id: `event_${event.id}`,
+          type: 'event',
+          message: `New Event: ${event.title}`,
+          details: {
+            date: `${formatDate(event.startDate)} - ${formatDate(event.endDate)}`,
+            time: `${formatTime(event.startTime)} - ${formatTime(event.endTime)}`,
+            location: event.location
+          },
+          created_at: event.created_at,
+          read: event.is_read === 1 // Convert MySQL TINYINT(1) to boolean
+        }));
+
+        // Combine both notifications and events
+        const allNotifications = [...notificationsData, ...eventNotifications];
+        
+        // Sort by creation date (newest first)
+        allNotifications.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        
+        setNotifications(allNotifications);
       } catch (error) {
         console.error("Error fetching notifications:", error);
         setNotifications([]);
@@ -121,7 +149,7 @@ const UserTopNavbar = () => {
 
     fetchNotifications();
     
-    // Set up polling for new notifications every 30 seconds
+    // Set up polling for new events every 30 seconds
     const interval = setInterval(fetchNotifications, 30000);
     return () => clearInterval(interval);
   }, []);
@@ -129,17 +157,34 @@ const UserTopNavbar = () => {
   const markAsRead = async (notificationId, type) => {
     try {
       const userId = localStorage.getItem("UserId");
-  
-      await fetch(`http://localhost:8081/notifications/mark-as-read/${userId}/${type}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-      });
-  
-      setNotifications((prevNotifications) =>
-        prevNotifications.map((notif) =>
+      if (!userId) return;
+
+      // Update the notification state to mark it as read
+      setNotifications(prevNotifications =>
+        prevNotifications.map(notif =>
           notif.id === notificationId ? { ...notif, read: true } : notif
         )
       );
+
+      // If it's an event notification, mark it as read in the backend
+      if (type === 'event') {
+        const eventId = notificationId.replace('event_', '');
+        await fetch(`http://localhost:8081/events/mark-as-read/${eventId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        return;
+      }
+
+      // For regular notifications, mark as read in the backend
+      await fetch(`http://localhost:8081/notifications/mark-as-read/${userId}/${type}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
     } catch (error) {
       console.error("Error marking notification as read:", error);
     }
@@ -176,15 +221,25 @@ const UserTopNavbar = () => {
     });
   };
 
-  // Add the notification icon function
+  const formatTime = (timeString) => {
+    const [hours, minutes] = timeString.split(':');
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? 'pm' : 'am';
+    const formattedHour = hour % 12 || 12;
+    return `${formattedHour}:${minutes} ${ampm}`;
+  };
+
+  // Update the notification icon function
   const getNotificationIcon = (type) => {
     switch (type) {
-      case "application_accepted":
-        return <FontAwesomeIcon icon={faCheck} className="notification-icon success" />;
-      case "application_declined":
-        return <FontAwesomeIcon icon={faExclamationCircle} className="notification-icon danger" />;
-      case "renewal_accepted":
-        return <FontAwesomeIcon icon={faCheck} className="notification-icon success" />;
+      case "event":
+        return <FontAwesomeIcon icon={faCalendarAlt} className="notification-icon event" />;
+      case "application":
+        return <FontAwesomeIcon icon={faFileAlt} className="notification-icon application" />;
+      case "document":
+        return <FontAwesomeIcon icon={faFileUpload} className="notification-icon document" />;
+      case "status":
+        return <FontAwesomeIcon icon={faInfoCircle} className="notification-icon status" />;
       default:
         return <FontAwesomeIcon icon={faBell} className="notification-icon" />;
     }
@@ -259,12 +314,18 @@ const UserTopNavbar = () => {
                       </div>
                       <div className="notification-content">
                         <p className="notification-message">{notification.message}</p>
-                        <span className="notification-date">{formatDate(notification.created_at)}</span>
+                        {notification.details && (
+                          <div className="notification-details">
+                            <p className="notification-date">{notification.details.date}</p>
+                            <p className="notification-time">{notification.details.time}</p>
+                            <p className="notification-location">{notification.details.location}</p>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))
                 ) : (
-                  <p className="no-notifications">No notifications</p>
+                  <p className="no-notifications">No notifications available</p>
                 )}
               </div>
             </div>

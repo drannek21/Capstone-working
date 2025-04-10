@@ -24,6 +24,7 @@ const Profile = () => {
   const [refreshKey, setRefreshKey] = useState(0);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [documentToDelete, setDocumentToDelete] = useState(null);
+  const [events, setEvents] = useState([]);
 
   const loggedInUserId = localStorage.getItem("UserId");
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
@@ -409,6 +410,32 @@ const Profile = () => {
     }
   }, [loggedInUserId, refreshKey]);
 
+  // Add this function to fetch events
+  const fetchEvents = async () => {
+    try {
+      const response = await axios.get('http://localhost:8081/events');
+      setEvents(response.data);
+    } catch (error) {
+      console.error('Error fetching events:', error);
+    }
+  };
+
+  // Add this useEffect to fetch events when component mounts
+  useEffect(() => {
+    fetchEvents();
+  }, []);
+
+  // Add this function to format date and time
+  const formatDateTime = (date, time) => {
+    if (!date || !time) return '';
+    const formattedDate = new Date(date).toLocaleDateString();
+    const [hours, minutes] = time.split(':');
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? 'pm' : 'am';
+    const formattedHour = hour % 12 || 12;
+    return `${formattedDate} ${formattedHour}:${minutes} ${ampm}`;
+  };
+
   return (
     <div className="profile-container">
       <Toaster position="top-right" />
@@ -780,37 +807,28 @@ const Profile = () => {
 
             <div className="announcements-section">
               <div className="section-header">
-                <h2>Announcements</h2>
+                <h2>Events & Announcements</h2>
               </div>
               <div className="announcements-list">
-                {[
-                  {
-                    title: "System Update", 
-                    content: "New features coming next week!", 
-                    date: "2 days ago",
-                    type: "update"
-                  },
-                  {
-                    title: "Holiday Schedule", 
-                    content: "Check the updated holiday calendar", 
-                    date: "5 days ago",
-                    type: "event"
-                  },
-                  {
-                    title: "Community Event", 
-                    content: "Join us for the monthly parent meetup", 
-                    date: "1 week ago",
-                    type: "community"
-                  }
-                ].map((announcement, index) => (
-                  <div className={`announcement-item ${announcement.type}`} key={index}>
-                    <div className="announcement-content">
-                      <h4>{announcement.title}</h4>
-                      <p>{announcement.content}</p>
+                {events.length > 0 ? (
+                  events.map((event, index) => (
+                    <div className={`announcement-item ${event.status.toLowerCase()}`} key={index}>
+                      <div className="announcement-content">
+                        <h4>{event.title}</h4>
+                        <p>{event.description}</p>
+                        <div className="event-details">
+                          <p><strong>Date:</strong> {formatDateTime(event.startDate, event.startTime)} - {formatDateTime(event.endDate, event.endTime)}</p>
+                          <p><strong>Location:</strong> {event.location}</p>
+                          <span className={`status-badge ${event.status.toLowerCase()}`}>
+                            {event.status}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <span className="announcement-date">{announcement.date}</span>
-                  </div>
-                ))}
+                  ))
+                ) : (
+                  <p>No events available at the moment.</p>
+                )}
               </div>
             </div>
           </div>
