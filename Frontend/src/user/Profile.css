@@ -145,8 +145,13 @@
   grid-area: details;
 }
 
-.announcements-section {
+.user-profile-announcements {
   grid-area: announcements;
+  background: white;
+  border-radius: 8px;
+  padding: 24px;
+  width: 89%;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
 
 .children-section {
@@ -384,7 +389,7 @@
   padding: 28px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.05);
   margin-bottom: 24px;
-  border: 1px solid rgba(0,0,0,0.05);
+  border: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 .documents-table-container {
@@ -606,14 +611,6 @@
   margin-top: 20px;
 }
 
-.announcements-section {
-  background: #ffffff;
-  border-radius: 16px;
-  padding: 24px;
-  width: 89%;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-}
-
 .announcements-list {
   display: flex;
   flex-direction: column;
@@ -622,145 +619,34 @@
 }
 
 .announcement-item {
-  background: white;
-  border-radius: 8px;
-  padding: 16px;
-  margin-bottom: 16px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  transition: transform 0.2s ease;
+  border-left: 4px solid #2E7D32;
+  padding: 12px 16px;
+  background: #f8f9fa;
+  border-radius: 0 4px 4px 0;
+  transition: all 0.2s ease;
 }
 
 .announcement-item:hover {
-  transform: translateY(-2px);
+  background: #f1f8e9;
+  transform: translateX(4px);
 }
 
 .announcement-content h4 {
   margin: 0 0 8px 0;
-  color: #333;
-  font-size: 18px;
+  color: #2E7D32;
+  font-size: 16px;
 }
 
 .announcement-content p {
-  margin: 0 0 12px 0;
-  color: #666;
+  margin: 0 0 8px 0;
+  color: #555;
+  font-size: 14px;
   line-height: 1.5;
 }
 
-.event-details {
-  background: #f8f9fa;
-  padding: 12px;
-  border-radius: 6px;
-  margin-top: 12px;
-}
-
-.event-details p {
-  margin: 0 0 8px 0;
-  color: #555;
-}
-
-.event-details p:last-child {
-  margin-bottom: 0;
-}
-
-.status-badge {
-  display: inline-block;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-  margin-top: 8px;
-}
-
-.status-badge.upcoming {
-  background-color: #e3f2fd;
-  color: #1976d2;
-}
-
-.status-badge.ongoing {
-  background-color: #e8f5e9;
-  color: #2e7d32;
-}
-
-.status-badge.completed {
-  background-color: #f5f5f5;
-  color: #616161;
-}
-
-.status-badge.cancelled {
-  background-color: #ffebee;
-  color: #c62828;
-}
-
-.notification-settings {
-  color: #2E7D32;
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 8px;
-  font-size: 18px;
-}
-
-.notification-settings:hover {
-  color: #1b5e20;
-  background: none;
-  border: none;
-  color: #2E7D32;
-  cursor: pointer;
-  font-size: 20px;
-  opacity: 0.7;
-  transition: all 0.2s ease;
-}
-
-.notification-settings:hover {
-  opacity: 1;
-  transform: scale(1.1);
-}
-
-.announcements-section h2 {
-  margin-bottom: 0;
-  color: var(--text-primary, #333);
-  font-weight: 600;
-  font-size: 24px;
-}
-
-.announcements-list {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.announcement-item {
-  padding: 20px;
-  background: var(--background, #f5f7fa);
-  border-radius: 10px;
-  transition: all 0.3s ease;
-  border-left: 4px solid #2E7D32;
-}
-
-.announcement-item:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.08);
-}
-
-.announcement-item h4 {
-  color: var(--text-primary, #333);
-  margin-bottom: 10px;
-  font-weight: 600;
-  font-size: 18px;
-}
-
-.announcement-item p {
-  color: var(--text-secondary, #666);
-  font-size: 15px;
-  margin-bottom: 12px;
-  line-height: 1.6;
-}
-
 .announcement-date {
-  display: block;
-  font-size: 13px;
-  color: var(--text-tertiary, #999);
-  font-style: italic;
+  font-size: 12px;
+  color: #888;
 }
 
 .address-line {
@@ -829,7 +715,7 @@
     margin-top: 8px;
   }
   
-  .details-section, .announcements-section {
+  .details-section, .user-profile-announcements {
     padding: 16px;
   }
 }
@@ -1390,4 +1276,153 @@
   .mobile-documents-list {
     display: none;
   }
+}
+
+/* Profile-specific announcements styling */
+.user-profile-announcements {
+  background: white;
+  border-radius: 8px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.profile-announcements-header {
+  margin-bottom: 16px;
+}
+
+.profile-announcements-header h3 {
+  color: #2E7D32;
+  margin: 0 0 4px 0;
+}
+
+.profile-announcements-subtitle {
+  color: #666;
+  font-size: 14px;
+  margin: 0;
+}
+
+.profile-announcements-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.profile-announcement-card {
+  border-left: 3px solid #2E7D32;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 0 4px 4px 0;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.profile-announcement-card:hover {
+  transform: translateX(4px);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.profile-announcement-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  background: #e8f5e9;
+  color: #2E7D32;
+  margin-bottom: 8px;
+}
+
+.profile-announcement-content h4 {
+  color: #333;
+  margin: 0 0 8px 0;
+  font-size: 15px;
+}
+
+.profile-announcement-content p {
+  color: #555;
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.profile-announcement-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  color: #777;
+}
+
+.no-events-message {
+  color: #666;
+  font-style: italic;
+  text-align: center;
+  padding: 16px 0;
+}
+
+/* Attendance Modal Styles */
+.attendance-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.attendance-modal.show {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.attendance-modal .modal-content {
+  background: white;
+  padding: 24px;
+  border-radius: 8px;
+  max-width: 400px;
+  width: 90%;
+  text-align: center;
+}
+
+.attendance-modal .success {
+  color: #2E7D32;
+  font-weight: 500;
+}
+
+.attendance-modal .warning {
+  color: #d32f2f;
+  font-weight: 500;
+}
+
+.attendance-modal .success-icon {
+  color: #28a745;
+  margin-bottom: 1rem;
+}
+
+.attendance-modal .error-icon {
+  color: #dc3545;
+  margin-bottom: 1rem;
+}
+
+.attendance-modal .modal-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.modal-close-btn {
+  background: #2E7D32;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  margin-top: 16px;
+  cursor: pointer;
 }

@@ -24,10 +24,12 @@ app.use((req, res, next) => {
 const documentsRouter = require('./routes/documents');
 const usersRouter = require('./routes/users');
 const faceAuthRouter = require('./routes/faceAuth');
+const eventRouter = require('./routes/events');
 
 // Use routes
 app.use('/api/documents', documentsRouter);
 app.use('/api/users', usersRouter);
+app.use('/api/events', eventRouter);
 
 // Configure special route for face authentication with logging
 app.use('/api/authenticate-face', (req, res, next) => {

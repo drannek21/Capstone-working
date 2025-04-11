@@ -610,6 +610,15 @@ router.get('/remarks-users', async (req, res) => {
   }
 });
 
-
+router.get('/search', async (req, res) => {
+  try {
+    const { q } = req.query;
+    const results = await UserService.searchUsers(q);
+    res.json(results);
+  } catch (error) {
+    console.error('Search error:', error);
+    res.status(500).json({ error: 'Search failed' });
+  }
+});
 
 module.exports = router;

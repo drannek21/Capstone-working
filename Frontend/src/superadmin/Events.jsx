@@ -8,7 +8,10 @@ const Events = () => {
   const [events, setEvents] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showAttendeesModal, setShowAttendeesModal] = useState(false);
+  const [showStatusModal, setShowStatusModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [currentEventId, setCurrentEventId] = useState(null);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -20,6 +23,9 @@ const Events = () => {
     status: 'Upcoming'
   });
   const [editingEvent, setEditingEvent] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [statusMessage, setStatusMessage] = useState('');
 
   useEffect(() => {
     fetchEvents();
@@ -106,7 +112,8 @@ const Events = () => {
     }
   };
 
-  const openEditModal = (event) => {
+  const handleEditClick = (e, event) => {
+    e.stopPropagation();
     setSelectedEvent(event);
     setFormData({
       title: event.title,
@@ -119,6 +126,42 @@ const Events = () => {
       status: event.status
     });
     setShowEditModal(true);
+  };
+
+  const handleDeleteClick = (e, eventId) => {
+    e.stopPropagation();
+    handleDeleteEvent(eventId);
+  };
+
+  const handleEventClick = (event) => {
+    if (!['Active', 'Ongoing'].includes(event.status)) {
+      setStatusMessage(`Attendee management is not available for ${event.status.toLowerCase()} events`);
+      setShowStatusModal(true);
+      return;
+    }
+    setCurrentEventId(event.id);
+    setShowAttendeesModal(true);
+  };
+
+  const handleSearch = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await axios.get(`/api/users/search?q=${searchTerm}`);
+      setSearchResults(response.data);
+    } catch (error) {
+      console.error('Search error:', error);
+      toast.error('Search failed');
+    }
+  };
+
+  const addAttendee = async (userId) => {
+    try {
+      await axios.post(`/api/events/${currentEventId}/attendees`, { userId });
+      toast.success('Attendee added successfully');
+    } catch (error) {
+      console.error('Error adding attendee:', error);
+      toast.error('Failed to add attendee');
+    }
   };
 
   return (
@@ -144,7 +187,11 @@ const Events = () => {
           </thead>
           <tbody>
             {events.map(event => (
-              <tr key={event.id}>
+              <tr 
+                key={event.id} 
+                onClick={() => handleEventClick(event)}
+                className="event-row"
+              >
                 <td>{event.title}</td>
                 <td>
                   {formatDate(event.startDate)} - {formatDate(event.endDate)}
@@ -159,10 +206,16 @@ const Events = () => {
                   </span>
                 </td>
                 <td>
-                  <button className="events-edit-btn" onClick={() => openEditModal(event)}>
+                  <button 
+                    onClick={(e) => handleEditClick(e, event)}
+                    className="events-edit-btn"
+                  >
                     Edit
                   </button>
-                  <button className="events-delete-btn" onClick={() => handleDeleteEvent(event.id)}>
+                  <button 
+                    onClick={(e) => handleDeleteClick(e, event.id)}
+                    className="events-delete-btn"
+                  >
                     Delete
                   </button>
                 </td>
@@ -386,6 +439,51 @@ const Events = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Attendees Modal */}
+      {showAttendeesModal && (
+        <div className="modal-backdrop" onClick={() => setShowAttendeesModal(false)}>
+          <div className="attendees-modal" onClick={e => e.stopPropagation()}>
+            <h3>Manage Attendees for Event #{currentEventId}</h3>
+            <form onSubmit={handleSearch} className="search-form">
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search users by name or email"
+              />
+              <button type="submit" className="modal-btn search-btn">
+                Search
+              </button>
+            </form>
+            {searchResults.length > 0 && (
+              <div className="search-results">
+                {searchResults.map(user => (
+                  <div key={user.id} className="user-result">
+                    <span>{user.name} ({user.email})</span>
+                    <button 
+                      onClick={() => addAttendee(user.id)}
+                      className="modal-btn primary-btn"
+                    >
+                      Add
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Status Restriction Modal */}
+      {showStatusModal && (
+        <div className="modal-backdrop" onClick={() => setShowStatusModal(false)}>
+          <div className="status-modal" onClick={e => e.stopPropagation()}>
+            <h3>Event Status Restriction</h3>
+            <p>{statusMessage}</p>
           </div>
         </div>
       )}

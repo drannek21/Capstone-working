@@ -3,7 +3,9 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faCheckCircle,
   faTimes,
-  faCamera
+  faCamera,
+  faLocationDot, // Add this
+  faTimesCircle // Add this
 } from '@fortawesome/free-solid-svg-icons';
 import './Profile.css';
 import avatar from '../assets/avatar.jpg';
@@ -25,6 +27,11 @@ const Profile = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [documentToDelete, setDocumentToDelete] = useState(null);
   const [events, setEvents] = useState([]);
+  const [attendanceModal, setAttendanceModal] = useState({
+    show: false,
+    message: '',
+    attended: false
+  });
 
   const loggedInUserId = localStorage.getItem("UserId");
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
@@ -436,9 +443,59 @@ const Profile = () => {
     return `${formattedDate} ${formattedHour}:${minutes} ${ampm}`;
   };
 
+  const checkAttendance = async (eventId) => {
+    try {
+      if (!user || !user.code_id) {
+        toast.error('User information not available');
+        return;
+      }
+
+      const response = await axios.post(
+        `${API_BASE_URL}/api/events/checkAttendance`,
+        { 
+          eventId, 
+          userId: user.code_id  // Using code_id instead of userId
+        }
+      );
+      
+      setAttendanceModal({
+        show: true,
+        message: response.data.attended 
+          ? 'You have attended this event' 
+          : 'You have not attended this event yet',
+        attended: response.data.attended
+      });
+    } catch (error) {
+      toast.error('Error checking attendance');
+      console.error('Error checking attendance:', error);
+    }
+  };
+
+  const AttendanceModal = () => (
+    <div className={`attendance-modal ${attendanceModal.show ? 'show' : ''}`}>
+      <div className="modal-content">
+        {attendanceModal.attended ? (
+          <FontAwesomeIcon icon={faCheckCircle} className="success-icon" size="3x" />
+        ) : (
+          <FontAwesomeIcon icon={faTimesCircle} className="error-icon" size="3x" />
+        )}
+        <p className={attendanceModal.attended ? 'success' : 'warning'}>
+          {attendanceModal.message}
+        </p>
+        <button 
+          onClick={() => setAttendanceModal({...attendanceModal, show: false})}
+          className="modal-close-btn"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <div className="profile-container">
       <Toaster position="top-right" />
+      <AttendanceModal />
       <div className="dashboard-main">
         <div className="profile-header">
           <div className="profile-cover">
@@ -805,29 +862,29 @@ const Profile = () => {
               </div>
             )}
 
-            <div className="announcements-section">
-              <div className="section-header">
-                <h2>Events & Announcements</h2>
+            <div className="user-profile-announcements">
+              <div className="profile-announcements-header">
+                <h3>Your Announcements</h3>
+                <p className="profile-announcements-subtitle">Events and updates relevant to you</p>
               </div>
-              <div className="announcements-list">
+              <div className="profile-announcements-list">
                 {events.length > 0 ? (
                   events.map((event, index) => (
-                    <div className={`announcement-item ${event.status.toLowerCase()}`} key={index}>
-                      <div className="announcement-content">
+                    <div key={index} className="profile-announcement-card" onClick={() => checkAttendance(event.id)}>
+                      <div className="profile-announcement-content">
+                        
                         <h4>{event.title}</h4>
                         <p>{event.description}</p>
-                        <div className="event-details">
-                          <p><strong>Date:</strong> {formatDateTime(event.startDate, event.startTime)} - {formatDateTime(event.endDate, event.endTime)}</p>
-                          <p><strong>Location:</strong> {event.location}</p>
-                          <span className={`status-badge ${event.status.toLowerCase()}`}>
-                            {event.status}
-                          </span>
+                        <div className="profile-announcement-meta">
+                          <span>{formatDateTime(event.startDate, event.startTime)}</span>
+                          <span>{event.location}</span>
+                          <span className="profile-announcement-badge">{event.status}</span>
                         </div>
                       </div>
                     </div>
                   ))
                 ) : (
-                  <p>No events available at the moment.</p>
+                  <p className="no-events-message">No upcoming events</p>
                 )}
               </div>
             </div>
