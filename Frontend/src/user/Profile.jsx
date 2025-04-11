@@ -194,6 +194,7 @@ const Profile = () => {
         });
 
         const data = await response.json();
+        console.log("Received user data:", data);
 
         if (response.ok) {
           if (data.profilePic) {
@@ -204,6 +205,7 @@ const Profile = () => {
               data.profilePic = cachedProfilePic;
             }
           }
+          console.log("Setting user data:", data);
           setUser(data);
         } else {
           console.error("Error fetching user data:", data.message);
@@ -451,23 +453,32 @@ const Profile = () => {
       }
 
       const response = await axios.post(
-        `${API_BASE_URL}/api/events/checkAttendance`,
+        'http://localhost:8081/api/events/checkAttendance',
         { 
-          eventId, 
-          userId: user.code_id  // Using code_id instead of userId
+          eventId: eventId,
+          userId: user.code_id  // Using code_id as the userId for attendance check
         }
       );
       
+      if (response.data.attended !== undefined) {
+        setAttendanceModal({
+          show: true,
+          message: response.data.attended 
+            ? 'You have attended this event' 
+            : 'You have not attended this event yet',
+          attended: response.data.attended
+        });
+      } else {
+        throw new Error('Invalid response format');
+      }
+    } catch (error) {
+      console.error('Error checking attendance:', error);
+      toast.error('Unable to check attendance status');
       setAttendanceModal({
         show: true,
-        message: response.data.attended 
-          ? 'You have attended this event' 
-          : 'You have not attended this event yet',
-        attended: response.data.attended
+        message: 'Unable to check attendance status',
+        attended: false
       });
-    } catch (error) {
-      toast.error('Error checking attendance');
-      console.error('Error checking attendance:', error);
     }
   };
 
@@ -491,6 +502,11 @@ const Profile = () => {
       </div>
     </div>
   );
+
+  // Add this function to check if user has pending remarks
+  const hasPendingRemarks = () => {
+    return user?.status === 'Pending Remarks';
+  };
 
   return (
     <div className="profile-container">
@@ -522,7 +538,13 @@ const Profile = () => {
                 </label>
               </div>
               <div className="profile-text">
-                <h1>{user ? `${user.first_name} ${user.last_name}` : 'Loading...'}</h1>
+                <h1>
+                  {user ? (
+                    user.first_name && user.last_name 
+                      ? `${user.first_name} ${user.last_name}`
+                      : user.name || 'Loading...'
+                  ) : 'Loading...'}
+                </h1>
                 <p className="user-email">{user?.email || 'Loading...'}</p>
                 <div className="profile-tags">
                   <span className={`tag ${user?.status?.toLowerCase()}-tag`}>
@@ -535,197 +557,216 @@ const Profile = () => {
           </div>
         </div>
 
-        {/* Upload Modal */}
-        {showUploadModal && (
-          <div className="modal">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h2>Update Profile Picture</h2>
-                <button onClick={() => setShowUploadModal(false)} className="close-button">
-                  <FontAwesomeIcon icon={faTimes} />
-                </button>
-              </div>
-              <div className="modal-body">
-                {previewUrl && (
-                  <img src={previewUrl} alt="Preview" className="preview-image" />
-                )}
-              </div>
-              <div className="modal-footer">
-                <button 
-                  onClick={handleUploadProfilePic} 
-                  className="upload-button"
-                  disabled={isUploading}
-                >
-                  {isUploading ? 'Uploading...' : 'Upload'}
-                </button>
-                <button 
-                  onClick={() => {
-                    setShowUploadModal(false);
-                    setSelectedFile(null);
-                    setPreviewUrl(null);
-                  }} 
-                  className="cancel-button"
-                >
-                  Cancel
-                </button>
-              </div>
+        {hasPendingRemarks() ? (
+          <div className="pending-remarks-message">
+            <div className="pending-remarks-content">
+              <FontAwesomeIcon icon={faTimesCircle} className="warning-icon" size="3x" />
+              <h2>Account Under Investigation</h2>
+              <p>Your account is currently under investigation. Please wait for further notice from the administrator.</p>
+              <p>If you have any questions, please contact your barangay office.</p>
             </div>
           </div>
-        )}
+        ) : (
+          <div className="dashboard-content">
+            {/* Tabs */}
+            <div className="profile-tabs">
+              <button 
+                className={`tab-button ${activeTab === 'personal' ? 'active' : ''}`}
+                onClick={() => setActiveTab('personal')}
+              >
+                Personal Information
+              </button>
+              <button 
+                className={`tab-button ${activeTab === 'documents' ? 'active' : ''}`}
+                onClick={() => setActiveTab('documents')}
+              >
+                Documents
+              </button>
+            </div>
 
-        <div className="dashboard-content">
-          {/* Tabs */}
-          <div className="profile-tabs">
-            <button 
-              className={`tab-button ${activeTab === 'personal' ? 'active' : ''}`}
-              onClick={() => setActiveTab('personal')}
-            >
-              Personal Information
-            </button>
-            <button 
-              className={`tab-button ${activeTab === 'documents' ? 'active' : ''}`}
-              onClick={() => setActiveTab('documents')}
-            >
-              Documents
-            </button>
-          </div>
-
-          <div className="content-grid">
-            {activeTab === 'personal' ? (
-              <>
-                {/* Minimalist Details Section */}
-                <div className="details-section">
-                  <div className="section-header">
-                    <h3>Personal Information</h3>
-                  </div>
-                  
-                  <div className="details-grid">
-                    <div className="detail-item">
-                      <span className="detail-label">Full Name</span>
-                      <p className="detail-value">{user?.first_name} {user?.last_name}</p>
+            <div className="content-grid">
+              {activeTab === 'personal' ? (
+                <>
+                  {/* Minimalist Details Section */}
+                  <div className="details-section">
+                    <div className="section-header">
+                      <h3>Personal Information</h3>
                     </div>
                     
-                    <div className="detail-item">
-                      <span className="detail-label">Gender</span>
-                      <p className="detail-value">{user?.gender}</p>
-                    </div>
-                    
-                    <div className="detail-item">
-                      <span className="detail-label">Birthdate</span>
-                      <p className="detail-value">
-                        {user?.date_of_birth ? new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(new Date(user.date_of_birth)) : ''}
-                      </p>
-                    </div>
-                    
-                    <div className="detail-item">
-                      <span className="detail-label">Place of Birth</span>
-                      <p className="detail-value">{user?.place_of_birth}</p>
-                    </div>
-                    
-                    <div className="detail-item">
-                      <span className="detail-label">Barangay</span>
-                      <p className="detail-value">{user?.barangay}</p>
-                    </div>
-                    
-                    <div className="detail-item">
-                      <span className="detail-label">Religion</span>
-                      <p className="detail-value">{user?.religion}</p>
-                    </div>
-                    
-                    <div className="detail-item">
-                      <span className="detail-label">Civil Status</span>
-                      <p className="detail-value">{user?.civil_status}</p>
-                    </div>
-                    
-                    <div className="detail-item">
-                      <span className="detail-label">Monthly Income</span>
-                      <p className="detail-value">
-                        {user?.income}
-                        {user?.status === 'Verified' && user?.income && (
-                          <span className={`benefit-badge ${
-                            (() => {
-                              let incomeValue = 0;
-                              if (!isNaN(user.income)) {
-                                incomeValue = parseFloat(user.income);
-                              } else {
-                                if (user.income === 'Below ₱10,000') {
-                                  incomeValue = 10000;
-                                } else if (user.income === '₱11,000-₱20,000') {
-                                  incomeValue = 20000;
-                                } else if (user.income === '₱21,000-₱43,000') {
-                                  incomeValue = 43000;
-                                } else if (user.income === '₱44,000 and above') {
-                                  incomeValue = 250001;
-                                }
-                              }
-                              return incomeValue < 250001 ? 'eligible' : 'not-eligible';
-                            })()
-                          }`}>
-                            {(() => {
-                              let incomeValue = 0;
-                              if (!isNaN(user.income)) {
-                                incomeValue = parseFloat(user.income);
-                              } else {
-                                if (user.income === 'Below ₱10,000') {
-                                  incomeValue = 10000;
-                                } else if (user.income === '₱11,000-₱20,000') {
-                                  incomeValue = 20000;
-                                } else if (user.income === '₱21,000-₱43,000') {
-                                  incomeValue = 43000;
-                                } else if (user.income === '₱44,000 and above') {
-                                  incomeValue = 250001;
-                                }
-                              }
-                              return incomeValue < 250001 ? 'Eligible for Benefits' : 'Not Eligible';
-                            })()}
-                          </span>
-                        )}
-                      </p>
-                    </div>
-                    
-                    <div className="detail-item">
-                      <span className="detail-label">Contact Number</span>
-                      <p className="detail-value">{user?.contact_number}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="children-section">
-                  <div className="section-header">
-                    <h2>Children</h2>
-                  </div>
-                  <div className="children-list">
-                    {user?.familyMembers?.length > 0 ? (
-                      <div className="detail-item family-members">
-                        <div className="family-list">
-                          {user.familyMembers.map((member, index) => (
-                            <div key={index} className="family-member">
-                              <strong>{member.family_member_name}</strong>
-                              <div className="member-details">
-                                <span>Age: {member.age}</span>
-                                <span>Education: {member.educational_attainment}</span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
+                    <div className="details-grid">
+                      <div className="detail-item">
+                        <span className="detail-label">Full Name</span>
+                        <p className="detail-value">{user?.first_name} {user?.last_name}</p>
                       </div>
-                    ) : (
-                      <p>No children information available.</p>
-                    )}
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="documents-section">
-                <div className="section-header">
-                  <h2>Documents</h2>
-                </div>
-                {user.status === "Renewal" ? (
-                  <div className="renewal-documents">
-                    <div className="renewal-message">
-                      <h4>Renewal Application</h4>
-                      <p>Please upload your Barangay Certificate to complete your renewal application.</p>
+                      
+                      <div className="detail-item">
+                        <span className="detail-label">Gender</span>
+                        <p className="detail-value">{user?.gender}</p>
+                      </div>
+                      
+                      <div className="detail-item">
+                        <span className="detail-label">Birthdate</span>
+                        <p className="detail-value">
+                          {user?.date_of_birth ? new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(new Date(user.date_of_birth)) : ''}
+                        </p>
+                      </div>
+                      
+                      <div className="detail-item">
+                        <span className="detail-label">Place of Birth</span>
+                        <p className="detail-value">{user?.place_of_birth}</p>
+                      </div>
+                      
+                      <div className="detail-item">
+                        <span className="detail-label">Barangay</span>
+                        <p className="detail-value">{user?.barangay}</p>
+                      </div>
+                      
+                      <div className="detail-item">
+                        <span className="detail-label">Religion</span>
+                        <p className="detail-value">{user?.religion}</p>
+                      </div>
+                      
+                      <div className="detail-item">
+                        <span className="detail-label">Civil Status</span>
+                        <p className="detail-value">{user?.civil_status}</p>
+                      </div>
+                      
+                      <div className="detail-item">
+                        <span className="detail-label">Monthly Income</span>
+                        <p className="detail-value">
+                          {user?.income}
+                          {user?.status === 'Verified' && user?.income && (
+                            <span className={`benefit-badge ${
+                              (() => {
+                                let incomeValue = 0;
+                                if (!isNaN(user.income)) {
+                                  incomeValue = parseFloat(user.income);
+                                } else {
+                                  if (user.income === 'Below ₱10,000') {
+                                    incomeValue = 10000;
+                                  } else if (user.income === '₱11,000-₱20,000') {
+                                    incomeValue = 20000;
+                                  } else if (user.income === '₱21,000-₱43,000') {
+                                    incomeValue = 43000;
+                                  } else if (user.income === '₱44,000 and above') {
+                                    incomeValue = 250001;
+                                  }
+                                }
+                                return incomeValue < 250001 ? 'eligible' : 'not-eligible';
+                              })()
+                            }`}>
+                              {(() => {
+                                let incomeValue = 0;
+                                if (!isNaN(user.income)) {
+                                  incomeValue = parseFloat(user.income);
+                                } else {
+                                  if (user.income === 'Below ₱10,000') {
+                                    incomeValue = 10000;
+                                  } else if (user.income === '₱11,000-₱20,000') {
+                                    incomeValue = 20000;
+                                  } else if (user.income === '₱21,000-₱43,000') {
+                                    incomeValue = 43000;
+                                  } else if (user.income === '₱44,000 and above') {
+                                    incomeValue = 250001;
+                                  }
+                                }
+                                return incomeValue < 250001 ? 'Eligible for Benefits' : 'Not Eligible';
+                              })()}
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                      
+                      <div className="detail-item">
+                        <span className="detail-label">Contact Number</span>
+                        <p className="detail-value">{user?.contact_number}</p>
+                      </div>
                     </div>
+                  </div>
+
+                  <div className="children-section">
+                    <div className="section-header">
+                      <h2>Children</h2>
+                    </div>
+                    <div className="children-list">
+                      {user?.familyMembers?.length > 0 ? (
+                        <div className="detail-item family-members">
+                          <div className="family-list">
+                            {user.familyMembers.map((member, index) => (
+                              <div key={index} className="family-member">
+                                <strong>{member.family_member_name}</strong>
+                                <div className="member-details">
+                                  <span>Age: {member.age}</span>
+                                  <span>Education: {member.educational_attainment}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <p>No children information available.</p>
+                      )}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="documents-section">
+                  <div className="section-header">
+                    <h2>Documents</h2>
+                  </div>
+                  {user.status === "Renewal" ? (
+                    <div className="renewal-documents">
+                      <div className="renewal-message">
+                        <h4>Renewal Application</h4>
+                        <p>Please upload your Barangay Certificate to complete your renewal application.</p>
+                      </div>
+                      <div className="documents-table-container">
+                        <table className="documents-table">
+                          <thead>
+                            <tr>
+                              <th>Document Type</th>
+                              <th>Status</th>
+                              <th>Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr>
+                              <td>Barangay Certificate</td>
+                              <td className="status-cell">
+                                {documents.find(doc => doc.document_type === 'barangay_cert_documents') ? (
+                                  <span className="status-submitted">
+                                    <i className="fas fa-check-circle"></i> Submitted
+                                  </span>
+                                ) : (
+                                  <span className="status-pending">Not submitted yet</span>
+                                )}
+                              </td>
+                              <td>
+                                {documents.find(doc => doc.document_type === 'barangay_cert_documents') ? (
+                                  <button 
+                                    className="btn view-btn"
+                                    onClick={() => window.open(documents.find(doc => doc.document_type === 'barangay_cert_documents').file_url, '_blank')}
+                                  >
+                                    <i className="fas fa-eye"></i> View
+                                  </button>
+                                ) : (
+                                  <label className="btn upload-btn">
+                                    <i className="fas fa-upload"></i> Upload
+                                    <input
+                                      type="file"
+                                      accept="image/*,.pdf"
+                                      onChange={(e) => handleDocumentChange(e, 'barangay_cert')}
+                                      style={{ display: 'none' }}
+                                    />
+                                  </label>
+                                )}
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ) : (
                     <div className="documents-table-container">
                       <table className="documents-table">
                         <thead>
@@ -736,78 +777,67 @@ const Profile = () => {
                           </tr>
                         </thead>
                         <tbody>
-                          <tr>
-                            <td>Barangay Certificate</td>
-                            <td className="status-cell">
-                              {documents.find(doc => doc.document_type === 'barangay_cert_documents') ? (
-                                <span className="status-submitted">
-                                  <i className="fas fa-check-circle"></i> Submitted
-                                </span>
-                              ) : (
-                                <span className="status-pending">Not submitted yet</span>
-                              )}
-                            </td>
-                            <td>
-                              {documents.find(doc => doc.document_type === 'barangay_cert_documents') ? (
-                                <button 
-                                  className="btn view-btn"
-                                  onClick={() => window.open(documents.find(doc => doc.document_type === 'barangay_cert_documents').file_url, '_blank')}
-                                >
-                                  <i className="fas fa-eye"></i> View
-                                </button>
-                              ) : (
-                                <label className="btn upload-btn">
-                                  <i className="fas fa-upload"></i> Upload
-                                  <input
-                                    type="file"
-                                    accept="image/*,.pdf"
-                                    onChange={(e) => handleDocumentChange(e, 'barangay_cert')}
-                                    style={{ display: 'none' }}
-                                  />
-                                </label>
-                              )}
-                            </td>
-                          </tr>
+                          {getDocumentsByCivilStatus(user.civil_status).map((documentType) => {
+                            const document = documents.find(doc => doc.document_type === `${documentType}_documents`);
+                            return (
+                              <tr key={documentType}>
+                                <td>{documentTypes[documentType]}</td>
+                                <td className="status-cell">
+                                  {document ? (
+                                    <span className="status-submitted">
+                                      <i className="fas fa-check-circle"></i> Submitted
+                                    </span>
+                                  ) : (
+                                    <span className="status-pending">Not submitted yet</span>
+                                  )}
+                                </td>
+                                <td>
+                                  {document ? (
+                                    <button 
+                                      className="btn view-btn"
+                                      onClick={() => window.open(document.file_url, '_blank')}
+                                    >
+                                      <i className="fas fa-eye"></i> View
+                                    </button>
+                                  ) : (
+                                    <label className="btn upload-btn">
+                                      <i className="fas fa-upload"></i> Upload
+                                      <input
+                                        type="file"
+                                        accept="image/*,.pdf"
+                                        onChange={(e) => handleDocumentChange(e, documentType)}
+                                        style={{ display: 'none' }}
+                                      />
+                                    </label>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="documents-table-container">
-                    <table className="documents-table">
-                      <thead>
-                        <tr>
-                          <th>Document Type</th>
-                          <th>Status</th>
-                          <th>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
+                      <div className="mobile-documents-list">
                         {getDocumentsByCivilStatus(user.civil_status).map((documentType) => {
                           const document = documents.find(doc => doc.document_type === `${documentType}_documents`);
                           return (
-                            <tr key={documentType}>
-                              <td>{documentTypes[documentType]}</td>
-                              <td className="status-cell">
-                                {document ? (
-                                  <span className="status-submitted">
-                                    <i className="fas fa-check-circle"></i> Submitted
-                                  </span>
-                                ) : (
-                                  <span className="status-pending">Not submitted yet</span>
-                                )}
-                              </td>
-                              <td>
+                            <div className="document-card" key={documentType}>
+                              <div className="document-card-header">
+                                <div className="document-card-type">{documentTypes[documentType]}</div>
+                                <div className="document-card-status">
+                                  {document ? 'Submitted' : 'Not submitted'}
+                                </div>
+                              </div>
+                              <div className="document-card-actions">
                                 {document ? (
                                   <button 
                                     className="btn view-btn"
                                     onClick={() => window.open(document.file_url, '_blank')}
                                   >
-                                    <i className="fas fa-eye"></i> View
+                                    View
                                   </button>
                                 ) : (
                                   <label className="btn upload-btn">
-                                    <i className="fas fa-upload"></i> Upload
+                                    Upload
                                     <input
                                       type="file"
                                       accept="image/*,.pdf"
@@ -816,80 +846,45 @@ const Profile = () => {
                                     />
                                   </label>
                                 )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                    <div className="mobile-documents-list">
-                      {getDocumentsByCivilStatus(user.civil_status).map((documentType) => {
-                        const document = documents.find(doc => doc.document_type === `${documentType}_documents`);
-                        return (
-                          <div className="document-card" key={documentType}>
-                            <div className="document-card-header">
-                              <div className="document-card-type">{documentTypes[documentType]}</div>
-                              <div className="document-card-status">
-                                {document ? 'Submitted' : 'Not submitted'}
                               </div>
                             </div>
-                            <div className="document-card-actions">
-                              {document ? (
-                                <button 
-                                  className="btn view-btn"
-                                  onClick={() => window.open(document.file_url, '_blank')}
-                                >
-                                  View
-                                </button>
-                              ) : (
-                                <label className="btn upload-btn">
-                                  Upload
-                                  <input
-                                    type="file"
-                                    accept="image/*,.pdf"
-                                    onChange={(e) => handleDocumentChange(e, documentType)}
-                                    style={{ display: 'none' }}
-                                  />
-                                </label>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div className="user-profile-announcements">
-              <div className="profile-announcements-header">
-                <h3>Your Announcements</h3>
-                <p className="profile-announcements-subtitle">Events and updates relevant to you</p>
-              </div>
-              <div className="profile-announcements-list">
-                {events.length > 0 ? (
-                  events.map((event, index) => (
-                    <div key={index} className="profile-announcement-card" onClick={() => checkAttendance(event.id)}>
-                      <div className="profile-announcement-content">
-                        
-                        <h4>{event.title}</h4>
-                        <p>{event.description}</p>
-                        <div className="profile-announcement-meta">
-                          <span>{formatDateTime(event.startDate, event.startTime)}</span>
-                          <span>{event.location}</span>
-                          <span className="profile-announcement-badge">{event.status}</span>
-                        </div>
+                          );
+                        })}
                       </div>
                     </div>
-                  ))
-                ) : (
-                  <p className="no-events-message">No upcoming events</p>
-                )}
+                  )}
+                </div>
+              )}
+
+              <div className="user-profile-announcements">
+                <div className="profile-announcements-header">
+                  <h3>Your Announcements</h3>
+                  <p className="profile-announcements-subtitle">Events and updates relevant to you</p>
+                </div>
+                <div className="profile-announcements-list">
+                  {events.length > 0 ? (
+                    events.map((event, index) => (
+                      <div key={index} className="profile-announcement-card" onClick={() => checkAttendance(event.id)}>
+                        <div className="profile-announcement-content">
+                          
+                          <h4>{event.title}</h4>
+                          <p>{event.description}</p>
+                          <div className="profile-announcement-meta">
+                            <span>{formatDateTime(event.startDate, event.startTime)}</span>
+                            <span>{event.location}</span>
+                            <span className="profile-announcement-badge">{event.status}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="no-events-message">No upcoming events</p>
+                  )}
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Delete Confirmation Modal */}

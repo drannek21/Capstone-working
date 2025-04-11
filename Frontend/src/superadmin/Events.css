@@ -464,3 +464,155 @@
     padding-top: 1rem;
   }
 }
+
+/* Attendees Modal Styles */
+.event-attendees-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.event-attendees-modal {
+  background-color: white;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 1200px;
+  height: 80vh;
+  position: relative;
+  padding: 20px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.event-attendees-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.event-attendees-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: #666;
+}
+
+.event-attendees-content {
+  display: flex;
+  gap: 20px;
+  height: calc(100% - 70px);
+}
+
+.event-attendees-search-section {
+  flex: 1;
+  padding: 20px;
+  border-right: 1px solid #eee;
+}
+
+.event-attendees-search-form {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.event-attendees-search-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.event-attendees-search-btn {
+  padding: 8px 16px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.event-attendees-search-btn:hover {
+  background-color: #0056b3;
+}
+
+.event-attendees-search-message {
+  margin: 10px 0;
+  padding: 8px;
+  border-radius: 4px;
+}
+
+.event-attendees-search-results {
+  margin-top: 20px;
+  max-height: calc(100% - 150px);
+  overflow-y: auto;
+}
+
+.event-attendees-user-result {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid #eee;
+  margin-bottom: 8px;
+  border-radius: 4px;
+}
+
+.event-attendees-add-btn {
+  padding: 6px 12px;
+  background-color: #28a745;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.event-attendees-add-btn:hover {
+  background-color: #218838;
+}
+
+.event-attendees-table-section {
+  flex: 1;
+  padding: 20px;
+}
+
+.event-attendees-table-container {
+  height: calc(100% - 40px);
+  overflow-y: auto;
+}
+
+.event-attendees-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: white;
+}
+
+.event-attendees-table th,
+.event-attendees-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+}
+
+.event-attendees-table th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+}
+
+.event-attendees-table tr:hover {
+  background-color: #f5f5f5;
+}

@@ -1426,3 +1426,44 @@
   margin-top: 16px;
   cursor: pointer;
 }
+
+.pending-remarks-message {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+  padding: 20px;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin: 20px;
+}
+
+.pending-remarks-content {
+  text-align: center;
+  max-width: 500px;
+  padding: 40px 20px;
+}
+
+.pending-remarks-content .warning-icon {
+  color: #dc3545;
+  margin-bottom: 20px;
+}
+
+.pending-remarks-content h2 {
+  color: #dc3545;
+  margin-bottom: 15px;
+  font-size: 24px;
+}
+
+.pending-remarks-content p {
+  color: #666;
+  margin-bottom: 10px;
+  line-height: 1.5;
+  font-size: 16px;
+}
+
+.pending-remarks-tag {
+  background-color: #dc3545;
+  color: white;
+}

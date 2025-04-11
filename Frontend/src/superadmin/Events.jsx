@@ -26,6 +26,11 @@ const Events = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [statusMessage, setStatusMessage] = useState('');
+  const [searchMessage, setSearchMessage] = useState('');
+  const [attendeesList, setAttendeesList] = useState([]);
+  const [completedEventAttendees, setCompletedEventAttendees] = useState([]);
+  const [showCompletedEventModal, setShowCompletedEventModal] = useState(false);
+  const [selectedEventTitle, setSelectedEventTitle] = useState('');
 
   useEffect(() => {
     fetchEvents();
@@ -38,6 +43,19 @@ const Events = () => {
     } catch (error) {
       console.error('Error fetching events:', error);
       toast.error('Failed to fetch events');
+    }
+  };
+
+  const fetchEventAttendees = async (eventId) => {
+    try {
+      const response = await axios.get(`http://localhost:8081/api/events/${eventId}/attendees`);
+      if (response.data) {
+        setAttendeesList(response.data);
+        setCompletedEventAttendees(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching attendees:', error);
+      toast.error('Failed to fetch attendees');
     }
   };
 
@@ -114,6 +132,10 @@ const Events = () => {
 
   const handleEditClick = (e, event) => {
     e.stopPropagation();
+    if (event.status === 'Completed') {
+      toast.error('Completed events cannot be edited');
+      return;
+    }
     setSelectedEvent(event);
     setFormData({
       title: event.title,
@@ -134,6 +156,14 @@ const Events = () => {
   };
 
   const handleEventClick = (event) => {
+    if (event.status === 'Completed') {
+      setSelectedEventTitle(event.title);
+      setCurrentEventId(event.id);
+      fetchEventAttendees(event.id);
+      setShowCompletedEventModal(true);
+      return;
+    }
+
     if (!['Active', 'Ongoing'].includes(event.status)) {
       setStatusMessage(`Attendee management is not available for ${event.status.toLowerCase()} events`);
       setShowStatusModal(true);
@@ -141,26 +171,49 @@ const Events = () => {
     }
     setCurrentEventId(event.id);
     setShowAttendeesModal(true);
+    fetchEventAttendees(event.id);
   };
 
   const handleSearch = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.get(`/api/users/search?q=${searchTerm}`);
-      setSearchResults(response.data);
+      console.log('Searching for:', searchTerm);
+      const response = await axios.get(`http://localhost:8081/api/users/search?q=${searchTerm}`);
+      console.log('Search response:', response.data);
+      
+      // Filter only verified users - check for both 'Verified' and 'verified' status
+      const verifiedUsers = response.data.filter(user => 
+        user.status === 'Verified' || user.status === 'verified' || user.status === 'VERIFIED'
+      );
+      
+      console.log('Verified users:', verifiedUsers);
+      
+      if (verifiedUsers.length === 0) {
+        setSearchMessage('User not found');
+        setSearchResults([]);
+      } else {
+        setSearchMessage('');
+        setSearchResults(verifiedUsers);
+      }
     } catch (error) {
-      console.error('Search error:', error);
-      toast.error('Search failed');
+      console.error('Search error details:', error.response?.data || error.message);
+      toast.error('Failed to search for users');
+      setSearchResults([]);
+      setSearchMessage('User not found');
     }
   };
 
   const addAttendee = async (userId) => {
     try {
-      await axios.post(`/api/events/${currentEventId}/attendees`, { userId });
+      const response = await axios.post(`http://localhost:8081/api/events/${currentEventId}/attendees`, { userId });
       toast.success('Attendee added successfully');
+      setAttendeesList(response.data.attendees);
+      // Clear search results after adding
+      setSearchResults([]);
+      setSearchTerm('');
     } catch (error) {
       console.error('Error adding attendee:', error);
-      toast.error('Failed to add attendee');
+      toast.error(error.response?.data?.error || 'Failed to add attendee');
     }
   };
 
@@ -208,7 +261,12 @@ const Events = () => {
                 <td>
                   <button 
                     onClick={(e) => handleEditClick(e, event)}
-                    className="events-edit-btn"
+                    className={`events-edit-btn ${event.status === 'Completed' ? 'disabled' : ''}`}
+                    disabled={event.status === 'Completed'}
+                    style={{ 
+                      opacity: event.status === 'Completed' ? 0.5 : 1,
+                      cursor: event.status === 'Completed' ? 'not-allowed' : 'pointer'
+                    }}
                   >
                     Edit
                   </button>
@@ -445,35 +503,133 @@ const Events = () => {
 
       {/* Attendees Modal */}
       {showAttendeesModal && (
-        <div className="modal-backdrop" onClick={() => setShowAttendeesModal(false)}>
-          <div className="attendees-modal" onClick={e => e.stopPropagation()}>
-            <h3>Manage Attendees for Event #{currentEventId}</h3>
-            <form onSubmit={handleSearch} className="search-form">
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search users by name or email"
-              />
-              <button type="submit" className="modal-btn search-btn">
-                Search
+        <div className="event-attendees-backdrop" onClick={() => setShowAttendeesModal(false)}>
+          <div className="event-attendees-modal" onClick={e => e.stopPropagation()}>
+            <div className="event-attendees-header">
+              <h3>Manage Attendees for Event #{currentEventId}</h3>
+              <button 
+                className="event-attendees-close" 
+                onClick={() => setShowAttendeesModal(false)}
+              >
+                <FaTimes />
               </button>
-            </form>
-            {searchResults.length > 0 && (
-              <div className="search-results">
-                {searchResults.map(user => (
-                  <div key={user.id} className="user-result">
-                    <span>{user.name} ({user.email})</span>
-                    <button 
-                      onClick={() => addAttendee(user.id)}
-                      className="modal-btn primary-btn"
-                    >
-                      Add
-                    </button>
+            </div>
+            
+            <div className="event-attendees-content">
+              {/* Left side - Search and Add */}
+              <div className="event-attendees-search-section">
+                <form onSubmit={handleSearch} className="event-attendees-search-form">
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Search users by name or email"
+                    className="event-attendees-search-input"
+                  />
+                  <button type="submit" className="event-attendees-search-btn">
+                    Search
+                  </button>
+                </form>
+                
+                {searchMessage && (
+                  <div className="event-attendees-search-message" style={{ color: searchResults.length === 0 ? 'red' : 'green' }}>
+                    {searchMessage}
                   </div>
-                ))}
+                )}
+                
+                {searchResults.length > 0 && (
+                  <div className="event-attendees-search-results">
+                    {searchResults.map(user => (
+                      <div key={user.id} className="event-attendees-user-result">
+                        <span>{user.name} ({user.email})</span>
+                        <button 
+                          onClick={() => addAttendee(user.id)}
+                          className="event-attendees-add-btn"
+                        >
+                          Add
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
+
+              {/* Right side - Attendees Table */}
+              <div className="event-attendees-table-section">
+                <h4>Current Attendees</h4>
+                <div className="event-attendees-table-container">
+                  <table className="event-attendees-table">
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Barangay</th>
+                        <th>Attendance Time</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {attendeesList.map(attendee => (
+                        <tr key={attendee.id}>
+                          <td>{attendee.name}</td>
+                          <td>{attendee.email}</td>
+                          <td>{attendee.barangay}</td>
+                          <td>{new Date(attendee.attend_at).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Completed Event Attendees Modal */}
+      {showCompletedEventModal && (
+        <div className="event-attendees-backdrop" onClick={() => setShowCompletedEventModal(false)}>
+          <div className="event-attendees-modal" onClick={e => e.stopPropagation()}>
+            <div className="event-attendees-header">
+              <h3>Attendees List - {selectedEventTitle}</h3>
+              <button 
+                className="event-attendees-close" 
+                onClick={() => setShowCompletedEventModal(false)}
+              >
+                <FaTimes />
+              </button>
+            </div>
+            
+            <div className="event-attendees-content">
+              <div className="event-attendees-table-section">
+                <div className="event-attendees-table-container">
+                  <table className="event-attendees-table">
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Barangay</th>
+                        <th>Attendance Time</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {completedEventAttendees.map(attendee => (
+                        <tr key={attendee.id}>
+                          <td>{attendee.name}</td>
+                          <td>{attendee.email}</td>
+                          <td>{attendee.barangay}</td>
+                          <td>{new Date(attendee.attend_at).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                      {completedEventAttendees.length === 0 && (
+                        <tr>
+                          <td colSpan="4" style={{ textAlign: 'center' }}>No attendees found for this event</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

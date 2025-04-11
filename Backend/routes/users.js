@@ -613,11 +613,27 @@ router.get('/remarks-users', async (req, res) => {
 router.get('/search', async (req, res) => {
   try {
     const { q } = req.query;
-    const results = await UserService.searchUsers(q);
+    if (!q) {
+      return res.status(400).json({ error: 'Search query is required' });
+    }
+
+    const searchQuery = `
+      SELECT u.id, u.email, u.name, u.status
+      FROM users u
+      WHERE (LOWER(u.name) LIKE LOWER(?) OR LOWER(u.email) LIKE LOWER(?))
+      AND u.status = 'Verified'
+    `;
+
+    const searchTerm = `%${q}%`;
+    console.log('Executing search query:', { searchTerm });
+    
+    const results = await queryDatabase(searchQuery, [searchTerm, searchTerm]);
+    console.log('Search results:', results);
+    
     res.json(results);
   } catch (error) {
     console.error('Search error:', error);
-    res.status(500).json({ error: 'Search failed' });
+    res.status(500).json({ error: 'Search failed', details: error.message });
   }
 });
 

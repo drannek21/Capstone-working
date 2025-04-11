@@ -558,6 +558,9 @@ app.post('/getUserDetails', async (req, res) => {
           id: user.id,
           code_id: user.code_id,
           status: user.status,
+          first_name: user.first_name,
+          last_name: user.last_name,
+          email: user.email,
           remarks: user.latest_remarks || 'No remarks',
           remarks_at: user.remarks_at
         });
