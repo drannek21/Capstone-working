@@ -228,10 +228,10 @@ const Events = () => {
     }
   };
 
-  const handleScanQR = async () => {
+  const handleQRCodeScan = async () => {
     try {
+      setScannerError('');
       setShowScanner(true);
-      setScannerError('Initializing scanner...');
       
       // Ensure DOM is ready
       await new Promise(resolve => setTimeout(resolve, 100));
@@ -245,66 +245,155 @@ const Events = () => {
       videoElem.playsInline = true;
       videoElem.muted = true;
       
-      // Get camera stream
+      // Get camera stream with fallback
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: 'environment',
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        }
-      }).catch(err => {
-        throw new Error('Camera access denied or unavailable');
+        video: { facingMode: 'environment' }
+      }).catch(async () => {
+        // Fallback to any available camera
+        return navigator.mediaDevices.getUserMedia({
+          video: true
+        });
       });
+
+      if (!stream) {
+        throw new Error('No camera available');
+      }
       
       videoElem.srcObject = stream;
       await videoElem.play().catch(err => {
-        throw new Error('Failed to start video feed');
+        throw new Error('Failed to start video feed: ' + err.message);
       });
-      
-      setScannerError('');
       
       // Scanning logic
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
       let scanAttempts = 0;
+      let lastScanTime = 0;
       
-      const scanInterval = setInterval(() => {
+      const scanInterval = setInterval(async () => {
         try {
-          if (scanAttempts++ > 60) { // 30 second timeout
-            throw new Error('Scan timed out');
+          const now = Date.now();
+          if (now - lastScanTime < 200) { // Limit scan rate to 5 times per second
+            return;
+          }
+          lastScanTime = now;
+
+          if (scanAttempts++ > 300) { // 60 second timeout
+            clearInterval(scanInterval);
+            stream.getTracks().forEach(track => track.stop());
+            throw new Error('Scan timed out - please try again');
           }
           
+          if (!videoElem.videoWidth) {
+            return; // Skip if video not ready
+          }
+
           canvas.width = videoElem.videoWidth;
           canvas.height = videoElem.videoHeight;
           context.drawImage(videoElem, 0, 0, canvas.width, canvas.height);
           
-          QrScanner.scanImage(canvas)
-            .then(result => {
-              if (result.startsWith('user:')) {
-                clearInterval(scanInterval);
-                const userId = result.replace('user:', '').trim();
-                if (!userId) throw new Error('Invalid user ID');
-                
-                setSearchTerm(userId);
-                stream.getTracks().forEach(track => track.stop());
-                setShowScanner(false);
-              }
-            })
-            .catch(() => {});
+          const result = await QrScanner.scanImage(canvas).catch(() => null);
+          if (result) {
+            clearInterval(scanInterval);
+            // Get the QR code data directly
+            const qrData = result.trim();
             
+            // Get user details by searching with qr_code_data
+            const response = await axios.get(`http://localhost:8081/api/users/search/qr?qr_code_data=${qrData}`);
+            const users = response.data;
+            
+            if (users && users.length > 0 && users[0].status === 'Verified') {
+              setSearchResults([users[0]]);
+              setSearchMessage('');
+              // Set the search term to the user's name
+              setSearchTerm(users[0].name);
+              
+              // Log for debugging
+              console.log('Found user:', users[0]);
+            } else {
+              setSearchMessage('User not found or not verified');
+              setSearchResults([]);
+              setSearchTerm('');
+              
+              // Log for debugging
+              console.log('QR scan result:', qrData);
+              console.log('No matching user found or user not verified');
+            }
+            
+            // Cleanup
+            stream.getTracks().forEach(track => track.stop());
+            setShowScanner(false);
+          }
         } catch (err) {
-          clearInterval(scanInterval);
-          if (stream) stream.getTracks().forEach(track => track.stop());
-          setScannerError(err.message);
-          setShowScanner(false);
+          // Only stop on actual errors, not failed scans
+          if (err.message !== 'QR code not found') {
+            clearInterval(scanInterval);
+            stream.getTracks().forEach(track => track.stop());
+            setScannerError(err.message);
+            setShowScanner(false);
+          }
         }
-      }, 500);
+      }, 200); // Scan every 200ms
+      
+      // Cleanup function
+      return () => {
+        clearInterval(scanInterval);
+        if (stream) {
+          stream.getTracks().forEach(track => track.stop());
+        }
+      };
       
     } catch (err) {
-      setScannerError(err.message);
+      console.error('QR Scanner error:', err);
+      setScannerError(err.message || 'Failed to initialize camera');
       setShowScanner(false);
     }
   };
+
+  // QR Scanner Modal Component
+  const QRScannerModal = () => (
+    <div className="qr-scanner-overlay">
+      <div className="qr-scanner-modal">
+        <div className="scanner-header">
+          <h2>Scan QR Code</h2>
+          {scannerError ? (
+            <p className="scanner-error-message">{scannerError}</p>
+          ) : (
+            <p className="scanner-instructions">Position the QR code within the frame</p>
+          )}
+        </div>
+        
+        <div className="scanner-container">
+          <div className="scanner-frame">
+            <video 
+              id="qr-scanner-video"
+              className={`scanner-video ${scannerError ? 'scanner-error-state' : ''}`}
+            />
+            <div className="scanner-corner top-left"></div>
+            <div className="scanner-corner top-right"></div>
+            <div className="scanner-corner bottom-left"></div>
+            <div className="scanner-corner bottom-right"></div>
+          </div>
+        </div>
+
+        <div className="scanner-footer">
+          <button 
+            className="cancel-scan-btn"
+            onClick={() => {
+              const videoElem = document.getElementById('qr-scanner-video');
+              if (videoElem && videoElem.srcObject) {
+                videoElem.srcObject.getTracks().forEach(track => track.stop());
+              }
+              setShowScanner(false);
+              setScannerError('');
+            }}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="events-container">
@@ -595,7 +684,7 @@ const Events = () => {
         <div className="event-attendees-backdrop" onClick={() => setShowAttendeesModal(false)}>
           <div className="event-attendees-modal" onClick={e => e.stopPropagation()}>
             <div className="event-attendees-header">
-              <h3>Manage Attendees for Event #{currentEventId}</h3>
+            <h3>Manage Attendees for Event #{currentEventId}</h3>
               <button 
                 className="event-attendees-close" 
                 onClick={() => setShowAttendeesModal(false)}
@@ -608,39 +697,20 @@ const Events = () => {
               {/* Left side - Search and Add */}
               <div className="event-attendees-search-section">
                 <div className="search-container">
-                  <input
-                    type="text"
-                    placeholder="Search users..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search users by name or email"
+                    className="event-attendees-search-input"
                   />
                   <button 
+                    onClick={handleQRCodeScan}
                     className="qr-scan-btn"
-                    onClick={handleScanQR}
                     title="Scan QR Code"
-                    disabled={showScanner}
                   >
                     <FaQrcode />
-                  </button>
-                  
-                  {showScanner && (
-                    <div className="qr-scanner-modal">
-                      <video id="qr-scanner-video" />
-                      <button 
-                        className="cancel-scan-btn"
-                        onClick={() => {
-                          const videoElem = document.getElementById('qr-scanner-video');
-                          if (videoElem.srcObject) {
-                            videoElem.srcObject.getTracks().forEach(track => track.stop());
-                          }
-                          setShowScanner(false);
-                        }}
-                      >
-                        Cancel Scan
-                      </button>
-                      {scannerError && <p className="scanner-error">{scannerError}</p>}
-                    </div>
-                  )}
+              </button>
                 </div>
                 
                 {searchMessage && (
@@ -649,21 +719,21 @@ const Events = () => {
                   </div>
                 )}
                 
-                {searchResults.length > 0 && (
+            {searchResults.length > 0 && (
                   <div className="event-attendees-search-results">
-                    {searchResults.map(user => (
+                {searchResults.map(user => (
                       <div key={user.id} className="event-attendees-user-result">
-                        <span>{user.name} ({user.email})</span>
-                        <button 
-                          onClick={() => addAttendee(user.id)}
+                    <span>{user.name} ({user.email})</span>
+                    <button 
+                      onClick={() => addAttendee(user.id)}
                           className="event-attendees-add-btn"
-                        >
-                          Add
-                        </button>
-                      </div>
-                    ))}
+                    >
+                      Add
+                    </button>
                   </div>
-                )}
+                ))}
+              </div>
+            )}
               </div>
 
               {/* Right side - Attendees Table */}
@@ -696,6 +766,8 @@ const Events = () => {
           </div>
         </div>
       )}
+
+      {showScanner && <QRScannerModal />}
 
       {/* Add Completed Event Attendees Modal */}
       {showCompletedEventModal && (

@@ -1898,3 +1898,74 @@ app.delete('/events/:id', async (req, res) => {
     res.status(500).json({ error: 'Error deleting event' });
   }
 });
+
+// Get user details by ID for QR code scanning
+app.get('/api/users/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    const query = `
+      SELECT u.id, u.code_id, u.name, u.email, u.status,
+             s1.barangay
+      FROM users u
+      LEFT JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
+      WHERE u.id = ?
+    `;
+    
+    const [user] = await queryDatabase(query, [userId]);
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    res.json(user);
+  } catch (error) {
+    console.error('Error fetching user details:', error);
+    res.status(500).json({ error: 'Failed to fetch user details' });
+  }
+});
+
+// Add QR code search endpoint
+app.get('/api/users/search/qr', async (req, res) => {
+  try {
+    const { qr_code_data } = req.query;
+    
+    if (!qr_code_data) {
+      return res.status(400).json({ error: 'QR code data is required' });
+    }
+
+    // Search by qr_code_data directly
+    const query = `
+      SELECT u.id, u.name, u.email, u.status, u.code_id,
+             s1.first_name, s1.last_name, s1.barangay
+      FROM users u
+      LEFT JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
+      WHERE u.qr_code_data = ?
+    `;
+    
+    console.log('Searching for qr_code_data:', qr_code_data); // Debug log
+    const users = await queryDatabase(query, [qr_code_data]);
+    
+    if (!users || users.length === 0) {
+      console.log('No user found for qr_code_data:', qr_code_data); // Debug log
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Format the response
+    const user = users[0];
+    console.log('Found user:', user); // Debug log
+    const formattedUser = {
+      id: user.id,
+      name: user.name || `${user.first_name} ${user.last_name}`.trim(),
+      email: user.email,
+      status: user.status,
+      code_id: user.code_id,
+      barangay: user.barangay
+    };
+    
+    res.json([formattedUser]);
+  } catch (error) {
+    console.error('Error searching user by QR code:', error);
+    res.status(500).json({ error: 'Failed to search user' });
+  }
+});
