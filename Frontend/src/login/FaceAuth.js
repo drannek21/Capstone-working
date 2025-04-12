@@ -24,7 +24,14 @@ const FaceAuth = ({ onLoginSuccess, email }) => {
         loadModels();
         return () => {
             if (stream) {
-                stream.getTracks().forEach(track => track.stop());
+                stream.getTracks().forEach(track => {
+                    track.stop();
+                });
+                if (videoRef.current) {
+                    videoRef.current.srcObject = null;
+                }
+                setStream(null);
+                setIsRunning(false);
             }
         };
     }, []);
@@ -417,6 +424,22 @@ const FaceAuth = ({ onLoginSuccess, email }) => {
             setIsRegistering(false);
         }
     };
+
+    useEffect(() => {
+        // Cleanup function for component unmount
+        return () => {
+            if (stream) {
+                stream.getTracks().forEach(track => {
+                    track.stop();
+                });
+                if (videoRef.current) {
+                    videoRef.current.srcObject = null;
+                }
+                setStream(null);
+                setIsRunning(false);
+            }
+        };
+    }, [stream]); // Add stream as dependency
 
     return (
         <div className="face-auth-container">

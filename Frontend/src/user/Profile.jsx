@@ -527,15 +527,17 @@ const Profile = () => {
                     localStorage.removeItem(`profilePic_${loggedInUserId}`);
                   }}
                 />
-                <label className="edit-profile-pic" aria-label="Edit profile picture">
-                  <FontAwesomeIcon icon={faCamera} />
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileSelect}
-                    style={{ display: 'none' }}
-                  />
-                </label>
+                {!hasRestrictedAccess() && (
+                  <label className="edit-profile-pic" aria-label="Edit profile picture">
+                    <FontAwesomeIcon icon={faCamera} />
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileSelect}
+                      style={{ display: 'none' }}
+                    />
+                  </label>
+                )}
               </div>
               <div className="profile-text">
                 <h1>
@@ -548,7 +550,9 @@ const Profile = () => {
                 <p className="user-email">{user?.email || 'Loading...'}</p>
                 <div className="profile-tags">
                   <span className={`tag ${user?.status?.toLowerCase()}-tag`}>
-                    <FontAwesomeIcon icon={faCheckCircle} />
+                    {!['Pending Remarks', 'Terminated'].includes(user?.status) && (
+                      <FontAwesomeIcon icon={faCheckCircle} />
+                    )}
                     {user?.status || 'Loading...'}
                   </span>
                 </div>

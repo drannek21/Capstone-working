@@ -36,6 +36,43 @@ const Events = () => {
     fetchEvents();
   }, []);
 
+  // Add debounced search effect
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(async () => {
+      if (searchTerm) {
+        try {
+          console.log('Searching for:', searchTerm);
+          const response = await axios.get(`http://localhost:8081/api/users/search?q=${searchTerm}`);
+          console.log('Search response:', response.data);
+          
+          // Filter only verified users
+          const verifiedUsers = response.data.filter(user => 
+            user.status === 'Verified' || user.status === 'verified' || user.status === 'VERIFIED'
+          );
+          
+          console.log('Verified users:', verifiedUsers);
+          
+          if (verifiedUsers.length === 0) {
+            setSearchMessage('User not found');
+            setSearchResults([]);
+          } else {
+            setSearchMessage('');
+            setSearchResults(verifiedUsers);
+          }
+        } catch (error) {
+          console.error('Search error details:', error.response?.data || error.message);
+          setSearchResults([]);
+          setSearchMessage('User not found');
+        }
+      } else {
+        setSearchResults([]);
+        setSearchMessage('');
+      }
+    }, 500); // 500ms delay
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchTerm]);
+
   const fetchEvents = async () => {
     try {
       const response = await axios.get('http://localhost:8081/events');
@@ -172,35 +209,6 @@ const Events = () => {
     setCurrentEventId(event.id);
     setShowAttendeesModal(true);
     fetchEventAttendees(event.id);
-  };
-
-  const handleSearch = async (e) => {
-    e.preventDefault();
-    try {
-      console.log('Searching for:', searchTerm);
-      const response = await axios.get(`http://localhost:8081/api/users/search?q=${searchTerm}`);
-      console.log('Search response:', response.data);
-      
-      // Filter only verified users - check for both 'Verified' and 'verified' status
-      const verifiedUsers = response.data.filter(user => 
-        user.status === 'Verified' || user.status === 'verified' || user.status === 'VERIFIED'
-      );
-      
-      console.log('Verified users:', verifiedUsers);
-      
-      if (verifiedUsers.length === 0) {
-        setSearchMessage('User not found');
-        setSearchResults([]);
-      } else {
-        setSearchMessage('');
-        setSearchResults(verifiedUsers);
-      }
-    } catch (error) {
-      console.error('Search error details:', error.response?.data || error.message);
-      toast.error('Failed to search for users');
-      setSearchResults([]);
-      setSearchMessage('User not found');
-    }
   };
 
   const addAttendee = async (userId) => {
@@ -518,7 +526,7 @@ const Events = () => {
             <div className="event-attendees-content">
               {/* Left side - Search and Add */}
               <div className="event-attendees-search-section">
-                <form onSubmit={handleSearch} className="event-attendees-search-form">
+                <div className="event-attendees-search-form">
                   <input
                     type="text"
                     value={searchTerm}
@@ -526,10 +534,7 @@ const Events = () => {
                     placeholder="Search users by name or email"
                     className="event-attendees-search-input"
                   />
-                  <button type="submit" className="event-attendees-search-btn">
-                    Search
-                  </button>
-                </form>
+                </div>
                 
                 {searchMessage && (
                   <div className="event-attendees-search-message" style={{ color: searchResults.length === 0 ? 'red' : 'green' }}>
