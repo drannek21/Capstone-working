@@ -503,9 +503,9 @@ const Profile = () => {
     </div>
   );
 
-  // Add this function to check if user has pending remarks
-  const hasPendingRemarks = () => {
-    return user?.status === 'Pending Remarks';
+  // Rename and update the function to check for restricted access
+  const hasRestrictedAccess = () => {
+    return user?.status === 'Pending Remarks' || user?.status === 'Terminated';
   };
 
   return (
@@ -557,12 +557,16 @@ const Profile = () => {
           </div>
         </div>
 
-        {hasPendingRemarks() ? (
+        {hasRestrictedAccess() ? (
           <div className="pending-remarks-message">
             <div className="pending-remarks-content">
               <FontAwesomeIcon icon={faTimesCircle} className="warning-icon" size="3x" />
-              <h2>Account Under Investigation</h2>
-              <p>Your account is currently under investigation. Please wait for further notice from the administrator.</p>
+              <h2>{user?.status === 'Terminated' ? 'Account Terminated' : 'Account Under Investigation'}</h2>
+              <p>
+                {user?.status === 'Terminated' 
+                  ? 'Your account has been terminated. You no longer have access to solo parent services.'
+                  : 'Your account is currently under investigation. Please wait for further notice from the administrator.'}
+              </p>
               <p>If you have any questions, please contact your barangay office.</p>
             </div>
           </div>
