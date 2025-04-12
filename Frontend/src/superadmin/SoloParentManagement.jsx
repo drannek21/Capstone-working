@@ -4,6 +4,7 @@ import './SoloParentManagement.css';
 import html2canvas from 'html2canvas';
 import dswdLogo from '../assets/dswd-logo.png';
 import avatar from '../assets/avatar.jpg';
+import { QRCodeSVG } from 'qrcode.react';
 
 const SoloParentManagement = () => {
   const [verifiedUsers, setVerifiedUsers] = useState([]);
@@ -485,6 +486,7 @@ const SoloParentManagement = () => {
   const closeIDModal = () => {
     setShowIDModal(false);
     setSelectedIDUser(null);
+    document.body.style.overflow = 'auto';
   };
 
   return (
@@ -1019,13 +1021,13 @@ const SoloParentManagement = () => {
 
       {/* ID Card Modal */}
       {showIDModal && (
-        <div className="id-modal-overlay">
-          <div className="id-modal">
+        <div className="id-modal-overlay" onClick={closeIDModal}>
+          <div className="id-modal" onClick={(e) => e.stopPropagation()}>
             <div className="id-modal-header">
               <h3>Solo Parent ID Card</h3>
               <button 
                 className="close-btn"
-                onClick={() => setShowIDModal(false)}
+                onClick={closeIDModal}
               >
                 &times;
               </button>
@@ -1062,34 +1064,47 @@ const SoloParentManagement = () => {
                         Valid Until: {selectedIDUser.valid_until || '3/25/2026'}
                       </div>
                     </div>
-                    <div className="id-details">
-                      <div className="id-detail">
-                        <span className="id-label">ID No:</span>
-                        <span className="id-value">{selectedIDUser.code_id || 'N/A'}</span>
+                    <div className="id-card-container">
+                      <div className="id-card-details">
+                        <div className="id-detail">
+                          <span className="id-label">ID No:</span>
+                          <span className="id-value">{selectedIDUser.code_id || 'N/A'}</span>
+                        </div>
+                        <div className="id-detail">
+                          <span className="id-label">Name:</span>
+                          <span className="id-value">
+                            {`${selectedIDUser.first_name || ''} ${selectedIDUser.middle_name || ''} ${selectedIDUser.last_name || ''}`}
+                          </span>
+                        </div>
+                        <div className="id-detail">
+                          <span className="id-label">Barangay:</span>
+                          <span className="id-value">{selectedIDUser.barangay || 'N/A'}</span>
+                        </div>
+                        <div className="id-detail">
+                          <span className="id-label">Birthdate:</span>
+                          <span className="id-value">
+                            {selectedIDUser.date_of_birth ? new Date(selectedIDUser.date_of_birth).toLocaleDateString() : 'N/A'}
+                          </span>
+                        </div>
+                        <div className="id-detail">
+                          <span className="id-label">Civil Status:</span>
+                          <span className="id-value">{selectedIDUser.civil_status || 'N/A'}</span>
+                        </div>
+                        <div className="id-detail">
+                          <span className="id-label">Contact:</span>
+                          <span className="id-value">{selectedIDUser.contact_number || 'N/A'}</span>
+                        </div>
                       </div>
-                      <div className="id-detail">
-                        <span className="id-label">Name:</span>
-                        <span className="id-value">
-                          {`${selectedIDUser.first_name || ''} ${selectedIDUser.middle_name || ''} ${selectedIDUser.last_name || ''}`}
-                        </span>
-                      </div>
-                      <div className="id-detail">
-                        <span className="id-label">Barangay:</span>
-                        <span className="id-value">{selectedIDUser.barangay || 'N/A'}</span>
-                      </div>
-                      <div className="id-detail">
-                        <span className="id-label">Birthdate:</span>
-                        <span className="id-value">
-                          {selectedIDUser.date_of_birth ? new Date(selectedIDUser.date_of_birth).toLocaleDateString() : 'N/A'}
-                        </span>
-                      </div>
-                      <div className="id-detail">
-                        <span className="id-label">Civil Status:</span>
-                        <span className="id-value">{selectedIDUser.civil_status || 'N/A'}</span>
-                      </div>
-                      <div className="id-detail">
-                        <span className="id-label">Contact:</span>
-                        <span className="id-value">{selectedIDUser.contact_number || 'N/A'}</span>
+                      <div className="id-card-qr-container">
+                        <QRCodeSVG 
+                          value={`user:${selectedIDUser?.userId}`}
+                          size={120}
+                          level="H"
+                          includeMargin={true}
+                          fgColor="#2E7D32"
+                          bgColor="#ffffff"
+                        />
+                      
                       </div>
                     </div>
                   </div>

@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import axios from 'axios';
 import './Events.css';
-import { FaTimes } from 'react-icons/fa';
+import { FaTimes, FaQrcode } from 'react-icons/fa';
+import QrScanner from 'qr-scanner';
 
 const Events = () => {
   const [events, setEvents] = useState([]);
@@ -31,6 +32,8 @@ const Events = () => {
   const [completedEventAttendees, setCompletedEventAttendees] = useState([]);
   const [showCompletedEventModal, setShowCompletedEventModal] = useState(false);
   const [selectedEventTitle, setSelectedEventTitle] = useState('');
+  const [showScanner, setShowScanner] = useState(false);
+  const [scannerError, setScannerError] = useState('');
 
   useEffect(() => {
     fetchEvents();
@@ -222,6 +225,84 @@ const Events = () => {
     } catch (error) {
       console.error('Error adding attendee:', error);
       toast.error(error.response?.data?.error || 'Failed to add attendee');
+    }
+  };
+
+  const handleScanQR = async () => {
+    try {
+      setShowScanner(true);
+      setScannerError('Initializing scanner...');
+      
+      // Ensure DOM is ready
+      await new Promise(resolve => setTimeout(resolve, 100));
+      const videoElem = document.getElementById('qr-scanner-video');
+      
+      if (!videoElem) {
+        throw new Error('Scanner elements not found');
+      }
+
+      // Configure video element
+      videoElem.playsInline = true;
+      videoElem.muted = true;
+      
+      // Get camera stream
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: 'environment',
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        }
+      }).catch(err => {
+        throw new Error('Camera access denied or unavailable');
+      });
+      
+      videoElem.srcObject = stream;
+      await videoElem.play().catch(err => {
+        throw new Error('Failed to start video feed');
+      });
+      
+      setScannerError('');
+      
+      // Scanning logic
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      let scanAttempts = 0;
+      
+      const scanInterval = setInterval(() => {
+        try {
+          if (scanAttempts++ > 60) { // 30 second timeout
+            throw new Error('Scan timed out');
+          }
+          
+          canvas.width = videoElem.videoWidth;
+          canvas.height = videoElem.videoHeight;
+          context.drawImage(videoElem, 0, 0, canvas.width, canvas.height);
+          
+          QrScanner.scanImage(canvas)
+            .then(result => {
+              if (result.startsWith('user:')) {
+                clearInterval(scanInterval);
+                const userId = result.replace('user:', '').trim();
+                if (!userId) throw new Error('Invalid user ID');
+                
+                setSearchTerm(userId);
+                stream.getTracks().forEach(track => track.stop());
+                setShowScanner(false);
+              }
+            })
+            .catch(() => {});
+            
+        } catch (err) {
+          clearInterval(scanInterval);
+          if (stream) stream.getTracks().forEach(track => track.stop());
+          setScannerError(err.message);
+          setShowScanner(false);
+        }
+      }, 500);
+      
+    } catch (err) {
+      setScannerError(err.message);
+      setShowScanner(false);
     }
   };
 
@@ -526,14 +607,40 @@ const Events = () => {
             <div className="event-attendees-content">
               {/* Left side - Search and Add */}
               <div className="event-attendees-search-section">
-                <div className="event-attendees-search-form">
+                <div className="search-container">
                   <input
                     type="text"
+                    placeholder="Search users..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Search users by name or email"
-                    className="event-attendees-search-input"
                   />
+                  <button 
+                    className="qr-scan-btn"
+                    onClick={handleScanQR}
+                    title="Scan QR Code"
+                    disabled={showScanner}
+                  >
+                    <FaQrcode />
+                  </button>
+                  
+                  {showScanner && (
+                    <div className="qr-scanner-modal">
+                      <video id="qr-scanner-video" />
+                      <button 
+                        className="cancel-scan-btn"
+                        onClick={() => {
+                          const videoElem = document.getElementById('qr-scanner-video');
+                          if (videoElem.srcObject) {
+                            videoElem.srcObject.getTracks().forEach(track => track.stop());
+                          }
+                          setShowScanner(false);
+                        }}
+                      >
+                        Cancel Scan
+                      </button>
+                      {scannerError && <p className="scanner-error">{scannerError}</p>}
+                    </div>
+                  )}
                 </div>
                 
                 {searchMessage && (
