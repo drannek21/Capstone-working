@@ -79,7 +79,7 @@ const FaceAuth = ({ onLoginSuccess, email }) => {
         }
     };
 
-    const startCamera = async () => {
+    const startVideo = async () => {
         if (!modelsLoaded) {
             setMessage('Please wait for models to load before starting the camera.');
             return;
@@ -197,6 +197,23 @@ const FaceAuth = ({ onLoginSuccess, email }) => {
                 setMessage('Please move slightly to confirm you are using a live camera.');
                 setIsAuthenticating(false);
                 return;
+            }
+
+            // Status check before face auth
+            const statusCheck = await axios.post(`${API_BASE_URL}/api/check-user-status`, {
+                email: userEmail
+            });
+
+            const allowedStatuses = ['verified', 'created'];
+            const userStatus = statusCheck.data.user?.status?.toLowerCase();
+
+            if (!allowedStatuses.includes(userStatus)) {
+                throw new Error(`Account must be Verified or Created. Current status: ${statusCheck.data.user?.status}`);
+            }
+
+            // Special handling for created accounts
+            if (statusCheck.data.user?.status?.toLowerCase() === 'created') {
+                console.log('New account - first time face authentication');
             }
 
             // Check for multiple faces
@@ -425,6 +442,10 @@ const FaceAuth = ({ onLoginSuccess, email }) => {
         }
     };
 
+    const captureFace = async () => {
+        authenticateUser();
+    };
+
     useEffect(() => {
         // Cleanup function for component unmount
         return () => {
@@ -443,56 +464,41 @@ const FaceAuth = ({ onLoginSuccess, email }) => {
 
     return (
         <div className="face-auth-container">
-            <h2>Face Recognition Login</h2>
-            
-            {/* Hidden email input for face authentication */}
-            <input type="hidden" id="faceAuthEmail" value={userEmail} />
-            
+            <h2>Face Authentication</h2>
             <div className="video-container">
-                <video
-                    ref={videoRef}
-                    width="1000"
-                    height="300"
-                    autoPlay
-                    muted
-                />
+                <video ref={videoRef} autoPlay playsInline />
                 <canvas ref={canvasRef} />
             </div>
-            <div className="controls">
+            
+            {isRunning ? (
+                <>
+                    <button 
+                        className="action-btn"
+                        onClick={captureFace}
+                        disabled={isAuthenticating}
+                    >
+                        {isAuthenticating ? 'Authenticating...' : 'Authenticate'}
+                    </button>
+                    
+                    {!onLoginSuccess && localStorage.getItem('UserId') && (
+                        <button 
+                            className="action-btn secondary"
+                            onClick={registerFacePhoto}
+                            disabled={!isRunning || isRegistering}
+                        >
+                            {isRegistering ? 'Registering...' : 'Register New Face'}
+                        </button>
+                    )}
+                </>
+            ) : (
                 <button 
-                    onClick={startCamera} 
-                    disabled={isRunning || !modelsLoaded}
-                    className="start-btn"
+                    className="action-btn"
+                    onClick={startVideo}
                 >
                     Start Camera
                 </button>
-                <button 
-                    onClick={authenticateUser} 
-                    disabled={!isRunning || isAuthenticating}
-                    className="authenticate-btn"
-                >
-                    {isAuthenticating ? 'Authenticating...' : 'Authenticate'}
-                </button>
-                <button 
-                    onClick={stopCamera} 
-                    disabled={!isRunning}
-                    className="stop-btn"
-                >
-                    Stop Camera
-                </button>
-            </div>
-            {/* Only show register photo button when not on login page (no onLoginSuccess prop) */}
-            {!onLoginSuccess && localStorage.getItem('UserId') && (
-                <div className="register-controls">
-                    <button 
-                        onClick={registerFacePhoto}
-                        disabled={!isRunning || isRegistering}
-                        className="register-btn"
-                    >
-                        {isRegistering ? 'Registering...' : 'Register a Photo'}
-                    </button>
-                </div>
             )}
+            
             {message && <p className="message">{message}</p>}
         </div>
     );

@@ -122,29 +122,45 @@ router.post('/', async (req, res) => {
             });
         }
         
+        console.log(`Checking user status for: ${email}`);
+        const [user] = await queryDatabase(`
+            SELECT id, email, name, code_id, status, faceRecognitionPhoto
+            FROM users 
+            WHERE email = ? 
+            AND faceRecognitionPhoto IS NOT NULL
+        `, [email]);
+        
+        if (!user) {
+            return res.status(403).json({ 
+                success: false, 
+                error: 'No face registered for this account' 
+            });
+        }
+        
+        console.log(`User status: ${user.status}`);
+        const allowedStatuses = ['verified', 'created'];
+        const userStatus = user.status.toLowerCase();
+
+        // Status validation
+        if (!allowedStatuses.includes(userStatus)) {
+            return res.status(403).json({ 
+                success: false,
+                error: `Account status must be Verified or Created. Current status: ${user.status}`,
+                userStatus: user.status
+            });
+        }
+
+        // Special handling for created accounts
+        if (userStatus === 'created') {
+            console.log('Processing face auth for newly created account');
+        }
+
         console.log(`Received descriptor with ${descriptor.length} values`);
         console.log(`Email provided in request: "${email}"`);
 
         console.log('Checking if email exists and has a registered face photo...');
-        // Get ONLY the user with the provided email
-        const users = await queryDatabase(`
-            SELECT id, email, name, code_id, status, created_at, faceRecognitionPhoto
-            FROM users 
-            WHERE email = ? AND faceRecognitionPhoto IS NOT NULL
-        `, [email]);
+        console.log(`Database query for user with email "${email}" returned ${user ? 1 : 0} results`);
         
-        console.log(`Database query for user with email "${email}" returned ${users ? users.length : 0} results`);
-        
-        if (!users || users.length === 0) {
-            console.log(`No user found with email ${email} or no face photo registered`);
-            return res.status(404).json({ 
-                success: false, 
-                error: 'No user found with this email or no face photo registered. Please register a face photo first.' 
-            });
-        }
-
-        // Get the single user that matches the email
-        const user = users[0];
         console.log(`Found user with ID: ${user.id}, Name: ${user.name}, Email: ${user.email}`);
         
         // Get the image URL from Cloudinary
@@ -181,51 +197,40 @@ router.post('/', async (req, res) => {
         image.src = imageBuffer;
         console.log(`Image loaded, dimensions: ${image.width}x${image.height}`);
 
-        // Detect face using TinyFaceDetector
+        // Detect face using optimized TinyFaceDetector
         console.log(`Detecting face for user ${user.id}...`);
         const detectorOptions = new faceapi.TinyFaceDetectorOptions({ 
-            inputSize: 416,
+            inputSize: 320,  // Faster processing (default 416)
             scoreThreshold: 0.5
         });
-        
-        // Detect face with landmarks and descriptor
-        const detections = await faceapi.detectSingleFace(image, detectorOptions)
-            .withFaceLandmarks()
-            .withFaceDescriptor();
+
+        // Run detection and descriptor extraction in parallel
+        const [detections] = await Promise.all([
+            faceapi.detectSingleFace(image, detectorOptions)
+                .withFaceLandmarks()
+                .withFaceDescriptor(),
+            // Add other parallelizable tasks here if needed
+        ]);
 
         if (!detections) {
-            console.log(`No face detected in the registered photo for user ${user.id}`);
+            console.log(`No face detected for user ${user.id}`);
             return res.status(400).json({ 
                 success: false, 
-                error: 'No face detected in your registered photo. Please contact support or update your face photo.' 
+                error: 'Face not detected. Please ensure clear visibility.' 
             });
         }
-        
-        console.log(`Face detected for user ${user.id}`);
-        console.log(`Face descriptor length: ${detections.descriptor.length}`);
-        
-        // Calculate distance and similarity percentage
-        const distance = faceapi.euclideanDistance(descriptor, detections.descriptor);
+
+        // Optimized similarity calculation
         const similarity = calculateSimilarityPercentage(descriptor, detections.descriptor);
-        
-        console.log(`User ${user.id} - distance: ${distance.toFixed(4)}, similarity: ${similarity}%`);
-        
+        console.log(`Face match: ${similarity}%`);
+
         // Use a threshold of 65% to make face recognition less sensitive to lighting
         if (parseFloat(similarity) > 50) {
-            // Remove sensitive information before sending response
-            delete user.faceRecognitionPhoto;
-            
-            console.log(`Returning successful authentication for user ${user.id}`);
-            return res.json({ 
-                success: true, 
-                user: {
-                    id: user.id,
-                    email: user.email,
-                    name: user.name,
-                    code_id: user.code_id,
-                    status: user.status,
-                    created_at: user.created_at
-                },
+            // Remove sensitive info before response
+            const { faceRecognitionPhoto, ...userData } = user;
+            return res.json({
+                success: true,
+                user: userData,
                 message: 'Face authentication successful'
             });
         } else {

@@ -1,133 +1,71 @@
 .face-auth-container {
-    max-width: 800px;
-    margin: 0 auto;
-    padding: 20px;
-    text-align: center;
+    max-width: 500px;
+    margin: 2rem auto;
+    padding: 1.5rem;
+    background: #f8fff8;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(46, 125, 50, 0.1);
 }
 
 .video-container {
     position: relative;
-    margin: 20px auto;
-    width: 1000px;
-    height: 300px;
+    width: 100%;
+    aspect-ratio: 4/3;
+    background: #e8f5e9;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 1.5rem;
 }
 
-video {
-    position: absolute;
-    top: 0;
-    left: 0;
+.video-container video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
-canvas {
-    position: absolute;
-    top: 0;
-    left: 0;
-}
-
-.controls {
-    margin: 20px 0;
-    display: flex;
-    gap: 10px;
-    justify-content: center;
-}
-
-.register-controls {
-    margin: 20px 0;
-    display: flex;
-    justify-content: center;
-}
-
-.start-btn, .authenticate-btn, .stop-btn, .register-btn {
-    padding: 10px 20px;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 16px;
-    transition: background-color 0.3s;
-}
-
-.start-btn {
-    background-color: #4CAF50;
-    color: white;
-}
-
-.start-btn:hover {
-    background-color: #45a049;
-}
-
-.authenticate-btn {
-    background-color: #2196F3;
-    color: white;
-}
-
-.authenticate-btn:hover {
-    background-color: #1e87dc;
-}
-
-.stop-btn {
-    background-color: #f44336;
-    color: white;
-}
-
-.stop-btn:hover {
-    background-color: #da190b;
-}
-
-.register-btn {
-    background-color: #9c27b0;
-    color: white;
-    width: 200px;
-    margin-top: 20px;
-}
-
-.register-btn:hover {
-    background-color: #7B1FA2;
-}
-
-button:disabled {
-    background-color: #cccccc;
-    cursor: not-allowed;
-}
-
-.message {
-    margin-top: 20px;
-    padding: 10px;
-    border-radius: 5px;
-    font-size: 16px;
-}
-
-@media (max-width: 768px) {
-    .video-container {
-        width: 100%;
-        height: auto;
-    }
-
-    video, canvas {
-        width: 100%;
-        height: auto;
-    }
-
-    .controls {
-        flex-direction: column;
-    }
-
-    .start-btn, .authenticate-btn, .stop-btn, .register-btn {
-        width: 100%;
-    }
-}
-
-.face-auth-container h1 {
-    color: #1a73e8;
-    margin-bottom: 2rem;
-    text-align: center;
-}
-
-.video-container video,
 .video-container canvas {
     position: absolute;
     top: 0;
     left: 0;
     border-radius: 60%;
+}
+
+.action-btn {
+    display: block;
+    width: 100%;
+    padding: 12px;
+    margin: 8px 0;
+    border: none;
+    border-radius: 8px;
+    background: #2e7d32;
+    color: white;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.action-btn:hover {
+    background: #1b5e20;
+}
+
+.action-btn:disabled {
+    background: #c8e6c9;
+    cursor: not-allowed;
+}
+
+.action-btn.secondary {
+    background: #43a047;
+}
+
+.action-btn.secondary:hover {
+    background: #388e3c;
+}
+
+.message {
+    text-align: center;
+    margin: 1rem 0;
+    color: #2e7d32;
+    font-weight: 500;
 }
 
 .register-form {
@@ -156,4 +94,22 @@ button:disabled {
 .user-info h2 {
     color: #1a73e8;
     margin: 0;
-} 
+}
+
+.face-auth-container h1 {
+    color: #1a73e8;
+    margin-bottom: 2rem;
+    text-align: center;
+}
+
+@media (max-width: 768px) {
+    .video-container {
+        width: 100%;
+        height: auto;
+    }
+
+    video, canvas {
+        width: 100%;
+        height: auto;
+    }
+}
