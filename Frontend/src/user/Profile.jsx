@@ -5,7 +5,8 @@ import {
   faTimes,
   faCamera,
   faLocationDot, // Add this
-  faTimesCircle // Add this
+  faTimesCircle, // Add this
+  faClock
 } from '@fortawesome/free-solid-svg-icons';
 import './Profile.css';
 import avatar from '../assets/avatar.jpg';
@@ -294,37 +295,46 @@ const Profile = () => {
       
       const documentUrl = response.data.secure_url;
       
-      // For barangay certificate, use a different endpoint
+      // First, save to missing_documents table for all document types
+      await axios.post(`${API_BASE_URL}/api/documents/updateMissingDocument`, {
+        code_id: user.code_id,
+        document_type: documentType,
+        status: 'Pending',
+        file_url: documentUrl,
+        display_name: file.name
+      });
+
+      // Then, save to the specific document table
       if (documentType === 'barangay_cert') {
         await axios.post(`${API_BASE_URL}/api/documents/barangay_cert`, {
           code_id: user.code_id,
           file_name: documentUrl,
-          display_name: file.name
+          display_name: file.name,
+          status: 'Pending'
         });
       } else {
-        // For other documents, use the existing endpoint
-        await axios.post(`${API_BASE_URL}/api/documents/updateUserDocument`, {
-          userId: loggedInUserId,
-          documentType,
-          documentUrl,
-          displayName: file.name
+        await axios.post(`${API_BASE_URL}/api/documents/${documentType}`, {
+          code_id: user.code_id,
+          file_name: documentUrl,
+          display_name: file.name,
+          status: 'Pending'
         });
       }
       
-      // Update local state
+      // Update local state with Pending status
       setDocuments(prev => [
         ...prev,
         {
           url: documentUrl,
           public_id: response.data.public_id,
           name: file.name,
-          status: 'uploaded',
+          status: 'Pending',
           document_type: `${documentType}_documents`
         }
       ]);
       
       toast.dismiss(uploadingToastId);
-      toast.success(`${documentTypes[documentType]} uploaded successfully`);
+      toast.success(`${documentTypes[documentType]} uploaded successfully and is pending verification`);
     } catch (error) {
       console.error(`Error uploading ${documentType}:`, error);
       toast.dismiss(uploadingToastId);
@@ -508,6 +518,61 @@ const Profile = () => {
     return user?.status === 'Pending Remarks' || user?.status === 'Terminated';
   };
 
+  // Add function to check if all required documents are submitted and approved
+  const checkDocumentCompletion = () => {
+    if (!user || !user.civil_status) return false;
+    
+    const requiredDocuments = getDocumentsByCivilStatus(user.civil_status);
+    const submittedDocuments = documents.map(doc => doc.document_type.replace('_documents', ''));
+    
+    // Check if all required documents are submitted AND approved
+    const allDocumentsApproved = requiredDocuments.every(docType => {
+      const document = documents.find(doc => doc.document_type === `${docType}_documents`);
+      return document && document.status === 'Approved';
+    });
+    
+    return allDocumentsApproved;
+  };
+
+  // Add function to update user status based on document completion
+  const updateUserStatus = async () => {
+    if (!user || !user.code_id) {
+      console.error('Cannot update status: User or code_id is missing');
+      return;
+    }
+    
+    const isComplete = checkDocumentCompletion();
+    const currentStatus = user.status;
+    
+    // Only update if status needs to change
+    if ((isComplete && currentStatus === 'Incomplete') || 
+        (!isComplete && currentStatus === 'Verified')) {
+      try {
+        const response = await axios.post(`${API_BASE_URL}/updateUserStatusIncompleteDocuments`, {
+          code_id: user.code_id,
+          status: isComplete ? 'Verified' : 'Incomplete'
+        });
+        
+        if (response.data.success) {
+          setUser(prev => ({
+            ...prev,
+            status: isComplete ? 'Verified' : 'Incomplete'
+          }));
+        }
+      } catch (error) {
+        console.error('Error updating user status:', error);
+        toast.error('Failed to update status. Please try again later.');
+      }
+    }
+  };
+
+  // Add useEffect to check document completion when documents change
+  useEffect(() => {
+    if (user && documents.length > 0) {
+      updateUserStatus();
+    }
+  }, [documents, user]);
+
   return (
     <div className="profile-container">
       <Toaster position="top-right" />
@@ -527,7 +592,7 @@ const Profile = () => {
                     localStorage.removeItem(`profilePic_${loggedInUserId}`);
                   }}
                 />
-                {!hasRestrictedAccess() && (
+                {!hasRestrictedAccess() && user?.status !== 'Incomplete' && (
                   <label className="edit-profile-pic" aria-label="Edit profile picture">
                     <FontAwesomeIcon icon={faCamera} />
                     <input
@@ -550,7 +615,7 @@ const Profile = () => {
                 <p className="user-email">{user?.email || 'Loading...'}</p>
                 <div className="profile-tags">
                   <span className={`tag ${user?.status?.toLowerCase()}-tag`}>
-                    {!['Pending Remarks', 'Terminated'].includes(user?.status) && (
+                    {!['Pending Remarks', 'Terminated', 'Incomplete'].includes(user?.status) && (
                       <FontAwesomeIcon icon={faCheckCircle} />
                     )}
                     {user?.status || 'Loading...'}
@@ -561,11 +626,22 @@ const Profile = () => {
           </div>
         </div>
 
-        {hasRestrictedAccess() ? (
+        {user?.status === 'Incomplete' ? (
+          <div className="incomplete-message">
+            <div className="incomplete-content">
+              <FontAwesomeIcon icon={faTimesCircle} className="warning-icon" size="3x" />
+              <h2>Incomplete Documents</h2>
+              <p>Please submit all required documents to complete your application.</p>
+              <p>You can submit your documents below.</p>
+            </div>
+          </div>
+        ) : hasRestrictedAccess() ? (
           <div className="pending-remarks-message">
             <div className="pending-remarks-content">
               <FontAwesomeIcon icon={faTimesCircle} className="warning-icon" size="3x" />
-              <h2>{user?.status === 'Terminated' ? 'Account Terminated' : 'Account Under Investigation'}</h2>
+              <h2>
+                {user?.status === 'Terminated' ? 'Account Terminated' : 'Account Under Investigation'}
+              </h2>
               <p>
                 {user?.status === 'Terminated' 
                   ? 'Your account has been terminated. You no longer have access to solo parent services.'
@@ -574,160 +650,270 @@ const Profile = () => {
               <p>If you have any questions, please contact your barangay office.</p>
             </div>
           </div>
-        ) : (
-          <div className="dashboard-content">
-            {/* Tabs */}
-            <div className="profile-tabs">
-              <button 
-                className={`tab-button ${activeTab === 'personal' ? 'active' : ''}`}
-                onClick={() => setActiveTab('personal')}
-              >
-                Personal Information
-              </button>
-              <button 
-                className={`tab-button ${activeTab === 'documents' ? 'active' : ''}`}
-                onClick={() => setActiveTab('documents')}
-              >
-                Documents
-              </button>
+        ) : null}
+
+        <div className="dashboard-content">
+          {user?.status === 'Incomplete' ? (
+            <div className="documents-section">
+              <div className="section-header">
+                <h2>Documents</h2>
+              </div>
+              <div className="documents-table-container">
+                <table className="documents-table">
+                  <thead>
+                    <tr>
+                      <th>Document Type</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {getDocumentsByCivilStatus(user.civil_status).map((documentType) => {
+                      const document = documents.find(doc => doc.document_type === `${documentType}_documents`);
+                      return (
+                        <tr key={documentType}>
+                          <td>{documentTypes[documentType]}</td>
+                          <td className="status-cell">
+                            {document ? (
+                              <span className={`status-${document.status.toLowerCase()}`}>
+                                <FontAwesomeIcon 
+                                  icon={document.status === 'Submitted' ? faCheckCircle : faClock} 
+                                  className="status-icon" 
+                                />
+                                {document.status === 'Approved' ? 'Submitted' : document.status}
+                              </span>
+                            ) : (
+                              <span className="status-pending">Not submitted yet</span>
+                            )}
+                          </td>
+                          <td>
+                            {document ? (
+                              <button 
+                                className="btn view-btn"
+                                onClick={() => window.open(document.file_url, '_blank')}
+                              >
+                                <i className="fas fa-eye"></i> View
+                              </button>
+                            ) : (
+                              <label className="btn upload-btn">
+                                <i className="fas fa-upload"></i> Upload
+                                <input
+                                  type="file"
+                                  accept="image/*,.pdf"
+                                  onChange={(e) => handleDocumentChange(e, documentType)}
+                                  style={{ display: 'none' }}
+                                />
+                              </label>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
+          ) : (
+            <>
+              <div className="profile-tabs">
+                <button 
+                  className={`tab-button ${activeTab === 'personal' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('personal')}
+                  disabled={hasRestrictedAccess()}
+                >
+                  Personal Information
+                </button>
+                <button 
+                  className={`tab-button ${activeTab === 'documents' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('documents')}
+                >
+                  Documents
+                </button>
+              </div>
 
-            <div className="content-grid">
-              {activeTab === 'personal' ? (
-                <>
-                  {/* Minimalist Details Section */}
-                  <div className="details-section">
-                    <div className="section-header">
-                      <h3>Personal Information</h3>
-                    </div>
-                    
-                    <div className="details-grid">
-                      <div className="detail-item">
-                        <span className="detail-label">Full Name</span>
-                        <p className="detail-value">{user?.first_name} {user?.last_name}</p>
+              <div className="content-grid">
+                {activeTab === 'personal' ? (
+                  <>
+                    {/* Minimalist Details Section */}
+                    <div className="details-section">
+                      <div className="section-header">
+                        <h3>Personal Information</h3>
                       </div>
                       
-                      <div className="detail-item">
-                        <span className="detail-label">Gender</span>
-                        <p className="detail-value">{user?.gender}</p>
-                      </div>
-                      
-                      <div className="detail-item">
-                        <span className="detail-label">Birthdate</span>
-                        <p className="detail-value">
-                          {user?.date_of_birth ? new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(new Date(user.date_of_birth)) : ''}
-                        </p>
-                      </div>
-                      
-                      <div className="detail-item">
-                        <span className="detail-label">Place of Birth</span>
-                        <p className="detail-value">{user?.place_of_birth}</p>
-                      </div>
-                      
-                      <div className="detail-item">
-                        <span className="detail-label">Barangay</span>
-                        <p className="detail-value">{user?.barangay}</p>
-                      </div>
-                      
-                      <div className="detail-item">
-                        <span className="detail-label">Religion</span>
-                        <p className="detail-value">{user?.religion}</p>
-                      </div>
-                      
-                      <div className="detail-item">
-                        <span className="detail-label">Civil Status</span>
-                        <p className="detail-value">{user?.civil_status}</p>
-                      </div>
-                      
-                      <div className="detail-item">
-                        <span className="detail-label">Monthly Income</span>
-                        <p className="detail-value">
-                          {user?.income}
-                          {user?.status === 'Verified' && user?.income && (
-                            <span className={`benefit-badge ${
-                              (() => {
-                                let incomeValue = 0;
-                                if (!isNaN(user.income)) {
-                                  incomeValue = parseFloat(user.income);
-                                } else {
-                                  if (user.income === 'Below ₱10,000') {
-                                    incomeValue = 10000;
-                                  } else if (user.income === '₱11,000-₱20,000') {
-                                    incomeValue = 20000;
-                                  } else if (user.income === '₱21,000-₱43,000') {
-                                    incomeValue = 43000;
-                                  } else if (user.income === '₱44,000 and above') {
-                                    incomeValue = 250001;
-                                  }
-                                }
-                                return incomeValue < 250001 ? 'eligible' : 'not-eligible';
-                              })()
-                            }`}>
-                              {(() => {
-                                let incomeValue = 0;
-                                if (!isNaN(user.income)) {
-                                  incomeValue = parseFloat(user.income);
-                                } else {
-                                  if (user.income === 'Below ₱10,000') {
-                                    incomeValue = 10000;
-                                  } else if (user.income === '₱11,000-₱20,000') {
-                                    incomeValue = 20000;
-                                  } else if (user.income === '₱21,000-₱43,000') {
-                                    incomeValue = 43000;
-                                  } else if (user.income === '₱44,000 and above') {
-                                    incomeValue = 250001;
-                                  }
-                                }
-                                return incomeValue < 250001 ? 'Eligible for Benefits' : 'Not Eligible';
-                              })()}
-                            </span>
-                          )}
-                        </p>
-                      </div>
-                      
-                      <div className="detail-item">
-                        <span className="detail-label">Contact Number</span>
-                        <p className="detail-value">{user?.contact_number}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="children-section">
-                    <div className="section-header">
-                      <h2>Children</h2>
-                    </div>
-                    <div className="children-list">
-                      {user?.familyMembers?.length > 0 ? (
-                        <div className="detail-item family-members">
-                          <div className="family-list">
-                            {user.familyMembers.map((member, index) => (
-                              <div key={index} className="family-member">
-                                <strong>{member.family_member_name}</strong>
-                                <div className="member-details">
-                                  <span>Age: {member.age}</span>
-                                  <span>Education: {member.educational_attainment}</span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
+                      <div className="details-grid">
+                        <div className="detail-item">
+                          <span className="detail-label">Full Name</span>
+                          <p className="detail-value">{user?.first_name} {user?.last_name}</p>
                         </div>
-                      ) : (
-                        <p>No children information available.</p>
-                      )}
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="documents-section">
-                  <div className="section-header">
-                    <h2>Documents</h2>
-                  </div>
-                  {user.status === "Renewal" ? (
-                    <div className="renewal-documents">
-                      <div className="renewal-message">
-                        <h4>Renewal Application</h4>
-                        <p>Please upload your Barangay Certificate to complete your renewal application.</p>
+                        
+                        <div className="detail-item">
+                          <span className="detail-label">Gender</span>
+                          <p className="detail-value">{user?.gender}</p>
+                        </div>
+                        
+                        <div className="detail-item">
+                          <span className="detail-label">Birthdate</span>
+                          <p className="detail-value">
+                            {user?.date_of_birth ? new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(new Date(user.date_of_birth)) : ''}
+                          </p>
+                        </div>
+                        
+                        <div className="detail-item">
+                          <span className="detail-label">Place of Birth</span>
+                          <p className="detail-value">{user?.place_of_birth}</p>
+                        </div>
+                        
+                        <div className="detail-item">
+                          <span className="detail-label">Barangay</span>
+                          <p className="detail-value">{user?.barangay}</p>
+                        </div>
+                        
+                        <div className="detail-item">
+                          <span className="detail-label">Religion</span>
+                          <p className="detail-value">{user?.religion}</p>
+                        </div>
+                        
+                        <div className="detail-item">
+                          <span className="detail-label">Civil Status</span>
+                          <p className="detail-value">{user?.civil_status}</p>
+                        </div>
+                        
+                        <div className="detail-item">
+                          <span className="detail-label">Monthly Income</span>
+                          <p className="detail-value">
+                            {user?.income}
+                            {user?.status === 'Verified' && user?.income && (
+                              <span className={`benefit-badge ${
+                                (() => {
+                                  let incomeValue = 0;
+                                  if (!isNaN(user.income)) {
+                                    incomeValue = parseFloat(user.income);
+                                  } else {
+                                    if (user.income === 'Below ₱10,000') {
+                                      incomeValue = 10000;
+                                    } else if (user.income === '₱11,000-₱20,000') {
+                                      incomeValue = 20000;
+                                    } else if (user.income === '₱21,000-₱43,000') {
+                                      incomeValue = 43000;
+                                    } else if (user.income === '₱44,000 and above') {
+                                      incomeValue = 250001;
+                                    }
+                                  }
+                                  return incomeValue < 250001 ? 'eligible' : 'not-eligible';
+                                })()
+                              }`}>
+                                {(() => {
+                                  let incomeValue = 0;
+                                  if (!isNaN(user.income)) {
+                                    incomeValue = parseFloat(user.income);
+                                  } else {
+                                    if (user.income === 'Below ₱10,000') {
+                                      incomeValue = 10000;
+                                    } else if (user.income === '₱11,000-₱20,000') {
+                                      incomeValue = 20000;
+                                    } else if (user.income === '₱21,000-₱43,000') {
+                                      incomeValue = 43000;
+                                    } else if (user.income === '₱44,000 and above') {
+                                      incomeValue = 250001;
+                                    }
+                                  }
+                                  return incomeValue < 250001 ? 'Eligible for Benefits' : 'Not Eligible';
+                                })()}
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                        
+                        <div className="detail-item">
+                          <span className="detail-label">Contact Number</span>
+                          <p className="detail-value">{user?.contact_number}</p>
+                        </div>
                       </div>
+                    </div>
+
+                    <div className="children-section">
+                      <div className="section-header">
+                        <h2>Children</h2>
+                      </div>
+                      <div className="children-list">
+                        {user?.familyMembers?.length > 0 ? (
+                          <div className="detail-item family-members">
+                            <div className="family-list">
+                              {user.familyMembers.map((member, index) => (
+                                <div key={index} className="family-member">
+                                  <strong>{member.family_member_name}</strong>
+                                  <div className="member-details">
+                                    <span>Age: {member.age}</span>
+                                    <span>Education: {member.educational_attainment}</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : (
+                          <p>No children information available.</p>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="documents-section">
+                    <div className="section-header">
+                      <h2>Documents</h2>
+                    </div>
+                    {user.status === "Renewal" ? (
+                      <div className="renewal-documents">
+                        <div className="renewal-message">
+                          <h4>Renewal Application</h4>
+                          <p>Please upload your Barangay Certificate to complete your renewal application.</p>
+                        </div>
+                        <div className="documents-table-container">
+                          <table className="documents-table">
+                            <thead>
+                              <tr>
+                                <th>Document Type</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr>
+                                <td>Barangay Certificate</td>
+                                <td className="status-cell">
+                                  {documents.find(doc => doc.document_type === 'barangay_cert_documents') ? (
+                                    <span className="status-submitted">
+                                      <i className="fas fa-check-circle"></i> Submitted
+                                    </span>
+                                  ) : (
+                                    <span className="status-pending">Not submitted yet</span>
+                                  )}
+                                </td>
+                                <td>
+                                  {documents.find(doc => doc.document_type === 'barangay_cert_documents') ? (
+                                    <button 
+                                      className="btn view-btn"
+                                      onClick={() => window.open(documents.find(doc => doc.document_type === 'barangay_cert_documents').file_url, '_blank')}
+                                    >
+                                      <i className="fas fa-eye"></i> View
+                                    </button>
+                                  ) : (
+                                    <label className="btn upload-btn">
+                                      <i className="fas fa-upload"></i> Upload
+                                      <input
+                                        type="file"
+                                        accept="image/*,.pdf"
+                                        onChange={(e) => handleDocumentChange(e, 'barangay_cert')}
+                                        style={{ display: 'none' }}
+                                      />
+                                    </label>
+                                  )}
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    ) : (
                       <div className="documents-table-container">
                         <table className="documents-table">
                           <thead>
@@ -738,78 +924,71 @@ const Profile = () => {
                             </tr>
                           </thead>
                           <tbody>
-                            <tr>
-                              <td>Barangay Certificate</td>
-                              <td className="status-cell">
-                                {documents.find(doc => doc.document_type === 'barangay_cert_documents') ? (
-                                  <span className="status-submitted">
-                                    <i className="fas fa-check-circle"></i> Submitted
-                                  </span>
-                                ) : (
-                                  <span className="status-pending">Not submitted yet</span>
-                                )}
-                              </td>
-                              <td>
-                                {documents.find(doc => doc.document_type === 'barangay_cert_documents') ? (
-                                  <button 
-                                    className="btn view-btn"
-                                    onClick={() => window.open(documents.find(doc => doc.document_type === 'barangay_cert_documents').file_url, '_blank')}
-                                  >
-                                    <i className="fas fa-eye"></i> View
-                                  </button>
-                                ) : (
-                                  <label className="btn upload-btn">
-                                    <i className="fas fa-upload"></i> Upload
-                                    <input
-                                      type="file"
-                                      accept="image/*,.pdf"
-                                      onChange={(e) => handleDocumentChange(e, 'barangay_cert')}
-                                      style={{ display: 'none' }}
-                                    />
-                                  </label>
-                                )}
-                              </td>
-                            </tr>
+                            {getDocumentsByCivilStatus(user.civil_status).map((documentType) => {
+                              const document = documents.find(doc => doc.document_type === `${documentType}_documents`);
+                              return (
+                                <tr key={documentType}>
+                                  <td>{documentTypes[documentType]}</td>
+                                  <td className="status-cell">
+                                    {document ? (
+                                      <span className={`status-${document.status.toLowerCase()}`}>
+                                        <FontAwesomeIcon 
+                                          icon={document.status === 'Submitted' ? faCheckCircle : faClock} 
+                                          className="status-icon" 
+                                        />
+                                        {document.status === 'Approved' ? 'Submitted' : document.status}
+                                      </span>
+                                    ) : (
+                                      <span className="status-pending">Not submitted yet</span>
+                                    )}
+                                  </td>
+                                  <td>
+                                    {document ? (
+                                      <button 
+                                        className="btn view-btn"
+                                        onClick={() => window.open(document.file_url, '_blank')}
+                                      >
+                                        <i className="fas fa-eye"></i> View
+                                      </button>
+                                    ) : (
+                                      <label className="btn upload-btn">
+                                        <i className="fas fa-upload"></i> Upload
+                                        <input
+                                          type="file"
+                                          accept="image/*,.pdf"
+                                          onChange={(e) => handleDocumentChange(e, documentType)}
+                                          style={{ display: 'none' }}
+                                        />
+                                      </label>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
                           </tbody>
                         </table>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="documents-table-container">
-                      <table className="documents-table">
-                        <thead>
-                          <tr>
-                            <th>Document Type</th>
-                            <th>Status</th>
-                            <th>Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
+                        <div className="mobile-documents-list">
                           {getDocumentsByCivilStatus(user.civil_status).map((documentType) => {
                             const document = documents.find(doc => doc.document_type === `${documentType}_documents`);
                             return (
-                              <tr key={documentType}>
-                                <td>{documentTypes[documentType]}</td>
-                                <td className="status-cell">
-                                  {document ? (
-                                    <span className="status-submitted">
-                                      <i className="fas fa-check-circle"></i> Submitted
-                                    </span>
-                                  ) : (
-                                    <span className="status-pending">Not submitted yet</span>
-                                  )}
-                                </td>
-                                <td>
+                              <div className="document-card" key={documentType}>
+                                <div className="document-card-header">
+                                  <div className="document-card-type">{documentTypes[documentType]}</div>
+                                  <div className="document-card-status">
+                                    {document ? 'Submitted' : 'Not submitted'}
+                                  </div>
+                                </div>
+                                <div className="document-card-actions">
                                   {document ? (
                                     <button 
                                       className="btn view-btn"
                                       onClick={() => window.open(document.file_url, '_blank')}
                                     >
-                                      <i className="fas fa-eye"></i> View
+                                      View
                                     </button>
                                   ) : (
                                     <label className="btn upload-btn">
-                                      <i className="fas fa-upload"></i> Upload
+                                      Upload
                                       <input
                                         type="file"
                                         accept="image/*,.pdf"
@@ -818,81 +997,48 @@ const Profile = () => {
                                       />
                                     </label>
                                   )}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                      <div className="mobile-documents-list">
-                        {getDocumentsByCivilStatus(user.civil_status).map((documentType) => {
-                          const document = documents.find(doc => doc.document_type === `${documentType}_documents`);
-                          return (
-                            <div className="document-card" key={documentType}>
-                              <div className="document-card-header">
-                                <div className="document-card-type">{documentTypes[documentType]}</div>
-                                <div className="document-card-status">
-                                  {document ? 'Submitted' : 'Not submitted'}
                                 </div>
                               </div>
-                              <div className="document-card-actions">
-                                {document ? (
-                                  <button 
-                                    className="btn view-btn"
-                                    onClick={() => window.open(document.file_url, '_blank')}
-                                  >
-                                    View
-                                  </button>
-                                ) : (
-                                  <label className="btn upload-btn">
-                                    Upload
-                                    <input
-                                      type="file"
-                                      accept="image/*,.pdf"
-                                      onChange={(e) => handleDocumentChange(e, documentType)}
-                                      style={{ display: 'none' }}
-                                    />
-                                  </label>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div className="user-profile-announcements">
-                <div className="profile-announcements-header">
-                  <h3>Your Announcements</h3>
-                  <p className="profile-announcements-subtitle">Events and updates relevant to you</p>
-                </div>
-                <div className="profile-announcements-list">
-                  {events.length > 0 ? (
-                    events.map((event, index) => (
-                      <div key={index} className="profile-announcement-card" onClick={() => checkAttendance(event.id)}>
-                        <div className="profile-announcement-content">
-                          
-                          <h4>{event.title}</h4>
-                          <p>{event.description}</p>
-                          <div className="profile-announcement-meta">
-                            <span>{formatDateTime(event.startDate, event.startTime)}</span>
-                            <span>{event.location}</span>
-                            <span className="profile-announcement-badge">{event.status}</span>
-                          </div>
+                            );
+                          })}
                         </div>
                       </div>
-                    ))
-                  ) : (
-                    <p className="no-events-message">No upcoming events</p>
-                  )}
-                </div>
+                    )}
+                  </div>
+                )}
+
+                {!hasRestrictedAccess() && (
+                  <div className="user-profile-announcements">
+                    <div className="profile-announcements-header">
+                      <h3>Your Announcements</h3>
+                      <p className="profile-announcements-subtitle">Events and updates relevant to you</p>
+                    </div>
+                    <div className="profile-announcements-list">
+                      {events.length > 0 ? (
+                        events.map((event, index) => (
+                          <div key={index} className="profile-announcement-card" onClick={() => checkAttendance(event.id)}>
+                            <div className="profile-announcement-content">
+                              
+                              <h4>{event.title}</h4>
+                              <p>{event.description}</p>
+                              <div className="profile-announcement-meta">
+                                <span>{formatDateTime(event.startDate, event.startTime)}</span>
+                                <span>{event.location}</span>
+                                <span className="profile-announcement-badge">{event.status}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="no-events-message">No upcoming events</p>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-          </div>
-        )}
+            </>
+          )}
+        </div>
       </div>
 
       {/* Delete Confirmation Modal */}

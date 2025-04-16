@@ -5,6 +5,7 @@ import './Applications.css';
 
 const Applications = () => {
   const [applications, setApplications] = useState([]);
+  const [missingDocuments, setMissingDocuments] = useState([]);
   const [selectedApplication, setSelectedApplication] = useState(null);
   const [remarks, setRemarks] = useState("");
   const [modalType, setModalType] = useState("");
@@ -35,11 +36,15 @@ const Applications = () => {
   const [showDropdown, setShowDropdown] = useState(false);
 
   useEffect(() => {
-    fetchApplications();
+    if (modalType === "followup") {
+      fetchMissingDocuments();
+    } else {
+      fetchApplications();
+    }
     checkTableScroll();
     window.addEventListener('resize', checkTableScroll);
     return () => window.removeEventListener('resize', checkTableScroll);
-  }, []);
+  }, [modalType]);
 
   const checkTableScroll = () => {
     if (tableContainerRef.current) {
@@ -76,6 +81,37 @@ const Applications = () => {
     }
   };
 
+  const fetchMissingDocuments = async () => {
+    try {
+      const response = await axios.get('http://localhost:8081/api/documents/missing_documents');
+      // Group documents by code_id
+      const groupedDocuments = response.data.reduce((acc, doc) => {
+        if (!acc[doc.code_id]) {
+          acc[doc.code_id] = {
+            id: doc.id,
+            code_id: doc.code_id,
+            documents: []
+          };
+        }
+        acc[doc.code_id].documents.push({
+          document_type: doc.document_type,
+          status: doc.status,
+          follow_up_date: doc.follow_up_date,
+          file_url: doc.file_url,
+          display_name: doc.display_name
+        });
+        return acc;
+      }, {});
+      
+      // Convert to array
+      const documentsList = Object.values(groupedDocuments);
+      setMissingDocuments(documentsList);
+    } catch (error) {
+      console.error('Error fetching missing documents:', error);
+      alert('Error fetching missing documents. Please refresh the page.');
+    }
+  };
+
   const openModal = (application, type) => {
     setSelectedApplication(application);
     setStepPage(1);
@@ -94,7 +130,12 @@ const Applications = () => {
   const closeModal = () => {
     setSelectedApplication(null);
     setRemarks("");
-    setModalType("");
+    // Only reset modalType if it's not related to followup
+    if (modalType !== "followup" && modalType !== "viewDocuments") {
+      setModalType("");
+    } else if (modalType === "viewDocuments") {
+      setModalType("followup");
+    }
     document.body.style.overflow = 'auto';
   };
 
@@ -112,18 +153,24 @@ const Applications = () => {
       console.log('User email:', selectedApplication.email);
   
       const response = await axios.post('http://localhost:8081/updateUserStatus', {
-        code_id: selectedApplication.code_id, // Ensure this matches the backend
+        code_id: selectedApplication.code_id,
         status: action === "Accept" ? "Created" : "Declined",
         remarks: remarks.trim() || "No remarks provided",
         email: selectedApplication.email,
         firstName: selectedApplication.first_name,
         action: action,
+        // Add document status update for acceptance
+        updateDocumentStatus: action === "Accept" ? true : false,
+        // Add document type for follow-up documents
+        documentType: selectedApplication.document_type,
+        // Add new status for documents
+        documentStatus: action === "Accept" ? "Approved" : "Declined"
       });
   
       if (response.status === 200) {
         // Show success message
         const message = action === "Accept" 
-          ? "Application accepted and email notification sent!" 
+          ? "Application accepted and email notification sent! Documents status updated to Approved." 
           : "Application declined and email notification sent!";
         alert(message);
         
@@ -163,16 +210,24 @@ const Applications = () => {
     }
   };
 
-  const filteredApplications = applications.filter(app => {
-    const searchLower = searchTerm.toLowerCase();
-    return (
-      (app.id && app.id.toString().includes(searchLower)) ||
-      (app.code_id && app.code_id.toLowerCase().includes(searchLower)) ||
-      (app.first_name && app.first_name.toLowerCase().includes(searchLower)) ||
-      (app.email && app.email.toLowerCase().includes(searchLower)) ||
-      (app.age && app.age.toString().includes(searchLower))
-    );
-  });
+  const filteredApplications = modalType === "followup" 
+    ? missingDocuments.filter(doc => {
+        const searchLower = searchTerm.toLowerCase();
+        return (
+          (doc.id && doc.id.toString().includes(searchLower)) ||
+          (doc.code_id && doc.code_id.toLowerCase().includes(searchLower))
+        );
+      })
+    : applications.filter(app => {
+        const searchLower = searchTerm.toLowerCase();
+        return (
+          (app.id && app.id.toString().includes(searchLower)) ||
+          (app.code_id && app.code_id.toLowerCase().includes(searchLower)) ||
+          (app.first_name && app.first_name.toLowerCase().includes(searchLower)) ||
+          (app.email && app.email.toLowerCase().includes(searchLower)) ||
+          (app.age && app.age.toString().includes(searchLower))
+        );
+      });
 
   // Calculate the index of the first and last application to show based on pagination
   const indexOfLastApplication = currentPage * applicationsPerPage;
@@ -235,6 +290,20 @@ const Applications = () => {
           />
         </div>
       </div>
+      <div className="tabs-container">
+        <button 
+          className={`tab-button ${modalType === "" ? 'active' : ''}`}
+          onClick={() => setModalType("")}
+        >
+          Regular Applications
+        </button>
+        <button 
+          className={`tab-button ${modalType === "followup" ? 'active' : ''}`}
+          onClick={() => setModalType("followup")}
+        >
+          Follow-up Documents
+        </button>
+      </div>
 
       <div 
         ref={tableContainerRef}
@@ -244,29 +313,57 @@ const Applications = () => {
           <thead>
             <tr>
               <th>ID</th>
-              <th>Code ID</th>
-              <th>Name</th>
-              <th>Barangay</th>
+              {modalType === "" ? (
+                <>
+                  <th>Code ID</th>
+                  <th>Name</th>
+                  <th>Barangay</th>
+                </>
+              ) : (
+                <th>Code ID</th>
+              )}
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {currentApplications.map((app, index) => (
+            {currentApplications.map((item, index) => (
               <tr key={index}>
                 <td>{indexOfFirstApplication + index + 1}</td>
-                <td>{app.code_id}</td>
-                <td>{`${app.first_name} ${app.middle_name || ''} ${app.last_name}`}</td>
-                <td>{app.barangay || 'N/A'}</td>
+                {modalType === "" ? (
+                  <>
+                    <td>{item.code_id}</td>
+                    <td>{`${item.first_name} ${item.middle_name || ''} ${item.last_name}`}</td>
+                    <td>{item.barangay || 'N/A'}</td>
+                  </>
+                ) : (
+                  <td>{item.code_id}</td>
+                )}
                 <td>
-                    <button className="btn view-btn" onClick={() => openModal(app, "view")}> 
-                      <i className="fas fa-eye"></i> View
-                    </button>
-                    <button className="btn accept-btnsadmin" onClick={() => openModal(app, "confirmAccept")}> 
-                      <i className="fas fa-check"></i> Accept
-                    </button>
-                    <button className="btn decline-btnsadmin" onClick={() => openModal(app, "decline")}> 
-                      <i className="fas fa-times"></i> Decline
-                    </button>
+                  {modalType === "" ? (
+                    <>
+                      <button className="btn view-btn" onClick={() => openModal(item, "view")}> 
+                        <i className="fas fa-eye"></i> View
+                      </button>
+                      <button className="btn accept-btnsadmin" onClick={() => openModal(item, "confirmAccept")}> 
+                        <i className="fas fa-check"></i> Accept
+                      </button>
+                      <button className="btn decline-btnsadmin" onClick={() => openModal(item, "decline")}> 
+                        <i className="fas fa-times"></i> Decline
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button className="btn view-btn" onClick={() => openModal(item, "viewDocuments")}> 
+                        <i className="fas fa-eye"></i> View Documents
+                      </button>
+                      <button className="btn accept-btnsadmin" onClick={() => openModal(item, "confirmAccept")}> 
+                        <i className="fas fa-check"></i> Accept
+                      </button>
+                      <button className="btn decline-btnsadmin" onClick={() => openModal(item, "decline")}> 
+                        <i className="fas fa-times"></i> Decline
+                      </button>
+                    </>
+                  )}
                 </td>
               </tr>
             ))}
@@ -640,6 +737,80 @@ const Applications = () => {
               </button>
               <button className="btn view-btn" onClick={closeModal}>
                 Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {modalType === "viewDocuments" && selectedApplication && (
+        <div className="modal-overlay" onClick={closeModal}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Missing Documents</h3>
+            </div>
+            <div className="modal-content">
+              <div className="detail-section">
+                <h4>Documents</h4>
+                {selectedApplication.documents && selectedApplication.documents.length > 0 ? (
+                  <div className="documents-list">
+                    {selectedApplication.documents.map((doc, index) => {
+                      const displayType = doc.document_type ? 
+                        doc.document_type.replace('_documents', '').toUpperCase() : 'Document';
+                      
+                      return (
+                        <div key={index} className="document-item">
+                          <div className="document-header">
+                            <h5>{displayType}</h5>
+                            <span className={`status-${doc.status.toLowerCase()}`}>
+                              {doc.status}
+                            </span>
+                          </div>
+                          {doc.file_url ? (
+                            <>
+                              <div className="document-preview">
+                                <img 
+                                  src={doc.file_url} 
+                                  alt={doc.display_name || displayType}
+                                  className="document-thumbnail"
+                                  onClick={() => window.open(doc.file_url, '_blank')}
+                                  onError={(e) => {
+                                    e.target.onerror = null;
+                                    e.target.src = "https://placehold.co/200x200/e2e8f0/64748b?text=Image+Not+Found";
+                                  }}
+                                />
+                              </div>
+                              <div className="document-actions">
+                                <button 
+                                  className="btn view-btn full-width"
+                                  onClick={() => window.open(doc.file_url, '_blank')}
+                                >
+                                  <i className="fas fa-eye"></i> View Full Size
+                                </button>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="no-document">
+                              <p>Document not yet submitted</p>
+                              {doc.follow_up_date && (
+                                <p className="follow-up-date">
+                                  Follow-up date: {new Date(doc.follow_up_date).toLocaleDateString()}
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p>No missing documents found.</p>
+                )}
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn view-btn" onClick={closeModal}>
+                Close
               </button>
             </div>
           </div>

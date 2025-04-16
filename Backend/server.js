@@ -24,12 +24,10 @@ app.use((req, res, next) => {
 const documentsRouter = require('./routes/documents');
 const usersRouter = require('./routes/users');
 const faceAuthRouter = require('./routes/faceAuth');
-const eventRouter = require('./routes/events');
 
 // Use routes
 app.use('/api/documents', documentsRouter);
 app.use('/api/users', usersRouter);
-app.use('/api/events', eventRouter);
 
 // Configure special route for face authentication with logging
 app.use('/api/authenticate-face', (req, res, next) => {
@@ -558,9 +556,6 @@ app.post('/getUserDetails', async (req, res) => {
           id: user.id,
           code_id: user.code_id,
           status: user.status,
-          first_name: user.first_name,
-          last_name: user.last_name,
-          email: user.email,
           remarks: user.latest_remarks || 'No remarks',
           remarks_at: user.remarks_at
         });
@@ -675,8 +670,8 @@ app.get('/superadmin', async (req, res) => {
 });
 
 app.post('/updateUserStatus', async (req, res) => {
-  const { code_id, status, remarks, email, firstName, action } = req.body;
-  console.log('Received request to update status:', { code_id, status, remarks, email, firstName, action });
+  const { code_id, status, remarks, email, firstName, action, updateDocumentStatus } = req.body;
+  console.log('Received request to update status:', { code_id, status, remarks, email, firstName, action, updateDocumentStatus });
 
   let retries = 3;
   let lastError = null;
@@ -686,7 +681,7 @@ app.post('/updateUserStatus', async (req, res) => {
       await queryDatabase('START TRANSACTION');
 
       const userResult = await queryDatabase(`
-        SELECT u.id, u.status, s1.date_of_birth, u.password 
+        SELECT u.id, u.status, s1.date_of_birth, u.password, s1.civil_status 
         FROM users u 
         JOIN step1_identifying_information s1 ON u.code_id = s1.code_id 
         WHERE u.code_id = ? 
@@ -699,10 +694,41 @@ app.post('/updateUserStatus', async (req, res) => {
 
       const userId = userResult[0].id;
       const currentStatus = userResult[0].status;
+      const civilStatus = userResult[0].civil_status;
 
       // Update user status
       await queryDatabase('UPDATE users SET status = ? WHERE id = ?', [status, userId]);
       console.log('User status updated successfully for user ID:', userId);
+
+      // If accepting application and updateDocumentStatus is true, update all document statuses to 'Approved'
+      if (action === "Accept" && updateDocumentStatus) {
+        const requiredDocuments = getRequiredDocumentsByCivilStatus(civilStatus);
+        console.log('Updating document statuses to Approved for documents:', requiredDocuments);
+
+        // Update all document tables
+        const documentTables = [
+          'psa_documents',
+          'itr_documents',
+          'med_cert_documents',
+          'marriage_documents',
+          'cenomar_documents',
+          'death_cert_documents',
+          'barangay_cert_documents'
+        ];
+
+        for (const table of documentTables) {
+          try {
+            const updateResult = await queryDatabase(
+              `UPDATE ${table} SET status = 'Approved' WHERE code_id = ?`,
+              [code_id]
+            );
+            console.log(`Updated ${table} status to Approved for user ${userId}. Affected rows:`, updateResult.affectedRows);
+          } catch (err) {
+            console.error(`Error updating ${table}:`, err);
+            // Continue with other tables even if one fails
+          }
+        }
+      }
 
       // Handle different status updates
       if (status === "Renewal") {
@@ -1805,15 +1831,16 @@ app.post('/changePassword', async (req, res) => {
 // Events routes
 app.get('/events', async (req, res) => {
   try {
-    const results = await queryDatabase('SELECT * FROM events ORDER BY created_at DESC');
+    const query = 'SELECT * FROM events ORDER BY created_at DESC';
+    const results = await queryDatabase(query);
     
     res.json(results.map(event => ({
       ...event,
-      is_read: event.is_read || 0, // Ensure is_read is always defined
-      created_at: event.created_at || new Date().toISOString() // Ensure created_at is always defined
+      is_read: event.is_read || 0,
+      created_at: event.created_at || new Date().toISOString()
     })));
-  } catch (error) {
-    console.error('Error fetching events:', error);
+  } catch (err) {
+    console.error('Error fetching events:', err);
     res.status(500).json({ error: 'Error fetching events' });
   }
 });
@@ -1899,73 +1926,211 @@ app.delete('/events/:id', async (req, res) => {
   }
 });
 
-// Get user details by ID for QR code scanning
-app.get('/api/users/:userId', async (req, res) => {
+// Define table names and ID columns for document types
+const TABLE_NAMES = {
+  psa: {
+    table: 'psa_documents',
+    idColumn: 'psa_id'
+  },
+  itr: {
+    table: 'itr_documents',
+    idColumn: 'itr_id'
+  },
+  med_cert: {
+    table: 'med_cert_documents',
+    idColumn: 'med_cert_id'
+  },
+  marriage: {
+    table: 'marriage_documents',
+    idColumn: 'marriage_id'
+  },
+  cenomar: {
+    table: 'cenomar_documents',
+    idColumn: 'cenomar_id'
+  },
+  death_cert: {
+    table: 'death_cert_documents',
+    idColumn: 'death_cert_id'
+  }
+};
+
+app.post('/updateUserStatusIncompleteDocuments', async (req, res) => {
+  const { code_id, status } = req.body;
+  console.log('Received request to update status:', { code_id, status });
+
+  if (!code_id) {
+    return res.status(400).json({ 
+      success: false, 
+      error: 'Code ID is required' 
+    });
+  }
+
   try {
-    const { userId } = req.params;
-    
-    const query = `
-      SELECT u.id, u.code_id, u.name, u.email, u.status,
-             s1.barangay
+    // Start transaction
+    await queryDatabase('START TRANSACTION');
+
+    // Get user's civil status and current status
+    const userQuery = `
+      SELECT u.status, s1.civil_status 
       FROM users u
-      LEFT JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
-      WHERE u.id = ?
+      JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
+      WHERE u.code_id = ?
     `;
-    
-    const [user] = await queryDatabase(query, [userId]);
-    
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+    const userResult = await queryDatabase(userQuery, [code_id]);
+
+    if (!userResult || userResult.length === 0) {
+      await queryDatabase('ROLLBACK');
+      return res.status(404).json({ 
+        success: false, 
+        error: 'User not found' 
+      });
     }
-    
-    res.json(user);
+
+    const currentStatus = userResult[0].status;
+    const civilStatus = userResult[0].civil_status;
+
+    // Get required documents based on civil status
+    const requiredDocuments = getRequiredDocumentsByCivilStatus(civilStatus);
+    console.log('Required documents for civil status:', civilStatus, ':', requiredDocuments);
+
+    // Check if all required documents are submitted and approved
+    let allDocumentsSubmitted = true;
+    let hasPendingDocuments = false;
+    for (const docType of requiredDocuments) {
+      const tableInfo = TABLE_NAMES[docType];
+      const checkDocQuery = `
+        SELECT ${tableInfo.idColumn}, status
+        FROM ${tableInfo.table} 
+        WHERE code_id = ?
+        LIMIT 1
+      `;
+      console.log('Checking document:', docType, 'with query:', checkDocQuery);
+      const docResult = await queryDatabase(checkDocQuery, [code_id]);
+      
+      if (!docResult || docResult.length === 0) {
+        console.log('Document not found:', docType);
+        allDocumentsSubmitted = false;
+        break;
+      }
+
+      // Check if document status is 'Pending'
+      if (docResult[0].status === 'Pending') {
+        console.log('Document is still Pending:', docType);
+        hasPendingDocuments = true;
+        allDocumentsSubmitted = false;
+        break;
+      }
+
+      // Check if document status is 'Approved'
+      if (docResult[0].status !== 'Approved') {
+        console.log('Document status is not Approved:', docType, 'status:', docResult[0].status);
+        allDocumentsSubmitted = false;
+        break;
+      }
+    }
+
+    console.log('All documents submitted and approved:', allDocumentsSubmitted);
+    console.log('Has pending documents:', hasPendingDocuments);
+
+    // Determine new status
+    let newStatus;
+    if (status === 'Verified' && allDocumentsSubmitted && !hasPendingDocuments) {
+      newStatus = 'Verified';
+    } else {
+      newStatus = 'Incomplete'; // Keep as Incomplete if any document is missing, pending, or not approved
+    }
+
+    console.log('Updating status to:', newStatus);
+
+    // Update user status
+    const updateQuery = `UPDATE users SET status = ? WHERE code_id = ?`;
+    const result = await queryDatabase(updateQuery, [newStatus, code_id]);
+
+    if (result.affectedRows === 0) {
+      await queryDatabase('ROLLBACK');
+      return res.status(404).json({ 
+        success: false, 
+        error: 'User not found' 
+      });
+    }
+
+    // Commit transaction
+    await queryDatabase('COMMIT');
+
+    res.json({ 
+      success: true,
+      status: newStatus,
+      allDocumentsSubmitted,
+      message: `Status updated to ${newStatus}`
+    });
   } catch (error) {
-    console.error('Error fetching user details:', error);
-    res.status(500).json({ error: 'Failed to fetch user details' });
+    console.error('Error updating user status:', error);
+    await queryDatabase('ROLLBACK');
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to update user status',
+      details: error.message 
+    });
   }
 });
 
-// Add QR code search endpoint
-app.get('/api/users/search/qr', async (req, res) => {
+// Helper function to get required documents based on civil status
+function getRequiredDocumentsByCivilStatus(civil_status) {
+  const baseDocuments = ['psa', 'itr', 'med_cert'];
+  
+  switch (civil_status?.toLowerCase()) {
+    case 'single':
+      return [...baseDocuments, 'cenomar'];
+    case 'married':
+      return [...baseDocuments, 'marriage'];
+    case 'divorced':
+      return [...baseDocuments, 'marriage'];
+    case 'widowed':
+      return [...baseDocuments, 'marriage', 'death_cert'];
+    default:
+      return baseDocuments;
+  }
+}
+
+// Add this new route for updating document status
+app.post('/api/documents/updateStatus', async (req, res) => {
+  const { code_id, documentType, status } = req.body;
+  
   try {
-    const { qr_code_data } = req.query;
-    
-    if (!qr_code_data) {
-      return res.status(400).json({ error: 'QR code data is required' });
+    if (!code_id || !documentType || !status) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Missing required fields' 
+      });
     }
 
-    // Search by qr_code_data directly
-    const query = `
-      SELECT u.id, u.name, u.email, u.status, u.code_id,
-             s1.first_name, s1.last_name, s1.barangay
-      FROM users u
-      LEFT JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
-      WHERE u.qr_code_data = ?
+    // Get the table name and ID column for the document type
+    const tableInfo = TABLE_NAMES[documentType];
+    if (!tableInfo) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid document type' 
+      });
+    }
+
+    // Update the document status
+    const updateQuery = `
+      UPDATE ${tableInfo.table} 
+      SET status = ? 
+      WHERE code_id = ?
     `;
     
-    console.log('Searching for qr_code_data:', qr_code_data); // Debug log
-    const users = await queryDatabase(query, [qr_code_data]);
+    await queryDatabase(updateQuery, [status, code_id]);
     
-    if (!users || users.length === 0) {
-      console.log('No user found for qr_code_data:', qr_code_data); // Debug log
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    // Format the response
-    const user = users[0];
-    console.log('Found user:', user); // Debug log
-    const formattedUser = {
-      id: user.id,
-      name: user.name || `${user.first_name} ${user.last_name}`.trim(),
-      email: user.email,
-      status: user.status,
-      code_id: user.code_id,
-      barangay: user.barangay
-    };
-    
-    res.json([formattedUser]);
+    res.json({ 
+      success: true, 
+      message: `Document status updated to ${status}` 
+    });
   } catch (error) {
-    console.error('Error searching user by QR code:', error);
-    res.status(500).json({ error: 'Failed to search user' });
+    console.error('Error updating document status:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to update document status' 
+    });
   }
 });

@@ -3,15 +3,15 @@ const router = express.Router();
 const { queryDatabase, upsertDocument, deleteDocument, getUserDocuments } = require('../database');
 const { pool } = require('../database');
 
-// Map frontend document types to database table names
+// Map frontend document types to database table names and their ID columns
 const TABLE_NAMES = {
-  'psa': 'psa_documents',
-  'itr': 'itr_documents',
-  'med_cert': 'med_cert_documents',
-  'marriage': 'marriage_documents',
-  'cenomar': 'cenomar_documents',
-  'death_cert': 'death_cert_documents',
-  'barangay_cert': 'barangay_cert_documents'
+  'psa': { table: 'psa_documents', idColumn: 'psa_id' },
+  'itr': { table: 'itr_documents', idColumn: 'itr_id' },
+  'med_cert': { table: 'med_cert_documents', idColumn: 'med_cert_id' },
+  'marriage': { table: 'marriage_documents', idColumn: 'marriage_id' },
+  'cenomar': { table: 'cenomar_documents', idColumn: 'cenomar_id' },
+  'death_cert': { table: 'death_cert_documents', idColumn: 'death_cert_id' },
+  'barangay_cert': { table: 'barangay_cert_documents', idColumn: 'barangay_cert_id' }
 };
 
 // Update user document
@@ -49,8 +49,8 @@ router.post('/updateUserDocument', async (req, res) => {
       });
     });
     
-    // Get the user's code_id first
-    const userQuery = 'SELECT code_id FROM users WHERE id = ?';
+    // Get the user's code_id and civil status first
+    const userQuery = 'SELECT code_id, civil_status FROM users WHERE id = ?';
     console.log('Executing user query:', userQuery, 'with userId:', userId);
     const userResult = await new Promise((resolve, reject) => {
       connection.query(userQuery, [userId], (err, result) => {
@@ -66,17 +66,18 @@ router.post('/updateUserDocument', async (req, res) => {
     }
 
     const code_id = userResult[0].code_id;
-    console.log('Found code_id:', code_id);
+    const civil_status = userResult[0].civil_status;
+    console.log('Found code_id:', code_id, 'civil_status:', civil_status);
 
     // Validate table name
-    const tableName = TABLE_NAMES[documentType];
-    if (!tableName) {
+    const tableInfo = TABLE_NAMES[documentType];
+    if (!tableInfo) {
       console.error('Invalid document type:', documentType);
       throw new Error(`Invalid document type: ${documentType}`);
     }
 
     // Check if document already exists
-    const checkDocQuery = `SELECT id FROM ${tableName} WHERE code_id = ? LIMIT 1`;
+    const checkDocQuery = `SELECT ${tableInfo.idColumn} FROM ${tableInfo.table} WHERE code_id = ? LIMIT 1`;
     const existingDoc = await new Promise((resolve, reject) => {
       connection.query(checkDocQuery, [code_id], (err, result) => {
         if (err) reject(err);
@@ -90,11 +91,11 @@ router.post('/updateUserDocument', async (req, res) => {
       // Update existing document
       console.log(`Document already exists for ${documentType}, updating instead of inserting`);
       const updateQuery = `
-        UPDATE ${tableName} 
+        UPDATE ${tableInfo.table} 
         SET file_name = ?, uploaded_at = ?, display_name = ?, status = ?
         WHERE code_id = ?`;
       result = await new Promise((resolve, reject) => {
-        connection.query(updateQuery, [documentUrl, new Date(), displayName, 'Pending', code_id], (err, result) => {
+        connection.query(updateQuery, [documentUrl, new Date(), displayName, 'Submitted', code_id], (err, result) => {
           if (err) reject(err);
           else resolve(result);
         });
@@ -103,15 +104,48 @@ router.post('/updateUserDocument', async (req, res) => {
     } else {
       // Insert new document
       const insertQuery = `
-        INSERT INTO ${tableName} (code_id, file_name, uploaded_at, display_name, status)
+        INSERT INTO ${tableInfo.table} (code_id, file_name, uploaded_at, display_name, status)
         VALUES (?, ?, ?, ?, ?)`;
       result = await new Promise((resolve, reject) => {
-        connection.query(insertQuery, [code_id, documentUrl, new Date(), displayName, 'Pending'], (err, result) => {
+        connection.query(insertQuery, [code_id, documentUrl, new Date(), displayName, 'Submitted'], (err, result) => {
           if (err) reject(err);
           else resolve(result);
         });
       });
       console.log('Document insert result:', result);
+    }
+
+    // Check if all required documents are submitted
+    const requiredDocuments = getRequiredDocumentsByCivilStatus(civil_status);
+    console.log('Required documents for civil status:', civil_status, ':', requiredDocuments);
+
+    let allDocumentsSubmitted = true;
+    for (const docType of requiredDocuments) {
+      const docTableInfo = TABLE_NAMES[docType];
+      const checkDocQuery = `SELECT ${docTableInfo.idColumn} FROM ${docTableInfo.table} WHERE code_id = ? AND status = 'Submitted' LIMIT 1`;
+      const docResult = await new Promise((resolve, reject) => {
+        connection.query(checkDocQuery, [code_id], (err, result) => {
+          if (err) reject(err);
+          else resolve(result);
+        });
+      });
+      
+      if (!docResult || docResult.length === 0) {
+        allDocumentsSubmitted = false;
+        break;
+      }
+    }
+
+    // If all documents are submitted, update user status to 'Verified'
+    if (allDocumentsSubmitted) {
+      console.log('All required documents submitted, updating user status to Verified');
+      const updateStatusQuery = `UPDATE users SET status = 'Verified' WHERE code_id = ?`;
+      await new Promise((resolve, reject) => {
+        connection.query(updateStatusQuery, [code_id], (err, result) => {
+          if (err) reject(err);
+          else resolve(result);
+        });
+      });
     }
 
     // Commit the transaction
@@ -128,7 +162,8 @@ router.post('/updateUserDocument', async (req, res) => {
     res.json({ 
       success: true, 
       message: existingDoc.length > 0 ? 'Document updated successfully' : 'Document inserted successfully',
-      documentId: result.insertId || existingDoc[0]?.id
+      documentId: result.insertId || existingDoc[0]?.[tableInfo.idColumn],
+      statusUpdated: allDocumentsSubmitted
     });
   } catch (error) {
     console.error('Error updating document:', error);
@@ -140,14 +175,35 @@ router.post('/updateUserDocument', async (req, res) => {
       });
     }
     
-    res.status(500).json({ error: 'Failed to update document', details: error.message });
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to update document',
+      details: error.message 
+    });
   } finally {
-    // Release connection
     if (connection) {
       connection.release();
     }
   }
 });
+
+// Helper function to get required documents based on civil status
+function getRequiredDocumentsByCivilStatus(civil_status) {
+  const baseDocuments = ['psa', 'itr', 'med_cert'];
+  
+  switch (civil_status?.toLowerCase()) {
+    case 'single':
+      return [...baseDocuments, 'cenomar'];
+    case 'married':
+      return [...baseDocuments, 'marriage'];
+    case 'divorced':
+      return [...baseDocuments, 'marriage'];
+    case 'widowed':
+      return [...baseDocuments, 'marriage', 'death_cert'];
+    default:
+      return baseDocuments;
+  }
+}
 
 // Get all documents for a user
 router.get('/getUserDocuments/:userId', async (req, res) => {
@@ -213,7 +269,7 @@ router.post('/deleteDocument', async (req, res) => {
     }
 
     // Delete from database
-    const result = await deleteDocument(tableName, code_id);
+    const result = await deleteDocument(tableName.table, code_id);
     console.log('Delete result:', result);
 
     res.json({ 
@@ -554,6 +610,108 @@ router.post('/submitAllSteps', async (req, res) => {
   }
 });
 
+// Handle missing document update
+router.post('/updateMissingDocument', async (req, res) => {
+  const { code_id, document_type, file_url, display_name, status = 'Pending' } = req.body;
+  let connection;
+
+  console.log('Received document upload request:', req.body);
+
+  try {
+    // Validate document type
+    const tableName = TABLE_NAMES[document_type];
+    if (!tableName) {
+      throw new Error(`Invalid document type: ${document_type}`);
+    }
+
+    // Get a connection and start transaction
+    connection = await new Promise((resolve, reject) => {
+      pool.getConnection((err, conn) => {
+        if (err) reject(err);
+        else resolve(conn);
+      });
+    });
+
+    await new Promise((resolve, reject) => {
+      connection.beginTransaction(err => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+
+    // Verify the code_id exists in step1_identifying_information
+    const verifyQuery = `SELECT code_id FROM step1_identifying_information WHERE code_id = ? LIMIT 1`;
+    const verifyResult = await new Promise((resolve, reject) => {
+      connection.query(verifyQuery, [code_id], (err, result) => {
+        if (err) reject(err);
+        else resolve(result);
+      });
+    });
+
+    if (verifyResult.length === 0) {
+      throw new Error('Invalid code_id');
+    }
+
+    // First, save to missing_documents table
+    const missingDocQuery = `
+      INSERT INTO missing_documents (code_id, document_type, file_url, display_name, status, created_at, follow_up_date)
+      VALUES (?, ?, ?, ?, ?, NOW(), NOW())
+      ON DUPLICATE KEY UPDATE
+        file_url = VALUES(file_url),
+        display_name = VALUES(display_name),
+        status = VALUES(status),
+        updated_at = NOW(),
+        follow_up_date = NOW()
+    `;
+
+    await new Promise((resolve, reject) => {
+      connection.query(missingDocQuery, [code_id, document_type, file_url, display_name, status], (err, result) => {
+        if (err) reject(err);
+        else resolve(result);
+      });
+    });
+
+    // Then, save to the specific document table
+    const insertQuery = `
+      INSERT INTO ${tableName.table} (code_id, file_name, display_name, status, uploaded_at)
+      VALUES (?, ?, ?, ?, NOW())
+      ON DUPLICATE KEY UPDATE
+        file_name = VALUES(file_name),
+        display_name = VALUES(display_name),
+        status = VALUES(status),
+        uploaded_at = NOW()
+    `;
+
+    await new Promise((resolve, reject) => {
+      connection.query(insertQuery, [code_id, file_url, display_name, 'Pending'], (err, result) => {
+        if (err) reject(err);
+        else resolve(result);
+      });
+    });
+
+    await new Promise((resolve, reject) => {
+      connection.commit(err => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+
+    res.json({ success: true, message: 'Document updated successfully' });
+  } catch (error) {
+    console.error('Error uploading document to updateMissingDocument:', error);
+    if (connection) {
+      await new Promise((resolve) => {
+        connection.rollback(() => resolve());
+      });
+    }
+    res.status(500).json({ success: false, error: error.message });
+  } finally {
+    if (connection) {
+      connection.release();
+    }
+  }
+});
+
 // Handle document upload
 router.post('/:documentType', async (req, res) => {
   const { documentType } = req.params;
@@ -600,7 +758,7 @@ router.post('/:documentType', async (req, res) => {
     }
 
     // Check if document already exists
-    const existingDocQuery = `SELECT * FROM ${tableName} WHERE code_id = ? LIMIT 1`;
+    const existingDocQuery = `SELECT * FROM ${tableName.table} WHERE code_id = ? LIMIT 1`;
     const existingDoc = await new Promise((resolve, reject) => {
       connection.query(existingDocQuery, [code_id], (err, result) => {
         if (err) reject(err);
@@ -613,11 +771,11 @@ router.post('/:documentType', async (req, res) => {
     if (existingDoc.length > 0) {
       // Update existing document
       const updateQuery = `
-        UPDATE ${tableName} 
+        UPDATE ${tableName.table} 
         SET file_name = ?, uploaded_at = ?, display_name = ?, status = ?
         WHERE code_id = ?`;
       result = await new Promise((resolve, reject) => {
-        connection.query(updateQuery, [file_name, new Date(), display_name, 'Submitted', code_id], (err, result) => {
+        connection.query(updateQuery, [file_name, new Date(), display_name, 'Pending', code_id], (err, result) => {
           if (err) reject(err);
           else resolve(result);
         });
@@ -626,10 +784,10 @@ router.post('/:documentType', async (req, res) => {
     } else {
       // Insert new document
       const insertQuery = `
-        INSERT INTO ${tableName} (code_id, file_name, uploaded_at, display_name, status)
+        INSERT INTO ${tableName.table} (code_id, file_name, uploaded_at, display_name, status)
         VALUES (?, ?, ?, ?, ?)`;
       result = await new Promise((resolve, reject) => {
-        connection.query(insertQuery, [code_id, file_name, new Date(), display_name, 'Submitted'], (err, result) => {
+        connection.query(insertQuery, [code_id, file_name, new Date(), display_name, 'Pending'], (err, result) => {
           if (err) reject(err);
           else resolve(result);
         });
@@ -651,7 +809,7 @@ router.post('/:documentType', async (req, res) => {
     res.json({
       success: true,
       message: `Document ${existingDoc.length > 0 ? 'updated' : 'uploaded'} successfully`,
-      documentId: result.insertId || existingDoc[0]?.id
+      documentId: result.insertId || existingDoc[0]?.[tableName.idColumn]
     });
   } catch (error) {
     console.error(`Error uploading document to ${documentType}:`, error);
@@ -741,7 +899,7 @@ router.post('/barangay_cert', async (req, res) => {
         SET file_name = ?, uploaded_at = ?, display_name = ?, status = ?
         WHERE code_id = ?`;
       result = await new Promise((resolve, reject) => {
-        connection.query(updateQuery, [file_name, new Date(), display_name, 'Submitted', code_id], (err, result) => {
+        connection.query(updateQuery, [file_name, new Date(), display_name, 'Pending', code_id], (err, result) => {
           if (err) reject(err);
           else resolve(result);
         });
@@ -752,7 +910,7 @@ router.post('/barangay_cert', async (req, res) => {
         INSERT INTO barangay_cert_documents (code_id, file_name, uploaded_at, display_name, status)
         VALUES (?, ?, ?, ?, ?)`;
       result = await new Promise((resolve, reject) => {
-        connection.query(insertQuery, [code_id, file_name, new Date(), display_name, 'Submitted'], (err, result) => {
+        connection.query(insertQuery, [code_id, file_name, new Date(), display_name, 'Pending'], (err, result) => {
           if (err) reject(err);
           else resolve(result);
         });
@@ -773,7 +931,7 @@ router.post('/barangay_cert', async (req, res) => {
     res.json({
       success: true,
       message: `Barangay certificate ${existingDoc.length > 0 ? 'updated' : 'uploaded'} successfully`,
-      documentId: result.insertId || existingDoc[0]?.id
+      documentId: result.insertId || existingDoc[0]?.[TABLE_NAMES['barangay_cert'].idColumn]
     });
   } catch (error) {
     console.error('Error uploading barangay certificate:', error);
@@ -792,6 +950,41 @@ router.post('/barangay_cert', async (req, res) => {
     });
   } finally {
     // Release connection
+    if (connection) {
+      connection.release();
+    }
+  }
+});
+
+// Get missing documents
+router.get('/missing_documents', async (req, res) => {
+  let connection;
+  try {
+    connection = await new Promise((resolve, reject) => {
+      pool.getConnection((err, conn) => {
+        if (err) reject(err);
+        else resolve(conn);
+      });
+    });
+
+    const query = `
+      SELECT * FROM missing_documents 
+      WHERE status = 'Pending' 
+      ORDER BY follow_up_date ASC, created_at DESC
+    `;
+
+    const results = await new Promise((resolve, reject) => {
+      connection.query(query, (err, results) => {
+        if (err) reject(err);
+        else resolve(results);
+      });
+    });
+
+    res.json(results);
+  } catch (error) {
+    console.error('Error fetching missing documents:', error);
+    res.status(500).json({ error: 'Failed to fetch missing documents' });
+  } finally {
     if (connection) {
       connection.release();
     }
