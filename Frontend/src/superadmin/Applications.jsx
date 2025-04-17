@@ -112,13 +112,34 @@ const Applications = () => {
     }
   };
 
-  const openModal = (application, type) => {
-    setSelectedApplication(application);
+  const openModal = (application, type, documentIndex = 0) => {
+    // If we're dealing with a specific document, set it in selectedApplication
+    if (type === "followupConfirmAccept" || type === "followupDecline") {
+      setSelectedApplication({
+        ...application,
+        documents: [application.documents[documentIndex]] // Only set the specific document
+      });
+    } else {
+      setSelectedApplication(application);
+    }
+    
     setStepPage(1);
     setRemarks("");
-    setModalType(type);
+    
+    if (modalType === "followup") {
+      if (type === "confirmAccept") {
+        setModalType("followupConfirmAccept");
+      } else if (type === "decline") {
+        setModalType("followupDecline");
+      } else if (type === "viewDocuments") {
+        setModalType("followupViewDocuments");
+      }
+    } else {
+      setModalType(type);
+    }
+
     if (application.classification && !/^(00[1-9]|0[1-9][0-9]|1[01][0-2])$/.test(application.classification)) {
-      setShowDropdown(true); // Show dropdown if classification is not a valid number
+      setShowDropdown(true);
     } else {
       setShowDropdown(false);
     }
@@ -130,12 +151,16 @@ const Applications = () => {
   const closeModal = () => {
     setSelectedApplication(null);
     setRemarks("");
-    // Only reset modalType if it's not related to followup
-    if (modalType !== "followup" && modalType !== "viewDocuments") {
-      setModalType("");
-    } else if (modalType === "viewDocuments") {
+    
+    // Handle modal type based on current context
+    if (modalType === "followupConfirmAccept" || 
+        modalType === "followupDecline" || 
+        modalType === "followupViewDocuments") {
       setModalType("followup");
+    } else {
+      setModalType("");
     }
+    
     document.body.style.overflow = 'auto';
   };
 
@@ -188,6 +213,50 @@ const Applications = () => {
     }
   };
 
+  // New function for handling follow-up document actions
+  const handleFollowupAction = async (action) => {
+    if (!selectedApplication) return;
+    
+    try {
+      if (action === "Decline" && !remarks.trim()) {
+        alert("Please provide remarks for declining.");
+        return;
+      }
+  
+      // Get the first document's type since we're viewing individual documents
+      const documentType = selectedApplication.documents?.[0]?.document_type;
+      
+      if (!documentType) {
+        console.error('Document type is undefined:', selectedApplication);
+        alert('Error: Document type is missing');
+        return;
+      }
+  
+      console.log('Sending request with:', {
+        code_id: selectedApplication.code_id,
+        documentType,
+        status: action === "Accept" ? "Approved" : "Declined",
+        remarks: remarks.trim() || "No remarks provided"
+      });
+  
+      const response = await axios.post('http://localhost:8081/updateDocumentStatus', {
+        code_id: selectedApplication.code_id,
+        documentType,
+        status: action === "Accept" ? "Approved" : "Declined",
+        remarks: remarks.trim() || "No remarks provided"
+      });
+  
+      if (response.status === 200) {
+        alert(action === "Accept" ? "Document accepted successfully!" : "Document declined successfully!");
+        await fetchMissingDocuments();
+        closeModal();
+        setRemarks("");
+      }
+    } catch (error) {
+      console.error('Error updating document status:', error);
+      alert(`Error: ${error.response?.data?.error || error.message}`);
+    }
+  };
   const handleClassificationUpdate = async () => {
     if (selectedClassification) {
       console.log('Sending code_id:', selectedApplication.code_id); // Log the code_id
@@ -743,11 +812,12 @@ const Applications = () => {
         </div>
       )}
 
-      {modalType === "viewDocuments" && selectedApplication && (
+      {/* Follow-up Documents View Modal */}
+      {modalType === "followupViewDocuments" && selectedApplication && (
         <div className="modal-overlay" onClick={closeModal}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>Missing Documents</h3>
+              <h3>Follow-up Documents</h3>
             </div>
             <div className="modal-content">
               <div className="detail-section">
@@ -804,13 +874,65 @@ const Applications = () => {
                     })}
                   </div>
                 ) : (
-                  <p>No missing documents found.</p>
+                  <p>No documents available.</p>
                 )}
               </div>
             </div>
             <div className="modal-footer">
               <button className="btn view-btn" onClick={closeModal}>
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Follow-up Documents Confirm Accept Modal */}
+      {modalType === "followupConfirmAccept" && selectedApplication && (
+        <div className="modal-overlay followup-modal" onClick={closeModal}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Confirm Document Acceptance</h3>
+            </div>
+            <div className="modal-content">
+              <p className="confirmation-message">Are you sure you want to accept this document?</p>
+            </div>
+            <div className="modal-footer">
+              <button className="btn-accept-btnsadmin" onClick={() => handleFollowupAction("Accept")}>
+                <i className="fas fa-check"></i> Yes, Accept
+              </button>
+              <button className="btn view-btn" onClick={closeModal}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Follow-up Documents Decline Modal */}
+      {modalType === "followupDecline" && selectedApplication && (
+        <div className="modal-overlay followup-modal" onClick={closeModal}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Decline Document</h3>
+            </div>
+            <div className="modal-content">
+              <div className="remarks-section">
+                <label>Please provide remarks for declining:</label>
+                <textarea
+                  value={remarks}
+                  onChange={(e) => setRemarks(e.target.value)}
+                  placeholder="Enter remarks here"
+                  rows="4"
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn decline-btnsadmin" onClick={() => handleFollowupAction("Decline")}>
+                <i className="fas fa-times"></i> Confirm Decline
+              </button>
+              <button className="btn view-btn" onClick={closeModal}>
+                Cancel
               </button>
             </div>
           </div>

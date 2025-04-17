@@ -967,14 +967,29 @@ router.get('/missing_documents', async (req, res) => {
       });
     });
 
-    const query = `
-      SELECT * FROM missing_documents 
-      WHERE status = 'Pending' 
-      ORDER BY follow_up_date ASC, created_at DESC
-    `;
+    // Query for all document tables with specific columns
+    const queries = [
+      `SELECT code_id, file_name as file_url, display_name, status, 'psa_documents' as document_type, uploaded_at as follow_up_date 
+       FROM psa_documents WHERE status = 'Pending'`,
+      `SELECT code_id, file_name as file_url, display_name, status, 'itr_documents' as document_type, uploaded_at as follow_up_date 
+       FROM itr_documents WHERE status = 'Pending'`,
+      `SELECT code_id, file_name as file_url, display_name, status, 'marriage_documents' as document_type, uploaded_at as follow_up_date 
+       FROM marriage_documents WHERE status = 'Pending'`,
+      `SELECT code_id, file_name as file_url, display_name, status, 'med_cert_documents' as document_type, uploaded_at as follow_up_date 
+       FROM med_cert_documents WHERE status = 'Pending'`,
+      `SELECT code_id, file_name as file_url, display_name, status, 'cenomar_documents' as document_type, uploaded_at as follow_up_date 
+       FROM cenomar_documents WHERE status = 'Pending'`,
+      `SELECT code_id, file_name as file_url, display_name, status, 'death_cert_documents' as document_type, uploaded_at as follow_up_date 
+       FROM death_cert_documents WHERE status = 'Pending'`,
+      `SELECT code_id, file_url, display_name, status, 'missing_documents' as document_type, follow_up_date 
+       FROM missing_documents WHERE status = 'Pending'`
+    ];
+
+    const combinedQuery = queries.join(' UNION ALL ') + 
+      ' ORDER BY follow_up_date ASC';
 
     const results = await new Promise((resolve, reject) => {
-      connection.query(query, (err, results) => {
+      connection.query(combinedQuery, (err, results) => {
         if (err) reject(err);
         else resolve(results);
       });
@@ -982,8 +997,8 @@ router.get('/missing_documents', async (req, res) => {
 
     res.json(results);
   } catch (error) {
-    console.error('Error fetching missing documents:', error);
-    res.status(500).json({ error: 'Failed to fetch missing documents' });
+    console.error('Error fetching documents:', error);
+    res.status(500).json({ error: 'Failed to fetch documents' });
   } finally {
     if (connection) {
       connection.release();

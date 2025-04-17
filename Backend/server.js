@@ -2134,3 +2134,80 @@ app.post('/api/documents/updateStatus', async (req, res) => {
     });
   }
 });
+
+// Add this new route for updating document status
+app.post('/updateDocumentStatus', async (req, res) => {
+  const { code_id, documentType, status } = req.body;
+  console.log('Received update request:', { code_id, documentType, status });
+
+  try {
+    const documentTables = {
+      'itr_documents': 'itr_documents',
+      'psa_documents': 'psa_documents',
+      'marriage_documents': 'marriage_documents',
+      'med_cert_documents': 'med_cert_documents',
+      'cenomar_documents': 'cenomar_documents',
+      'death_cert_documents': 'death_cert_documents',
+      'missing_documents': 'missing_documents'
+    };
+
+    await queryDatabase('START TRANSACTION');
+
+    // Update all document tables at once if documentType is not specified
+    if (!documentType || documentType === 'all') {
+      for (const table of Object.values(documentTables)) {
+        const updateQuery = `
+          UPDATE ${table} 
+          SET status = ?
+          WHERE code_id = ?
+        `;
+        await queryDatabase(updateQuery, [status, code_id]);
+      }
+    } else {
+      // Update single document type
+      const tableName = documentTables[documentType];
+      if (!tableName) {
+        await queryDatabase('ROLLBACK');
+        return res.status(400).json({ 
+          success: false, 
+          error: `Invalid document type: ${documentType}` 
+        });
+      }
+
+      const updateQuery = `
+        UPDATE ${tableName} 
+        SET status = ?
+        WHERE code_id = ?
+      `;
+      await queryDatabase(updateQuery, [status, code_id]);
+    }
+
+    // Add notification if status is Approved
+    if (status === 'Approved') {
+      const userQuery = 'SELECT id FROM users WHERE code_id = ?';
+      const userResult = await queryDatabase(userQuery, [code_id]);
+      
+      if (userResult && userResult.length > 0) {
+        const userId = userResult[0].id;
+        await queryDatabase(
+          'INSERT INTO follow_up_documents (user_id, message) VALUES (?, ?)',
+          [userId, 'Your follow-up documents have been accepted']
+        );
+      }
+    }
+
+    await queryDatabase('COMMIT');
+
+    res.status(200).json({ 
+      success: true, 
+      message: `Document(s) ${status.toLowerCase()} successfully`
+    });
+  } catch (error) {
+    await queryDatabase('ROLLBACK');
+    console.error('Error updating document status:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to update document status' 
+    });
+  }
+});
