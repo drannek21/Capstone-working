@@ -499,7 +499,7 @@ const FaceAuth = ({ onLoginSuccess, email }) => {
                 </button>
             )}
             
-            {message && <p className="message">{message}</p>}
+            {message && <p className="messagefc">{message}</p>}
         </div>
     );
 };
