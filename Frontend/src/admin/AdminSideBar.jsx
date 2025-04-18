@@ -1,12 +1,20 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, NavLink } from "react-router-dom";
-import { FiMenu, FiX, FiHome, FiUsers, FiLogOut } from 'react-icons/fi';
+import { FiMenu, FiX, FiHome, FiUsers, FiLogOut, FiBell } from 'react-icons/fi';
 import "./AdminSideBar.css";
 import logo from '../assets/logo.jpg';
 
 const AdminSideBar = () => {
     const navigate = useNavigate();
     const [isOpen, setIsOpen] = useState(window.innerWidth >= 768);
+    const [showNotifModal, setShowNotifModal] = useState(false);
+    const [notifications, setNotifications] = useState([
+        // Example notifications; replace with real data fetching
+        { id: 1, message: 'New user registered', read: false, date: '2025-04-18' },
+        { id: 2, message: 'Document approved', read: true, date: '2025-04-17' },
+        { id: 3, message: 'System update scheduled', read: false, date: '2025-04-16' },
+    ]);
+    const unreadCount = notifications.filter(n => !n.read).length;
 
     useEffect(() => {
         const handleResize = () => {
@@ -52,8 +60,14 @@ const AdminSideBar = () => {
                         <h2 className="admin-sidebar-title">
                             Admin Panel - {localStorage.getItem("barangay") || "Loading..."}
                         </h2>
+                        
                     </div>
+                    
                 </div>
+                <div className="notifications" onClick={() => setShowNotifModal(true)}>
+                            <FiBell />
+                            {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
+                        </div>
                 <ul className="admin-sidebar-menu">
                     <li>
                         <NavLink
@@ -92,6 +106,34 @@ const AdminSideBar = () => {
                     aria-label="Close sidebar"
                     tabIndex={0}
                 />
+            )}
+
+            {/* Notification Modal */}
+            {showNotifModal && (
+                <div className="notif-modal-root">
+                    <div className="notif-modal-overlay" onClick={() => setShowNotifModal(false)}>
+                        <div className="notif-modal" onClick={e => e.stopPropagation()}>
+                            <div className="notif-modal-header">
+                                <h3>Notifications</h3>
+                                <button className="close-modal" onClick={() => setShowNotifModal(false)}><FiX /></button>
+                            </div>
+                            <div className="notif-modal-content">
+                                {notifications.length === 0 ? (
+                                    <p className="no-notifications">No notifications available.</p>
+                                ) : (
+                                    <ul className="notif-list">
+                                        {notifications.map(n => (
+                                            <li key={n.id} className={`notif-item${n.read ? '' : ' unread'}`}>
+                                                <span className="notif-message">{n.message}</span>
+                                                <span className="notif-date">{n.date}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
             )}
         </>
     );

@@ -282,10 +282,12 @@ const UserTopNavbar = () => {
 
         <div className="notification-wrapper" ref={notificationRef}>
           <button 
-            className="nav-btn"
+            className="nav-btn notification-bell-green"
             onClick={() => setShowNotifications(!showNotifications)}
           >
-            <FontAwesomeIcon icon={faBell} />
+            <span className="notification-bell-bg">
+              <FontAwesomeIcon icon={faBell} />
+            </span>
             {getUnreadCount() > 0 && (
               <span className="notification-badge">{getUnreadCount()}</span>
             )}
@@ -296,7 +298,7 @@ const UserTopNavbar = () => {
               <div className="notification-header">
                 <h4>Notifications</h4>
                 {getUnreadCount() > 0 && (
-                  <button className="mark-all-read" onClick={markAllAsRead}>
+                  <button className="mark-all-as-read-btn" onClick={markAllAsRead}>
                     Mark all as read
                   </button>
                 )}
@@ -305,11 +307,11 @@ const UserTopNavbar = () => {
                 {notifications.length > 0 ? (
                   notifications.map((notification) => (
                     <div
-                      key={`${notification.id}-${notification.created_at}-${Math.random()}`}
+                      key={`${notification.id}-${notification.created_at}`}
                       className={`notification-item ${notification.read ? "read" : "unread"}`}
                       onClick={() => markAsRead(notification.id, notification.type)}
                     >
-                      <div className="notification-icon-wrapper">
+                      <div className="notification-icon-wrapper-new">
                         {getNotificationIcon(notification.type)}
                       </div>
                       <div className="notification-content">

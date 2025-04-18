@@ -931,7 +931,7 @@ app.get('/notifications/:userId', async (req, res) => {
       notifications.push({
         id: `remark-${userId}-${remark.remarks_at}`,
         type: 'application_remarks',
-        message: `Your application is under investigation. Reason: ${remark.remarks}`,
+        message: `Your application is currently under investigation. Kindly proceed to your designated SPO to complete the necessary compliance requirements. You are given 3 to 5 working days to comply.`,
         read: remark.is_read === 1,
         created_at: remark.remarks_at,
       });
