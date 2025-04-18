@@ -48,6 +48,17 @@ const EventService = {
       console.error('Database error in addAttendee:', error);
       throw error;
     }
+  },
+
+  getAttendees: async (eventId) => {
+    try {
+      const query = `SELECT * FROM attendees WHERE event_id = ?`;
+      const result = await queryDatabase(query, [eventId]);
+      return result;
+    } catch (error) {
+      console.error('Database error in getAttendees:', error);
+      throw error;
+    }
   }
 };
 

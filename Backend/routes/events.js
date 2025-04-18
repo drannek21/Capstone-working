@@ -29,6 +29,29 @@ router.post('/checkAttendance', async (req, res) => {
   }
 });
 
+// Get attendees for an event (API route for frontend)
+router.get('/:eventId/attendees', async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    const attendeesQuery = `
+      SELECT a.id, a.event_id, a.code_id, a.name, a.email, a.attend_at, 
+             s1.barangay
+      FROM attendees a
+      LEFT JOIN step1_identifying_information s1 ON a.code_id = s1.code_id
+      WHERE a.event_id = ?
+      ORDER BY a.attend_at DESC
+    `;
+    const attendees = await queryDatabase(attendeesQuery, [eventId]);
+    res.json(attendees);
+  } catch (error) {
+    console.error('Error fetching attendees:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch attendees', 
+      details: error.message 
+    });
+  }
+});
+
 // Add attendee to event
 router.post('/:eventId/attendees', async (req, res) => {
   try {
@@ -93,31 +116,6 @@ router.post('/:eventId/attendees', async (req, res) => {
     console.error('Error adding attendee:', error);
     res.status(500).json({ 
       error: 'Failed to add attendee', 
-      details: error.message 
-    });
-  }
-});
-
-// Get event attendees
-router.get('/:eventId/attendees', async (req, res) => {
-  try {
-    const { eventId } = req.params;
-    
-    const query = `
-      SELECT a.id, a.event_id, a.code_id, a.name, a.email, a.attend_at,
-             s1.barangay
-      FROM attendees a
-      LEFT JOIN step1_identifying_information s1 ON a.code_id = s1.code_id
-      WHERE a.event_id = ?
-      ORDER BY a.attend_at DESC
-    `;
-    
-    const attendees = await queryDatabase(query, [eventId]);
-    res.json(attendees);
-  } catch (error) {
-    console.error('Error fetching attendees:', error);
-    res.status(500).json({ 
-      error: 'Failed to fetch attendees', 
       details: error.message 
     });
   }

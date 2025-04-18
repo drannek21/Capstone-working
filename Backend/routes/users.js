@@ -637,4 +637,42 @@ router.get('/search', async (req, res) => {
   }
 });
 
+// QR code search: expects qr_code_data like 'user:123', extracts 123 as user id, returns user name if verified
+router.get('/search/qr', async (req, res) => {
+  try {
+    const { qr_code_data } = req.query;
+    if (!qr_code_data || !qr_code_data.startsWith('user:')) {
+      return res.status(400).json({ error: 'Invalid qr_code_data format' });
+    }
+    const userId = qr_code_data.replace('user:', '');
+    const query = 'SELECT id, name, status FROM users WHERE id = ?';
+    const result = await queryDatabase(query, [userId]);
+    console.log('QR Debug - User Query Result:', { userId, result }); // Debug log
+    
+    if (!result || result.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    if (result[0].status.trim() !== 'Verified') { // Trim whitespace and check
+      return res.status(404).json({ 
+        error: 'User not verified', 
+        actualStatus: result[0].status,
+        note: 'Status must be exactly "Verified" (case-sensitive)'
+      });
+    }
+    
+    res.json({ 
+      success: true,
+      user: {
+        id: result[0].id,
+        name: result[0].name,
+        status: result[0].status
+      }
+    });
+  } catch (error) {
+    console.error('Error searching user by QR:', error);
+    res.status(500).json({ error: 'Failed to search user', details: error.message });
+  }
+});
+
 module.exports = router;

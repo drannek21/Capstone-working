@@ -299,25 +299,20 @@ const Events = () => {
             const qrData = result.trim();
             
             // Get user details by searching with qr_code_data
-            const response = await axios.get(`http://localhost:8081/api/users/search/qr?qr_code_data=${qrData}`);
-            const users = response.data;
-            
-            if (users && users.length > 0 && users[0].status === 'Verified') {
-              setSearchResults([users[0]]);
-              setSearchMessage('');
-              // Set the search term to the user's name
-              setSearchTerm(users[0].name);
-              
-              // Log for debugging
-              console.log('Found user:', users[0]);
-            } else {
-              setSearchMessage('User not found or not verified');
-              setSearchResults([]);
-              setSearchTerm('');
-              
-              // Log for debugging
-              console.log('QR scan result:', qrData);
-              console.log('No matching user found or user not verified');
+            try {
+              const response = await axios.get(`http://localhost:8081/api/users/search/qr?qr_code_data=${qrData}`);
+              if (response.data.success) {
+                // Set the search input to the user's name
+                setSearchTerm(response.data.user.name);
+                // Optionally trigger search automatically:
+                // handleSearch({ preventDefault: () => {} });
+                toast.success(`Found user: ${response.data.user.name}`);
+              } else {
+                toast.error(response.data.error || 'User not found');
+              }
+            } catch (error) {
+              console.error('Error searching user:', error);
+              toast.error('Failed to search user');
             }
             
             // Cleanup
