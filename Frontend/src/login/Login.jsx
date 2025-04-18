@@ -4,6 +4,19 @@ import styles from "./Login.module.css";
 import FaceAuth from "./FaceAuth";
 import { toast } from 'react-toastify';
 
+// Example for safe localStorage usage
+const safeSetItem = (key, value) => {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    localStorage.setItem(key, value);
+  }
+};
+const safeGetItem = (key) => {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    return localStorage.getItem(key);
+  }
+  return null;
+};
+
 // Define the FaceAuthModal component outside the main component to prevent re-rendering
 const FaceAuthModal = ({ 
   modalEmail, 
@@ -72,12 +85,29 @@ const Login = () => {
   const [checkingUser, setCheckingUser] = useState(false);
 
   useEffect(() => {
-    // Load saved credentials if rememberMe is true
-    const savedCredentials = localStorage.getItem('savedCredentials');
+    const savedCredentials = safeGetItem('savedCredentials');
     if (savedCredentials) {
-      const { email, password } = JSON.parse(savedCredentials);
-      setFormData({ email, password });
-      setRememberMe(true);
+      let parsed = null;
+      try {
+        parsed = JSON.parse(savedCredentials);
+      } catch (err) {
+        safeSetItem('savedCredentials', null);
+      }
+      if (
+        parsed &&
+        typeof parsed === 'object' &&
+        parsed.email != null &&
+        parsed.password != null
+      ) {
+        setFormData({ email: parsed.email, password: parsed.password });
+        setRememberMe(true);
+      } else {
+        setFormData({ email: '', password: '' });
+        setRememberMe(false);
+      }
+    } else {
+      setFormData({ email: '', password: '' });
+      setRememberMe(false);
     }
   }, []);
 
@@ -107,20 +137,20 @@ const Login = () => {
 
       if (response.ok) {
         const { user } = data;
-        localStorage.setItem("loggedInUser", JSON.stringify(user));
-        localStorage.setItem("UserId", user.id);
+        safeSetItem("loggedInUser", JSON.stringify(user));
+        safeSetItem("UserId", user.id);
         
         // Store admin ID and barangay if the user is an admin
         if (user.role === "admin") {
-          localStorage.setItem("id", user.id);
-          localStorage.setItem("barangay", user.barangay);
+          safeSetItem("id", user.id);
+          safeSetItem("barangay", user.barangay);
         }
 
         // Save credentials if rememberMe is checked
         if (rememberMe) {
-          localStorage.setItem('savedCredentials', JSON.stringify(formData));
+          safeSetItem('savedCredentials', JSON.stringify(formData));
         } else {
-          localStorage.removeItem('savedCredentials');
+          safeSetItem('savedCredentials', null);
         }
 
         handleLoginSuccess(user.role);
@@ -131,15 +161,15 @@ const Login = () => {
             <p><strong>Your application is currently being reviewed by our administrators.</strong></p>
           </div>
         );
-        localStorage.removeItem('savedCredentials');
+        safeSetItem('savedCredentials', null);
       } else {
         setError(data.error || "Login failed. Please try again.");
-        localStorage.removeItem('savedCredentials');
+        safeSetItem('savedCredentials', null);
       }
     } catch (err) {
       console.error("Login error:", err);
       setError("Failed to connect to the server. Please try again later.");
-      localStorage.removeItem('savedCredentials');
+      safeSetItem('savedCredentials', null);
     } finally {
       setLoading(false);
     }
@@ -147,13 +177,13 @@ const Login = () => {
 
   const handleFaceAuthSuccess = (user) => {
     try {
-      localStorage.setItem("loggedInUser", JSON.stringify(user));
-      localStorage.setItem("UserId", user.id);
+      safeSetItem("loggedInUser", JSON.stringify(user));
+      safeSetItem("UserId", user.id);
       
       // For backward compatibility with older code
       if (user.role) {
-        localStorage.setItem("id", user.id);
-        localStorage.setItem("barangay", user.barangay || "");
+        safeSetItem("id", user.id);
+        safeSetItem("barangay", user.barangay || "");
       }
 
       // Determine user role - in case the face auth endpoint doesn't return role
@@ -208,7 +238,7 @@ const Login = () => {
     
     console.log("Email entered in modal:", modalEmail);
     // Store the email in localStorage temporarily to ensure it's available
-    localStorage.setItem('faceAuthEmail', modalEmail);
+    safeSetItem('faceAuthEmail', modalEmail);
     setCheckingUser(true);
     setModalError("");
     
@@ -269,10 +299,10 @@ const Login = () => {
 
   const handleLoginSuccess = (role) => {
     // Check if user was trying to access profile before login
-    const fromProfile = localStorage.getItem('fromProfile');
+    const fromProfile = safeGetItem('fromProfile');
     
     if (fromProfile) {
-      localStorage.removeItem('fromProfile');
+      safeSetItem('fromProfile', null);
       navigate('/profile');
     } else {
       navigateToDashboard(role);

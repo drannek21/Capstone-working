@@ -11,6 +11,8 @@ import User from "./user/User"; // Update User import
 import SuperAdminDashboard from "./superadmin/SuperAdminDashboard"; // 
 import SubmissionSuccess from "./user/SubmissionSuccess"; // Add SubmissionSuccess import
 import Profile from "./user/Profile"; // Add Profile import
+import ProtectedRoute from "./components/ProtectedRoute";
+import NotAuthorized from "./pages/NotAuthorized";
 import { AdminProvider } from './contexts/AdminContext';
 import './App.css';
 
@@ -50,9 +52,31 @@ const MainContent = () => {
         <Route path="/signup" element={<MultiStepForm />} />
         <Route path="/submission-success" element={<SubmissionSuccess />} /> {/* Add SubmissionSuccess route */}
         <Route path="/profile" element={<Profile />} />
-        <Route path="/admin-dashboard/*" element={<AdminDashboard />} />
-        <Route path="/user" element={<User />} /> // Update User route
-        <Route path="/superadmin/*" element={<SuperAdminDashboard />} />
+        <Route
+          path="/admin-dashboard/*"
+          element={
+            <ProtectedRoute allowedRoles={["admin"]}>
+              <AdminDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/user"
+          element={
+            <ProtectedRoute allowedRoles={["user"]}>
+              <User />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/superadmin/*"
+          element={
+            <ProtectedRoute allowedRoles={["superadmin"]}>
+              <SuperAdminDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="/not-authorized" element={<NotAuthorized />} />
       </Routes>
     </>
   );
