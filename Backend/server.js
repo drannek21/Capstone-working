@@ -12,6 +12,16 @@ app.use(express.json({ limit: '50mb' }));
 app.use(bodyParser.json({ limit: '50mb' }));
 
 const { sendStatusEmail } = require('./services/emailService');
+
+// Cloudinary setup
+const cloudinary = require('cloudinary').v2;
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
+
+
 const { pool, queryDatabase } = require('./database');
 
 // Add logging middleware
@@ -85,6 +95,51 @@ app.post('/api/check-user-status', async (req, res) => {
       success: false, 
       error: 'Server error while checking user status' 
     });
+  }
+});
+
+// Endpoint to create announcement (accepts JSON: title, description, link, imageBase64)
+app.post('/api/announcements', async (req, res) => {
+  try {
+    const { title, description, link, imageBase64, endDate } = req.body;
+    let imageUrl = null;
+
+    // Upload image to Cloudinary if imageBase64 is provided
+    if (imageBase64) {
+      try {
+        const uploadRes = await cloudinary.uploader.upload(imageBase64, {
+          folder: 'announcements'
+        });
+        imageUrl = uploadRes.secure_url;
+      } catch (error) {
+        console.error('Cloudinary upload error:', error);
+        return res.status(500).json({ error: 'Cloudinary upload failed' });
+      }
+    }
+    // Save announcement to database
+    try {
+      const insertQuery = `INSERT INTO announcements (title, description, image_url, link, end_date) VALUES (?, ?, ?, ?, ?)`;
+      const dbResult = await queryDatabase(insertQuery, [title, description, imageUrl, link, endDate || null]);
+      const [announcement] = await queryDatabase('SELECT * FROM announcements WHERE id = ?', [dbResult.insertId]);
+      res.status(201).json({ success: true, announcement });
+    } catch (err) {
+      console.error('Error saving announcement:', err);
+      res.status(500).json({ error: 'Failed to save announcement' });
+    }
+  } catch (err) {
+    console.error('Error in /api/announcements:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Endpoint to fetch all announcements
+app.get('/api/announcements', async (req, res) => {
+  try {
+    const results = await queryDatabase('SELECT * FROM announcements WHERE end_date IS NULL OR end_date > NOW() ORDER BY date DESC');
+    res.json({ success: true, announcements: results });
+  } catch (err) {
+    console.error('Error fetching announcements:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch announcements' });
   }
 });
 
@@ -1848,12 +1903,12 @@ app.get('/events', async (req, res) => {
 });
 
 app.post('/events', async (req, res) => {
-  const { title, description, startDate, endDate, startTime, endTime, location, status } = req.body;
+  const { title, description, startDate, endDate, startTime, endTime, location, status, visibility } = req.body;
   
   try {
     const result = await queryDatabase(
-      'INSERT INTO events (title, description, startDate, endDate, startTime, endTime, location, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [title, description, startDate, endDate, startTime, endTime, location, status]
+      'INSERT INTO events (title, description, startDate, endDate, startTime, endTime, location, status, visibility) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [title, description, startDate, endDate, startTime, endTime, location, status, visibility]
     );
     
     res.status(201).json({
@@ -1865,7 +1920,8 @@ app.post('/events', async (req, res) => {
       startTime,
       endTime,
       location,
-      status
+      status,
+      visibility
     });
   } catch (error) {
     console.error('Error creating event:', error);
@@ -1875,12 +1931,12 @@ app.post('/events', async (req, res) => {
 
 app.put('/events/:id', async (req, res) => {
   const { id } = req.params;
-  const { title, description, startDate, endDate, startTime, endTime, location, status } = req.body;
+  const { title, description, startDate, endDate, startTime, endTime, location, status, visibility } = req.body;
   
   try {
     await queryDatabase(
-      'UPDATE events SET title = ?, description = ?, startDate = ?, endDate = ?, startTime = ?, endTime = ?, location = ?, status = ? WHERE id = ?',
-      [title, description, startDate, endDate, startTime, endTime, location, status, id]
+      'UPDATE events SET title = ?, description = ?, startDate = ?, endDate = ?, startTime = ?, endTime = ?, location = ?, status = ?, visibility = ? WHERE id = ?',
+      [title, description, startDate, endDate, startTime, endTime, location, status, visibility, id]
     );
     
     res.json({
@@ -1892,7 +1948,8 @@ app.put('/events/:id', async (req, res) => {
       startTime,
       endTime,
       location,
-      status
+      status,
+      visibility
     });
   } catch (error) {
     console.error('Error updating event:', error);

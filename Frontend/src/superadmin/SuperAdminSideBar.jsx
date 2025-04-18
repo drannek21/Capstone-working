@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
-import { FaTachometerAlt, FaDatabase, FaUsers, FaClipboardList, FaSync, FaBars, FaSignOutAlt, FaUserFriends, FaBell, FaTimes } from 'react-icons/fa';
+import { FaTachometerAlt, FaDatabase, FaUsers, FaClipboardList, FaSync, FaBars, FaSignOutAlt, FaUserFriends, FaBell, FaTimes, FaBullhorn, FaLink, FaImage } from 'react-icons/fa';
 import './SuperAdminSideBar.css';
 import logo from '../assets/logo.jpg'; // Import the logo
 
@@ -14,6 +14,71 @@ const SuperAdminSideBar = () => {
     { id: 2, message: 'Document uploaded by user', read: true, date: '2025-04-17' },
     { id: 3, message: 'Renewal request pending', read: false, date: '2025-04-16' },
   ]);
+
+  // Announcement modal state
+  const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
+
+  const [announcementTitle, setAnnouncementTitle] = useState("");
+  const [announcementDescription, setAnnouncementDescription] = useState("");
+  const [announcementLink, setAnnouncementLink] = useState("");
+  const [announcementEndDate, setAnnouncementEndDate] = useState("");
+  const [announcementImage, setAnnouncementImage] = useState(null);
+  const [announcementImagePreview, setAnnouncementImagePreview] = useState(null);
+  const [isAnnLoading, setIsAnnLoading] = useState(false);
+  const [annError, setAnnError] = useState("");
+
+  // Handle image upload
+  const handleAnnouncementImageChange = (e) => {
+    const file = e.target.files[0];
+    setAnnouncementImage(file);
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => setAnnouncementImagePreview(reader.result);
+      reader.readAsDataURL(file);
+    } else {
+      setAnnouncementImagePreview(null);
+    }
+  };
+
+
+
+  // Handle add announcement
+  const handleAddAnnouncement = async (e) => {
+    e.preventDefault();
+    setAnnError("");
+    if (!announcementTitle && !announcementDescription && !announcementImagePreview && !announcementLink) return;
+    setIsAnnLoading(true);
+    try {
+      const res = await fetch("http://localhost:8081/api/announcements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: announcementTitle,
+          description: announcementDescription,
+          link: announcementLink,
+          endDate: announcementEndDate || undefined,
+          imageBase64: announcementImagePreview || undefined
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAnnouncementTitle("");
+        setAnnouncementDescription("");
+        setAnnouncementLink("");
+        setAnnouncementEndDate("");
+        setAnnouncementImage(null);
+        setAnnouncementImagePreview(null);
+      } else {
+        setAnnError(data.error || "Failed to post announcement");
+      }
+    } catch (err) {
+      setAnnError("Failed to post announcement");
+    }
+    setIsAnnLoading(false);
+  };
+
+
+
   const location = useLocation();
 
   useEffect(() => {
@@ -97,6 +162,10 @@ const SuperAdminSideBar = () => {
           </div>
         )}
         <nav className="sidebar-nav">
+          <div className="nav-link" onClick={() => setShowAnnouncementModal(true)} style={{cursor: 'pointer'}}>
+            <FaBullhorn className="nav-icon" />
+            <span>Announcements</span>
+          </div>
           <NavLink 
             to="/superadmin/sdashboard" 
             className={({isActive}) => `nav-link ${isActive ? 'active' : ''}`}
@@ -150,6 +219,64 @@ const SuperAdminSideBar = () => {
           </div>
         </nav>
       </aside>
+
+      {/* Announcement Modal */}
+      {showAnnouncementModal && (
+        <div className="notif-modal-root">
+          <div className="notif-modal-overlay" onClick={() => setShowAnnouncementModal(false)}>
+            <div className="notif-modal" onClick={e => e.stopPropagation()} style={{width: '420px', maxWidth: '95vw'}}>
+              <div className="notif-modal-header">
+                <h3><FaBullhorn style={{marginRight: 6}}/>Announcements</h3>
+                <button className="close-modal" onClick={() => setShowAnnouncementModal(false)}><FaTimes /></button>
+              </div>
+              <div className="notif-modal-content announcement-modal-content">
+                <form onSubmit={handleAddAnnouncement} style={{marginBottom: 18, display: 'flex', flexDirection: 'column', gap: 8}}>
+                  <input
+                    type="text"
+                    placeholder="Title"
+                    value={announcementTitle}
+                    onChange={e => setAnnouncementTitle(e.target.value)}
+                    required
+                    style={{marginBottom: 4}}
+                  />
+                  <textarea
+                    placeholder="Description"
+                    value={announcementDescription}
+                    onChange={e => setAnnouncementDescription(e.target.value)}
+                    required
+                    style={{resize: 'vertical', minHeight: 40, maxHeight: 120, marginBottom: 4}}
+                  />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAnnouncementImageChange}
+                    style={{marginBottom: 8}}
+                  />
+                  <input
+                    type="date"
+                    placeholder="End Date (optional)"
+                    value={announcementEndDate}
+                    onChange={e => setAnnouncementEndDate(e.target.value)}
+                    style={{marginBottom: 8}}
+                  />
+                  {announcementImagePreview && (
+                    <img src={announcementImagePreview} alt="preview" style={{maxWidth: '100%', maxHeight: 120, marginBottom: 8, borderRadius: 4}} />
+                  )}
+                  <input
+                    type="text"
+                    placeholder="Link (optional)"
+                    value={announcementLink}
+                    onChange={e => setAnnouncementLink(e.target.value)}
+                  />
+                  <button type="submit" className="superadmin-generate-btn" style={{alignSelf: 'flex-end', marginTop: 4, padding: '6px 18px'}}>Add</button>
+                </form>
+                {annError && <p style={{fontSize: 15, color: 'red'}}>{annError}</p>}
+                {isAnnLoading && <p style={{fontSize: 15, color: '#888'}}>Posting...</p>}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

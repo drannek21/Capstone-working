@@ -138,18 +138,18 @@ router.put('/:id', async (req, res) => {
     }
 
     // If not completed, proceed with the update
-    const { title, description, startDate, endDate, startTime, endTime, location, status } = req.body;
+    const { title, description, startDate, endDate, startTime, endTime, location, status, visibility } = req.body;
     
     const updateQuery = `
       UPDATE events 
       SET title = ?, description = ?, startDate = ?, endDate = ?, 
-          startTime = ?, endTime = ?, location = ?, status = ?
+          startTime = ?, endTime = ?, location = ?, status = ?, visibility = ?
       WHERE id = ?
     `;
     
     await queryDatabase(updateQuery, [
       title, description, startDate, endDate, 
-      startTime, endTime, location, status, eventId
+      startTime, endTime, location, status, visibility, eventId
     ]);
 
     res.json({ message: 'Event updated successfully' });

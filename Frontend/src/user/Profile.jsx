@@ -1014,24 +1014,43 @@ const Profile = () => {
                       <p className="profile-announcements-subtitle">Events and updates relevant to you</p>
                     </div>
                     <div className="profile-announcements-list">
-                      {events.length > 0 ? (
-                        events.map((event, index) => (
-                          <div key={index} className="profile-announcement-card" onClick={() => checkAttendance(event.id)}>
-                            <div className="profile-announcement-content">
-                              
-                              <h4>{event.title}</h4>
-                              <p>{event.description}</p>
-                              <div className="profile-announcement-meta">
-                                <span>{formatDateTime(event.startDate, event.startTime)}</span>
-                                <span>{event.location}</span>
-                                <span className="profile-announcement-badge">{event.status}</span>
+                      {(() => {
+                        // Helper to parse income value
+                        const parseIncome = (income) => {
+                          if (!income) return 0;
+                          if (!isNaN(income)) return parseFloat(income);
+                          if (income === 'Below ₱10,000') return 10000;
+                          if (income === '₱11,000-₱20,000') return 20000;
+                          if (income === '₱21,000-₱43,000') return 43000;
+                          if (income === '₱44,000 and above') return 250001;
+                          return 0;
+                        };
+                        const incomeValue = parseIncome(user?.income);
+                        const isEligible = incomeValue < 250001;
+                        const filteredEvents = events.filter(event => {
+                          if (!event.visibility || event.visibility === 'everyone') return true;
+                          if (event.visibility === 'beneficiaries') return isEligible;
+                          if (event.visibility === 'not_beneficiaries') return !isEligible;
+                          return false;
+                        });
+                        return filteredEvents.length > 0 ? (
+                          filteredEvents.map((event, index) => (
+                            <div key={index} className="profile-announcement-card" onClick={() => checkAttendance(event.id)}>
+                              <div className="profile-announcement-content">
+                                <h4>{event.title}</h4>
+                                <p>{event.description}</p>
+                                <div className="profile-announcement-meta">
+                                  <span>{formatDateTime(event.startDate, event.startTime)}</span>
+                                  <span>{event.location}</span>
+                                  <span className="profile-announcement-badge">{event.status}</span>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="no-events-message">No upcoming events</p>
-                      )}
+                          ))
+                        ) : (
+                          <p className="no-events-message">No upcoming events</p>
+                        );
+                      })()}
                     </div>
                   </div>
                 )}

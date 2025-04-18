@@ -21,7 +21,8 @@ const Events = () => {
     startTime: '',
     endTime: '',
     location: '',
-    status: 'Upcoming'
+    status: 'Upcoming',
+    visibility: 'everyone'
   });
   const [editingEvent, setEditingEvent] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -135,7 +136,8 @@ const Events = () => {
         startTime: '',
         endTime: '',
         location: '',
-        status: 'Upcoming'
+        status: 'Upcoming',
+        visibility: 'everyone'
       });
       fetchEvents();
     } catch (error) {
@@ -185,7 +187,8 @@ const Events = () => {
       startTime: event.startTime,
       endTime: event.endTime,
       location: event.location,
-      status: event.status
+      status: event.status,
+      visibility: event.visibility || 'everyone'
     });
     setShowEditModal(true);
   };
@@ -546,6 +549,19 @@ const Events = () => {
                   <option value="Cancelled">Cancelled</option>
                 </select>
               </div>
+              <div className="events-form-group">
+                <label>Visibility</label>
+                <select
+                  name="visibility"
+                  value={formData.visibility}
+                  onChange={handleInputChange}
+                  required
+                >
+                  <option value="everyone">Show to Everyone</option>
+                  <option value="beneficiaries">Beneficiaries</option>
+                  <option value="not_beneficiaries">Not Beneficiaries</option>
+                </select>
+              </div>
               <div className="events-modal-actions">
                 <button 
                   type="button" 
@@ -652,6 +668,19 @@ const Events = () => {
                   <option value="Ongoing">Ongoing</option>
                   <option value="Completed">Completed</option>
                   <option value="Cancelled">Cancelled</option>
+                </select>
+              </div>
+              <div className="events-form-group">
+                <label>Visibility</label>
+                <select
+                  name="visibility"
+                  value={formData.visibility}
+                  onChange={handleInputChange}
+                  required
+                >
+                  <option value="everyone">Show to Everyone</option>
+                  <option value="beneficiaries">Beneficiaries</option>
+                  <option value="not_beneficiaries">Not Beneficiaries</option>
                 </select>
               </div>
               <div className="events-modal-actions">
