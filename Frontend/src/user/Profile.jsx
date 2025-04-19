@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faCheckCircle,
@@ -90,6 +90,7 @@ const Profile = () => {
   };
 
   // Update the handleFileSelect function
+  const fileInputRef = useRef(null);
   const handleFileSelect = (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -115,6 +116,11 @@ const Profile = () => {
     };
     reader.readAsDataURL(file);
     setShowUploadModal(true);
+  };
+
+  // Helper to reset file input
+  const resetFileInput = () => {
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   // Update the handleUploadProfilePic function
@@ -573,9 +579,120 @@ const Profile = () => {
     }
   }, [documents, user]);
 
+  // Enhanced Upload Modal component
+  const UploadModal = () => (
+    <div className="upload-profile-modal-overlay show">
+      <div className="upload-profile-modal">
+        <div className="upload-profile-modal-header">
+          <h2>Upload Profile Picture</h2>
+          <button
+            className="upload-profile-modal-close-btn"
+            onClick={() => {
+              setShowUploadModal(false);
+              setSelectedFile(null);
+              setPreviewUrl(null);
+              resetFileInput();
+            }}
+            disabled={isUploading}
+          >
+            &times;
+          </button>
+        </div>
+        <div className="upload-profile-modal-body">
+          {previewUrl ? (
+            <div className="upload-profile-image-preview-wrapper">
+              <img
+                src={previewUrl}
+                alt="Selected profile picture preview"
+                className="upload-profile-image-preview"
+                onError={() => {
+                  setPreviewUrl(null);
+                  toast.error('Failed to load image preview');
+                }}
+              />
+            </div>
+          ) : (
+            <div className="upload-profile-no-preview">
+              <FontAwesomeIcon icon={faCamera} size="3x" />
+              <p>No image selected</p>
+            </div>
+          )}
+          <div className="upload-profile-file-input-wrapper">
+            <label className="upload-profile-file-input-label">
+              <FontAwesomeIcon icon={faCamera} /> Choose Photo
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleFileSelect}
+                disabled={isUploading}
+                ref={fileInputRef}
+              />
+            </label>
+            {selectedFile && (
+              <p className="upload-profile-file-info">
+                {selectedFile.name} ({Math.round(selectedFile.size / 1024)} KB)
+              </p>
+            )}
+          </div>
+        </div>
+        <div className="upload-profile-modal-footer">
+          <button
+            className="upload-profile-btn cancel-btn"
+            onClick={() => {
+              setShowUploadModal(false);
+              setSelectedFile(null);
+              setPreviewUrl(null);
+              resetFileInput();
+            }}
+            disabled={isUploading}
+          >
+            Cancel
+          </button>
+          <button
+            className={`upload-profile-btn confirm-btn ${isUploading ? 'uploading' : ''}`}
+            onClick={handleUploadProfilePic}
+            disabled={!selectedFile || isUploading}
+          >
+            {isUploading ? (
+              <>
+                <span className="upload-profile-spinner"></span>
+                Uploading...
+              </>
+            ) : 'Confirm Upload'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  useEffect(() => {
+    const handlePopState = () => {
+      // Simulate logout and prevent forward login by replacing history
+      localStorage.clear();
+      sessionStorage.clear();
+      window.history.pushState(null, '', '/login');
+      window.location.replace('/login');
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      // When unmounting (navigating away, including back/forward)
+      localStorage.clear();
+      sessionStorage.clear();
+      window.history.pushState(null, '', '/login');
+      window.location.replace('/login');
+    };
+  }, []);
+
   return (
     <div className="profile-container">
       <Toaster position="top-right" />
+      {showUploadModal && <UploadModal />}
       <AttendanceModal />
       <div className="dashboard-main">
         <div className="profile-header">
@@ -600,6 +717,7 @@ const Profile = () => {
                       accept="image/*"
                       onChange={handleFileSelect}
                       style={{ display: 'none' }}
+                      ref={fileInputRef}
                     />
                   </label>
                 )}

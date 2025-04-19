@@ -245,6 +245,19 @@ const UserTopNavbar = () => {
     }
   };
 
+  useEffect(() => {
+    const handlePopState = () => {
+      localStorage.removeItem("userToken");
+      localStorage.removeItem("UserId");
+      window.history.pushState(null, "", "/login");
+      window.location.replace("/login");
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
+
   // Update the notification section in the return statement
   return (
     <nav className="top-nav">

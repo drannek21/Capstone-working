@@ -1048,7 +1048,7 @@ const SoloParentManagement = () => {
                     <div className="id-left-section">
                       <div className="id-photo-container">
                         <img 
-                          src={selectedIDUser.profile_picture || avatar} 
+                          src={selectedIDUser.profilePic || selectedIDUser.profile_picture || avatar} 
                           alt="User" 
                           className="id-photo"
                           onError={(e) => {
