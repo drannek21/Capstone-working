@@ -17,7 +17,6 @@ const SuperAdminSideBar = () => {
 
   // Announcement modal state
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
-
   const [announcementTitle, setAnnouncementTitle] = useState("");
   const [announcementDescription, setAnnouncementDescription] = useState("");
   const [announcementLink, setAnnouncementLink] = useState("");
@@ -26,6 +25,19 @@ const SuperAdminSideBar = () => {
   const [announcementImagePreview, setAnnouncementImagePreview] = useState(null);
   const [isAnnLoading, setIsAnnLoading] = useState(false);
   const [annError, setAnnError] = useState("");
+  const [annSuccess, setAnnSuccess] = useState("");
+
+  // Reset announcement modal state
+  const resetAnnouncementModal = () => {
+    setAnnouncementTitle("");
+    setAnnouncementDescription("");
+    setAnnouncementLink("");
+    setAnnouncementEndDate("");
+    setAnnouncementImage(null);
+    setAnnouncementImagePreview(null);
+    setAnnError("");
+    setAnnSuccess("");
+  };
 
   // Handle image upload
   const handleAnnouncementImageChange = (e) => {
@@ -40,13 +52,16 @@ const SuperAdminSideBar = () => {
     }
   };
 
-
-
   // Handle add announcement
   const handleAddAnnouncement = async (e) => {
     e.preventDefault();
     setAnnError("");
-    if (!announcementTitle && !announcementDescription && !announcementImagePreview && !announcementLink) return;
+    setAnnSuccess("");
+    // Require at least title or description
+    if (!announcementTitle.trim() && !announcementDescription.trim()) {
+      setAnnError("Please provide at least a title or description.");
+      return;
+    }
     setIsAnnLoading(true);
     try {
       const res = await fetch("http://localhost:8081/api/announcements", {
@@ -62,12 +77,12 @@ const SuperAdminSideBar = () => {
       });
       const data = await res.json();
       if (data.success) {
-        setAnnouncementTitle("");
-        setAnnouncementDescription("");
-        setAnnouncementLink("");
-        setAnnouncementEndDate("");
-        setAnnouncementImage(null);
-        setAnnouncementImagePreview(null);
+        setAnnSuccess("Announcement posted successfully!");
+        resetAnnouncementModal();
+        setTimeout(() => {
+          setShowAnnouncementModal(false);
+          setAnnSuccess("");
+        }, 1200);
       } else {
         setAnnError(data.error || "Failed to post announcement");
       }
@@ -77,7 +92,13 @@ const SuperAdminSideBar = () => {
     setIsAnnLoading(false);
   };
 
-
+  // Reset modal state when closed
+  useEffect(() => {
+    if (!showAnnouncementModal) {
+      resetAnnouncementModal();
+    }
+    // eslint-disable-next-line
+  }, [showAnnouncementModal]);
 
   const location = useLocation();
 
@@ -268,9 +289,10 @@ const SuperAdminSideBar = () => {
                     value={announcementLink}
                     onChange={e => setAnnouncementLink(e.target.value)}
                   />
-                  <button type="submit" className="superadmin-generate-btn" style={{alignSelf: 'flex-end', marginTop: 4, padding: '6px 18px'}}>Add</button>
+                  <button type="submit" className="superadmin-generate-btn" style={{alignSelf: 'flex-end', marginTop: 4, padding: '6px 18px'}} disabled={isAnnLoading}>Add</button>
                 </form>
                 {annError && <p style={{fontSize: 15, color: 'red'}}>{annError}</p>}
+                {annSuccess && <p style={{fontSize: 15, color: 'green'}}>{annSuccess}</p>}
                 {isAnnLoading && <p style={{fontSize: 15, color: '#888'}}>Posting...</p>}
               </div>
             </div>
