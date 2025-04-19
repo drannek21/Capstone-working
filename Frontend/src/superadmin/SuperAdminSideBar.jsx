@@ -252,7 +252,9 @@ const SuperAdminSideBar = () => {
               </div>
               <div className="notif-modal-content announcement-modal-content">
                 <form onSubmit={handleAddAnnouncement} style={{marginBottom: 18, display: 'flex', flexDirection: 'column', gap: 8}}>
+                  <label htmlFor="announcement-title" style={{fontWeight: 500}}>Title</label>
                   <input
+                    id="announcement-title"
                     type="text"
                     placeholder="Title"
                     value={announcementTitle}
@@ -260,20 +262,26 @@ const SuperAdminSideBar = () => {
                     required
                     style={{marginBottom: 4}}
                   />
+                  <label htmlFor="announcement-description" style={{fontWeight: 500}}>Description</label>
                   <textarea
+                    id="announcement-description"
                     placeholder="Description"
                     value={announcementDescription}
                     onChange={e => setAnnouncementDescription(e.target.value)}
                     required
                     style={{resize: 'vertical', minHeight: 40, maxHeight: 120, marginBottom: 4}}
                   />
+                  <label htmlFor="announcement-image" style={{fontWeight: 500}}>Image (optional)</label>
                   <input
+                    id="announcement-image"
                     type="file"
                     accept="image/*"
                     onChange={handleAnnouncementImageChange}
                     style={{marginBottom: 8}}
                   />
+                  <label htmlFor="announcement-end-date" style={{fontWeight: 500}}>End Date (optional)</label>
                   <input
+                    id="announcement-end-date"
                     type="date"
                     placeholder="End Date (optional)"
                     value={announcementEndDate}
@@ -283,7 +291,9 @@ const SuperAdminSideBar = () => {
                   {announcementImagePreview && (
                     <img src={announcementImagePreview} alt="preview" style={{maxWidth: '100%', maxHeight: 120, marginBottom: 8, borderRadius: 4}} />
                   )}
+                  <label htmlFor="announcement-link" style={{fontWeight: 500}}>Link (optional)</label>
                   <input
+                    id="announcement-link"
                     type="text"
                     placeholder="Link (optional)"
                     value={announcementLink}

@@ -140,6 +140,15 @@ tr:hover {
   background-color: #2980b9;
 }
 
+.close-btn {
+  background-color: #3498db;
+  color: white;
+}
+
+.close-btn:hover {
+  background-color: #2980b9;
+}
+
 .accept-btn {
   background-color: #2ecc71;
   color: white;
@@ -193,9 +202,10 @@ tr:hover {
   color: white;
   padding: 8px 16px;
   border: none;
+  height: 45px;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 20px;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -242,7 +252,7 @@ tr:hover {
   align-items: center;
   text-align: center;
   margin: 0 auto;
-  width: 90%;
+  width: 95%;
 }
 
 .step-indicators {

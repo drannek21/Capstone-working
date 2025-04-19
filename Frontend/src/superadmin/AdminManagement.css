@@ -244,6 +244,7 @@
   font-size: 1.25rem;
   font-weight: 600;
   color: #1f2937;
+  margin: 0;
 }
 
 .modal-body {
@@ -910,4 +911,105 @@
   color: #999;
   cursor: not-allowed;
   border-color: #ddd;
+}
+
+/* --- Add Admin Modal --- */
+.admin-modal-add {
+  /* Overlay styles (inherits from modal-overlay, can override if needed) */
+  z-index: 1100;
+}
+.admin-modal-add-content {
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 8px 32px rgba(59,130,246,0.10);
+  max-width: 520px;
+  width: 100%;
+  padding: 2.25rem 2rem;
+  position: relative;
+}
+.admin-modal-add-header {
+  margin-bottom: 1.25rem;
+}
+.admin-modal-add-header h2 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #2563eb;
+  margin: 0;
+}
+.admin-modal-add-body {
+  padding: 0;
+}
+.admin-modal-add-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+/* --- Edit Admin Modal --- */
+.admin-modal-edit {
+  z-index: 1100;
+}
+.admin-modal-edit-content {
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 8px 32px rgba(16,185,129,0.10);
+  max-width: 520px;
+  width: 100%;
+  padding: 2.25rem 2rem;
+  position: relative;
+}
+.admin-modal-edit-header {
+  margin-bottom: 1.25rem;
+}
+.admin-modal-edit-header h2 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #10b981;
+  margin: 0;
+}
+.admin-modal-edit-body {
+  padding: 0;
+}
+.admin-modal-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+/* --- View Details Modal --- */
+.admin-modal-view {
+  z-index: 1100;
+}
+.admin-modal-view-content {
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 8px 32px rgba(59,130,246,0.08);
+  max-width: 420px;
+  width: 100%;
+  padding: 2rem 1.75rem;
+  position: relative;
+}
+.admin-modal-view-header {
+  margin-bottom: 1.25rem;
+}
+.admin-modal-view-header h2 {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0;
+}
+.admin-modal-view-body {
+  padding: 0;
+}
+
+/* Responsive adjustments for modals */
+@media (max-width: 600px) {
+  .admin-modal-add-content,
+  .admin-modal-edit-content,
+  .admin-modal-view-content {
+    max-width: 98vw;
+    padding: 1.25rem 0.5rem;
+  }
 }

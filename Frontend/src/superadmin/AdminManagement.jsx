@@ -362,12 +362,12 @@ const AdminManagement = () => {
 
         {/* Add User Modal */}
         {showAddModal && (
-          <div className="modal-overlay">
-            <div className="modal">
-              <div className="modal-header">
+          <div className="modal-overlay admin-modal-add">
+            <div className="modal admin-modal-add-content">
+              <div className="modal-header admin-modal-add-header">
                 <h2>Add New Admin</h2>
               </div>
-              <div className="modal-content">
+              <div className="modal-content admin-modal-add-body">
                 <form onSubmit={handleAddUser}>
                   {error && <div className="error-message">{error}</div>}
                   <div className="form-group">
@@ -415,7 +415,7 @@ const AdminManagement = () => {
                       ))}
                     </select>
                   </div>
-                  <div className="modal-actions">
+                  <div className="modal-actions admin-modal-add-actions">
                     <button 
                       type="submit" 
                       className="submit-btn"
@@ -439,15 +439,15 @@ const AdminManagement = () => {
             </div>
           </div>
         )}
-
+        
         {/* Edit User Modal */}
         {showEditModal && editUser && (
-          <div className="modal-overlay">
-            <div className="modal">
-              <div className="modal-header">
+          <div className="modal-overlay admin-modal-edit">
+            <div className="modal admin-modal-edit-content">
+              <div className="modal-header admin-modal-edit-header">
                 <h2>Edit Admin</h2>
               </div>
-              <div className="modal-content">
+              <div className="modal-content admin-modal-edit-body">
                 <form onSubmit={handleEditSubmit}>
                   {error && <div className="error-message">{error}</div>}
                   <div className="form-group">
@@ -496,7 +496,7 @@ const AdminManagement = () => {
                       ))}
                     </select>
                   </div>
-                  <div className="modal-actions">
+                  <div className="modal-actions admin-modal-edit-actions">
                     <button 
                       type="submit" 
                       className="submit-btn"
@@ -520,15 +520,15 @@ const AdminManagement = () => {
             </div>
           </div>
         )}
-
+        
         {/* View Details Modal */}
         {showModal && selectedUser && (
-          <div className="modal-overlay">
-            <div className="modal">
-              <div className="modal-header">
+          <div className="modal-overlay admin-modal-view">
+            <div className="modal admin-modal-view-content">
+              <div className="modal-header admin-modal-view-header">
                 <h2>Admin Details</h2>
               </div>
-              <div className="modal-content">
+              <div className="modal-content admin-modal-view-body">
                 <div className="detail-group">
                   <label>Email:</label>
                   <p>{selectedUser.email}</p>
