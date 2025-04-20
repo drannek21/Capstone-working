@@ -363,7 +363,7 @@ const AdminManagement = () => {
         {/* Add User Modal */}
         {showAddModal && (
           <div className="modal-overlay admin-modal-add">
-            <div className="modal admin-modal-add-content">
+            <div className="admin-modal-add-content">
               <div className="modal-header admin-modal-add-header">
                 <h2>Add New Admin</h2>
               </div>
@@ -381,7 +381,8 @@ const AdminManagement = () => {
                     />
                   </div>
                   <div className="form-group">
-                    <div className="password-input-container">
+                    <label>Password:</label>
+                    <div className="password-input-container" style={{ position: 'relative' }}>
                       <input
                         type={showPassword ? 'text' : 'password'}
                         name="password"
@@ -443,7 +444,7 @@ const AdminManagement = () => {
         {/* Edit User Modal */}
         {showEditModal && editUser && (
           <div className="modal-overlay admin-modal-edit">
-            <div className="modal admin-modal-edit-content">
+            <div className="admin-modal-edit-content">
               <div className="modal-header admin-modal-edit-header">
                 <h2>Edit Admin</h2>
               </div>
@@ -461,7 +462,7 @@ const AdminManagement = () => {
                     />
                   </div>
                   <div className="form-group">
-                    <div className="password-input-container">
+                    <div className="password-input-container" style={{ position: 'relative' }}>
                       <input
                         type={showPassword ? 'text' : 'password'}
                         name="password"
@@ -523,12 +524,12 @@ const AdminManagement = () => {
         
         {/* View Details Modal */}
         {showModal && selectedUser && (
-          <div className="modal-overlay admin-modal-view">
-            <div className="modal admin-modal-view-content">
-              <div className="modal-header admin-modal-view-header">
+          <div className="admin-modal-view-overlay">
+            <div className="admin-modal-view">
+              <div className="admin-modal-view-header">
                 <h2>Admin Details</h2>
               </div>
-              <div className="modal-content admin-modal-view-body">
+              <div className="admin-modal-view-body">
                 <div className="detail-group">
                   <label>Email:</label>
                   <p>{selectedUser.email}</p>

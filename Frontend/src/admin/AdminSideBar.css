@@ -382,24 +382,107 @@ body {
   }
 }
 
-/* Toggle Button */
-.admin-sidebar-toggle {
-    display: none;
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    z-index: 1001;
-    background: #16C47F;
-    border: none;
-    color: white;
-    padding: 10px;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: all 0.3s ease;
+/* Responsive Sidebar Styles */
+@media (max-width: 991px) {
+  .admin-sidebar {
+    width: 220px;
+    padding: 12px 0;
+  }
+  .admin-sidebar-logo {
+    width: 80px;
+    height: 80px;
+  }
+  .admin-sidebar-title {
+    font-size: 1.1rem;
+    max-width: 150px;
+    padding: 0 8px;
+  }
 }
 
-.admin-sidebar-toggle:hover {
-    background: #14b371;
+@media (max-width: 768px) {
+  .admin-sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    height: 100vh;
+    width: 200px;
+    transform: translateX(-100%);
+    z-index: 1200;
+    box-shadow: 2px 0 8px rgba(0,0,0,0.10);
+    transition: transform 0.3s cubic-bezier(.4,0,.2,1);
+  }
+  .admin-sidebar.admin-sidebar-visible {
+    transform: translateX(0);
+  }
+  .admin-sidebar.admin-sidebar-hidden {
+    transform: translateX(-100%);
+  }
+  .admin-sidebar-header {
+    padding: 0 10px 12px;
+    margin-bottom: 12px;
+  }
+  .admin-sidebar-logo {
+    width: 60px;
+    height: 60px;
+  }
+  .admin-sidebar-title {
+    font-size: 1rem;
+    max-width: 120px;
+  }
+  .admin-sidebar-menu {
+    gap: 6px;
+  }
+  .admin-sidebar-toggle {
+    display: block !important;
+    position: fixed;
+    top: 18px;
+    right: 18px;
+    left: auto;
+    z-index: 1300;
+    background: #16C47F;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    font-size: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+    cursor: pointer;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+  }
+  .admin-sidebar {
+    padding-top: 60px;
+  }
+}
+
+@media (max-width: 500px) {
+  .admin-sidebar {
+    width: 100vw;
+    max-width: 100vw;
+    min-width: 0;
+    padding: 0;
+  }
+  .admin-sidebar-header {
+    padding: 0 5px 8px;
+  }
+  .admin-sidebar-title {
+    font-size: 0.95rem;
+    max-width: 90vw;
+  }
+  .admin-sidebar-menu li span {
+    font-size: 0.97rem;
+  }
+}
+
+/* Toggle Button */
+.admin-sidebar-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
 }
 
 /* Sidebar Overlay */

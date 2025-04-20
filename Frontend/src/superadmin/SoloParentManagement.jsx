@@ -600,20 +600,20 @@ const SoloParentManagement = () => {
       {/* VIEW DETAILS MODAL */}
       {selectedUser && (
         <div 
-          className="modal-overlay" 
+          className="solo-parent-modal-overlay" 
           onClick={closeModal}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         >
           <div 
-            className="modal" 
+            className="solo-parent-modal" 
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="modal-header">
+            <div className="solo-parent-modal-header">
               <h3>Solo Parent Details</h3>
             </div>
-            <div className="modal-content">
+            <div className="solo-parent-modal-content">
               {selectedUser.status === 'Pending Remarks' ? (
                 <div className="detail-section">
                   <h4>Remarks Information</h4>

@@ -213,6 +213,70 @@ tr.terminated-row:hover {
   opacity: 0.6;
 }
 
+/* --- Solo Parent Modal Styles --- */
+.solo-parent-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1200;
+}
+
+.solo-parent-modal {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 6px 32px rgba(0,0,0,0.18);
+  width: 95vw;
+  max-width: 420px;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+  animation: fadeIn 0.2s;
+}
+
+.solo-parent-modal-header {
+  padding: 1.5rem 2rem 1rem 2rem;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
+  border-radius: 16px 16px 0 0;
+}
+
+.solo-parent-modal-header h3 {
+  margin: 0;
+  color: #2563eb;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.solo-parent-modal-content {
+  padding: 2rem;
+  background: #fff;
+  border-radius: 0 0 16px 16px;
+}
+
+.solo-parent-modal-footer {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  padding: 1rem 2rem 1.5rem 2rem;
+  background: #f9fafb;
+  border-radius: 0 0 16px 16px;
+}
+
+.solo-parent-modal-small {
+  max-width: 370px;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 /* Modal Styles */
 .modal-overlay {
   position: fixed;

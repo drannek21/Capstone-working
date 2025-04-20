@@ -238,12 +238,12 @@ const SoloParent = () => {
 
       {/* Revoke Verification Modal */}
       {showRevokeModal && selectedParent && (
-        <div className="modal-overlay" onClick={closeModal}>
-          <div className="modal modal-small" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
+        <div className="solo-parent-modal-overlay" onClick={closeModal}>
+          <div className="solo-parent-modal solo-parent-modal-small" onClick={(e) => e.stopPropagation()}>
+            <div className="solo-parent-modal-header">
               <h3>Add Remarks</h3>
             </div>
-            <div className="modal-content compact">
+            <div className="solo-parent-modal-content compact">
               <div className="details-grid compact">
                 <div className="detail-item">
                   <span className="label">Name:</span>
@@ -267,7 +267,7 @@ const SoloParent = () => {
                 />
               </div>
             </div>
-            <div className="modal-footer">
+            <div className="solo-parent-modal-footer">
               <button 
                 className="btn view-btn" 
                 onClick={handleRevoke}
