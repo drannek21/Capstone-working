@@ -9,27 +9,42 @@ const User = () => {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   useEffect(() => {
+    // Prevent direct history manipulation
+    window.history.pushState(null, '', window.location.pathname);
+
     const handlePopState = (event) => {
+      event.preventDefault();
       setShowLogoutModal(true);
+      // Push another state to prevent immediate browser back
       window.history.pushState(null, '', window.location.pathname);
     };
+
     window.addEventListener('popstate', handlePopState);
+
+    // Cleanup function
     return () => {
       window.removeEventListener('popstate', handlePopState);
     };
   }, []);
 
   const confirmLogout = async () => {
-    setShowLogoutModal(false);
-    if (typeof window !== 'undefined' && window.localStorage) {
-      localStorage.clear();
-      sessionStorage.clear();
+    try {
+      setShowLogoutModal(false);
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.clear();
+        sessionStorage.clear();
+      }
+      window.location.replace('/login');
+    } catch (error) {
+      console.error('Error during logout:', error);
+      window.location.replace('/login'); // Fallback to login page
     }
-    window.location.replace('/login');
   };
 
   const cancelLogout = () => {
     setShowLogoutModal(false);
+    // Push a new state to maintain the current page
+    window.history.pushState(null, '', window.location.pathname);
   };
 
   return (
