@@ -2,10 +2,19 @@ import React from "react";
 import { Navigate } from "react-router-dom";
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
-  const user = JSON.parse(localStorage.getItem("loggedInUser"));
+  const userRaw = localStorage.getItem("loggedInUser");
+  let user = null;
+  try {
+    user = JSON.parse(userRaw);
+  } catch (e) {
+    user = null;
+  }
+  console.log("[ProtectedRoute] user from localStorage:", user); // Debug log
 
-  if (!user) {
-    // Not logged in
+  // If user is not present, not an object, or missing role, force logout
+  if (!user || typeof user !== 'object' || !user.role) {
+    localStorage.clear();
+    sessionStorage.clear();
     return <Navigate to="/login" />;
   }
 

@@ -15,6 +15,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import './UserTopNavbar.css';
 import defaultAvatar from '../assets/avatar.jpg';
+import LogoutModal from '../components/LogoutModal';
 
 const UserTopNavbar = () => {
   const [showNotifications, setShowNotifications] = useState(false);
@@ -34,26 +35,33 @@ const UserTopNavbar = () => {
     }
   ]);
 
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+
   const notificationRef = useRef(null);
 
   const handleLogout = async () => {
     if (isLoggingOut) return;
-    
+    setShowLogoutModal(true);
+  };
+
+  const confirmLogout = async () => {
     setIsLoggingOut(true);
     try {
-      // First check if localStorage is available
       if (typeof window !== 'undefined' && window.localStorage) {
         localStorage.clear(); // Clear all localStorage items
+        sessionStorage.clear();
       }
-      
-      // Use window.location.replace for more reliable navigation
       window.location.replace('/login');
     } catch (error) {
       console.error('Logout error:', error);
       setIsLoggingOut(false);
-      // Fallback navigation if localStorage fails
       window.location.replace('/login');
     }
+  };
+
+  const cancelLogout = () => {
+    setShowLogoutModal(false);
+    setIsLoggingOut(false);
   };
 
   const loggedInUserId = localStorage.getItem("UserId");
@@ -261,7 +269,7 @@ const UserTopNavbar = () => {
   // Update the notification section in the return statement
   return (
     <nav className="top-nav">
-     
+      <LogoutModal isOpen={showLogoutModal} onConfirm={confirmLogout} onCancel={cancelLogout} />
 
       <div className="nav-right">
         <button className="nav-btn" onClick={() => setShowFAQ(true)}>

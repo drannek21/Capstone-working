@@ -12,6 +12,7 @@ import './Profile.css';
 import avatar from '../assets/avatar.jpg';
 import axios from 'axios';
 import { toast, Toaster } from 'react-hot-toast';
+import LogoutModal from '../components/LogoutModal';
 
 const Profile = () => {
   const [activeTab, setActiveTab] = useState('personal');
@@ -33,6 +34,7 @@ const Profile = () => {
     message: '',
     attended: false
   });
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   const loggedInUserId = localStorage.getItem("UserId");
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
@@ -579,6 +581,30 @@ const Profile = () => {
     }
   }, [documents, user]);
 
+  useEffect(() => {
+    const handlePopState = (event) => {
+      setShowLogoutModal(true);
+      window.history.pushState(null, '', window.location.pathname);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
+
+  const confirmLogout = async () => {
+    setShowLogoutModal(false);
+    if (typeof window !== 'undefined' && window.localStorage) {
+      localStorage.clear();
+      sessionStorage.clear();
+    }
+    window.location.replace('/login');
+  };
+
+  const cancelLogout = () => {
+    setShowLogoutModal(false);
+  };
+
   // Enhanced Upload Modal component
   const UploadModal = () => (
     <div className="upload-profile-modal-overlay show">
@@ -664,36 +690,12 @@ const Profile = () => {
       </div>
     </div>
   );
-
-  useEffect(() => {
-    const handlePopState = () => {
-      // Simulate logout and prevent forward login by replacing history
-      localStorage.clear();
-      sessionStorage.clear();
-      window.history.pushState(null, '', '/login');
-      window.location.replace('/login');
-    };
-    window.addEventListener('popstate', handlePopState);
-    return () => {
-      window.removeEventListener('popstate', handlePopState);
-    };
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      // When unmounting (navigating away, including back/forward)
-      localStorage.clear();
-      sessionStorage.clear();
-      window.history.pushState(null, '', '/login');
-      window.location.replace('/login');
-    };
-  }, []);
-
   return (
     <div className="profile-container">
       <Toaster position="top-right" />
       {showUploadModal && <UploadModal />}
       <AttendanceModal />
+      <LogoutModal isOpen={showLogoutModal} onConfirm={confirmLogout} onCancel={cancelLogout} />
       <div className="dashboard-main">
         <div className="profile-header">
           <div className="profile-cover">

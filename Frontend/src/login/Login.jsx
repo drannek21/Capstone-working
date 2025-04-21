@@ -137,7 +137,12 @@ const Login = () => {
 
       if (response.ok) {
         const { user } = data;
+        // Ensure user object has a valid role, fallback to 'user' if missing
+        if (!user.role) {
+          user.role = "user";
+        }
         safeSetItem("loggedInUser", JSON.stringify(user));
+        console.log("[Login] Set loggedInUser:", JSON.stringify(user)); // Debug log
         safeSetItem("UserId", user.id);
         
         // Store admin ID and barangay if the user is an admin
