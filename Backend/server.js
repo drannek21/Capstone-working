@@ -425,23 +425,26 @@ app.get('/verifiedUsersSA', async (req, res) => {
     
     let allDocuments = [];
     
-    // Query each document table and combine results
     for (const table of documentTables) {
       const documentsQuery = `
-        SELECT code_id,
-               file_name,
-               uploaded_at,
-               display_name,
-               status,
-               '${table}' as document_type,
-               CASE 
-                 WHEN file_name LIKE 'http%' THEN file_name 
-                 ELSE CONCAT('http://localhost:8081/uploads/', file_name) 
-               END as file_url
-        FROM ${table}
-        WHERE code_id IN (?)
+        SELECT t.* FROM (
+          SELECT code_id,
+                 file_name,
+                 uploaded_at,
+                 display_name,
+                 status,
+                 '${table}' as document_type,
+                 CASE 
+                   WHEN file_name LIKE 'http%' THEN file_name 
+                   ELSE CONCAT('http://localhost:8081/uploads/', file_name) 
+                 END as file_url
+          FROM ${table}
+          WHERE code_id IN (?)
+          ORDER BY uploaded_at DESC
+        ) t
+        GROUP BY t.code_id
       `;
-
+    
       try {
         const docs = await queryDatabase(documentsQuery, [codeIds]);
         allDocuments = [...allDocuments, ...docs];
@@ -1211,6 +1214,26 @@ app.post('/superadminUpdateStatus', async (req, res) => {
         'INSERT INTO accepted_users (user_id, message, accepted_at, is_read) VALUES (?, ?, NOW(), 0)', 
         [userId, remarks || "Your renewal has been approved by a superadmin"]
       );
+      // Also set barangay_cert document status to Approved
+      if (userInfo[0] && userInfo[0].code_id) {
+        await queryDatabase(
+          'UPDATE barangay_cert_documents SET status = ? WHERE code_id = ?',
+          ['Approved', userInfo[0].code_id]
+        );
+      }
+    } else if (status === "Renewal" && remarks && remarks.toLowerCase().includes("declined")) {
+      // Set barangay_cert document status to Rejected
+      if (userInfo[0] && userInfo[0].code_id) {
+        console.log('[DECLINE] Attempting to set barangay_cert_documents to Rejected for code_id:', userInfo[0].code_id, 'remarks:', remarks);
+        const result = await queryDatabase(
+          'UPDATE barangay_cert_documents SET status = ? WHERE code_id = ?',
+          ['Rejected', userInfo[0].code_id]
+        );
+        console.log('[DECLINE] Update result:', result);
+        if (result.affectedRows === 0) {
+          console.warn('[DECLINE] No barangay_cert_documents row found for code_id:', userInfo[0].code_id);
+        }
+      }
     } else if (status === "Declined" && remarks) {
       await queryDatabase(
         'INSERT INTO declined_users (user_id, remarks, declined_at, is_read) VALUES (?, ?, NOW(), 0)', 
@@ -2267,6 +2290,51 @@ app.post('/updateDocumentStatus', async (req, res) => {
     res.status(500).json({ 
       success: false, 
       error: 'Failed to update document status' 
+    });
+  }
+});
+
+// Add this new route for updating renewal document status
+app.post('/updateRenewalDocument', async (req, res) => {
+  const { code_id, document_type, status } = req.body;
+  console.log('Received updateRenewalDocument request:', { code_id, document_type, status });
+
+  try {
+    if (!code_id || !document_type || !status) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields (code_id, document_type, status)'
+      });
+    }
+
+    // Use TABLE_NAMES mapping for table info
+    const tableInfo = TABLE_NAMES[document_type];
+    if (!tableInfo) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid document type'
+      });
+    }
+
+    const updateQuery = `UPDATE ${tableInfo.table} SET status = ? WHERE code_id = ?`;
+    const result = await queryDatabase(updateQuery, [status, code_id]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'No document found to update'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: `Document status updated to ${status}`
+    });
+  } catch (error) {
+    console.error('Error in /updateRenewalDocument:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update renewal document status'
     });
   }
 });

@@ -365,7 +365,7 @@ const UserTopNavbar = () => {
                 onError={(e) => e.target.src = defaultAvatar}
               />
               <span className="profile-name">
-                {user ? `${user.first_name} ${user.last_name}` : 'Guest'}
+                {user ? `${user.first_name || 'First Name'} ${user.last_name || 'Last Name'}` : 'Guest'}
               </span>
               <FontAwesomeIcon 
                 icon={faChevronDown} 

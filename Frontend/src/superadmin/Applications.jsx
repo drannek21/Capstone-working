@@ -112,21 +112,14 @@ const Applications = () => {
     }
   };
 
-  const openModal = (application, type, documentIndex = 0) => {
-    // If we're dealing with a specific document, set it in selectedApplication
-    if (type === "followupConfirmAccept" || type === "followupDecline") {
-      setSelectedApplication({
-        ...application,
-        documents: [application.documents[documentIndex]] // Only set the specific document
-      });
-    } else {
-      setSelectedApplication(application);
-    }
-    
+  const openModal = (application, type) => {
+    setSelectedApplication(application);
     setStepPage(1);
     setRemarks("");
     
+    // Handle modal type based on current context
     if (modalType === "followup") {
+      // For follow-up documents, use specific modal types
       if (type === "confirmAccept") {
         setModalType("followupConfirmAccept");
       } else if (type === "decline") {
@@ -218,18 +211,23 @@ const Applications = () => {
     if (!selectedApplication) return;
     
     try {
+      // For decline action, check if remarks are provided
       if (action === "Decline" && !remarks.trim()) {
         alert("Please provide remarks for declining.");
         return;
       }
   
-      // Get the first document's type since we're viewing individual documents
-      const documentType = selectedApplication.documents?.[0]?.document_type;
-      
+      // Ensure documentType is properly formatted
+      let documentType = selectedApplication.document_type;
       if (!documentType) {
         console.error('Document type is undefined:', selectedApplication);
         alert('Error: Document type is missing');
         return;
+      }
+  
+      // Add _documents suffix if not present
+      if (!documentType.includes('_documents')) {
+        documentType = `${documentType}_documents`;
       }
   
       console.log('Sending request with:', {
@@ -257,6 +255,7 @@ const Applications = () => {
       alert(`Error: ${error.response?.data?.error || error.message}`);
     }
   };
+
   const handleClassificationUpdate = async () => {
     if (selectedClassification) {
       console.log('Sending code_id:', selectedApplication.code_id); // Log the code_id

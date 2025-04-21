@@ -130,8 +130,7 @@
 }
 
 .renewal-tag {
-  background-color: #2196F3;
-  color: white;
+  background-color: transparent;
 }
 
 .created-tag {
@@ -1063,7 +1062,7 @@
 }
 
 .renewal-message {
-  background: #fff3e0;
+  background-color: transparent;
   padding: 1rem;
   border-radius: 8px;
   margin-bottom: 1rem;
@@ -1598,4 +1597,28 @@
   .announcement-item {
     padding: 12px;
   }
+}
+
+.renewal-message.prominent {
+  background-color: #f8f9fa;
+  border: 2px solid #2E7D32;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.renewal-message .success-icon {
+  color: #2E7D32;
+  margin-bottom: 10px;
+}
+
+.renewal-message h2 {
+  color: #2E7D32;
+  margin-bottom: 10px;
+}
+
+.renewal-message p {
+  color: #555;
 }

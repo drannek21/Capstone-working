@@ -6,6 +6,8 @@ import dswdLogo from '../assets/dswd-logo.png';
 import avatar from '../assets/avatar.jpg';
 import { QRCodeSVG } from 'qrcode.react';
 
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
+
 const SoloParentManagement = () => {
   const [verifiedUsers, setVerifiedUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
@@ -142,7 +144,7 @@ const SoloParentManagement = () => {
     try {
       const response = await axios.post('http://localhost:8081/superadminUpdateStatus', {
         userId: user.userId,
-        status: action === "Accept" ? "Verified" : "Declined",
+        status: action === "Accept" ? "Verified" : "Renewal",
         remarks: action === "Accept" ? "Your renewal has been approved by a superadmin" : "Your renewal has been declined"
       });
 
@@ -396,7 +398,8 @@ const SoloParentManagement = () => {
           matchesStatus = user.status === 'Terminated';
           break;
         case 'renewal':
-          matchesStatus = user.status === 'Renewal';
+          // Only show if user is Renewal AND their barangay_cert_documents status is Pending
+          matchesStatus = user.status === 'Renewal' && user.documents && user.documents.some(doc => doc.document_type === 'barangay_cert_documents' && doc.status === 'Pending');
           break;
         case 'beneficiaries':
           // Only show verified users as beneficiaries
@@ -1058,10 +1061,10 @@ const SoloParentManagement = () => {
                         />
                       </div>
                       <div className="id-category">
-                        Category: {selectedIDUser.category || '004'}
+                        Category: {selectedIDUser.classification}
                       </div>
                       <div className="id-validity">
-                        Valid Until: {selectedIDUser.valid_until || '3/25/2026'}
+                        Valid Until: {selectedIDUser.validUntil}
                       </div>
                     </div>
                     <div className="id-card-container">
