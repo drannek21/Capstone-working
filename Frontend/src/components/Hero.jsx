@@ -114,12 +114,11 @@ const Hero = () => {
               Join our community and access the support you deserve.
             </p>
             <div className="hero-buttons">
-              <button className="sign-up" onClick={handleSignUpClick}>
-                <span className="button-text">Sign Up</span>
-                <span className="button-icon">→</span>
+              <button className="hero-btn sign-up-btn" onClick={handleSignUpClick}>
+                Sign Up
               </button>
-              <button className="learn-more" onClick={scrollToAbout}>
-                Learn More
+              <button className="hero-btn login-btn" onClick={() => navigate('/login')}>
+                Login
               </button>
             </div>
           </div>

@@ -13,7 +13,11 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
 
   // If user is not present, not an object, or missing role, force logout
   if (!user || typeof user !== 'object' || !user.role) {
-    localStorage.clear();
+    // Only remove user-related keys, not all of localStorage
+    localStorage.removeItem("loggedInUser");
+    localStorage.removeItem("UserId");
+    localStorage.removeItem("id");
+    localStorage.removeItem("barangay");
     sessionStorage.clear();
     return <Navigate to="/login" />;
   }

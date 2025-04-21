@@ -103,63 +103,119 @@
   margin-bottom: 32px;
 }
 
-/* Buttons */
+/* Hero Buttons */
 .hero-buttons {
   display: flex;
-  gap: 20px;
-  margin-top: 8px;
+  gap: 1rem;
+  margin-top: 2rem;
 }
 
-.hero-buttons button {
-  padding: 16px 32px;
-  border: none;
-  border-radius: 12px;
+
+
+.hero-btn {
   font-size: 1rem;
-  font-weight: 600;
+  font-weight: 500;
+  border: none;
+  padding: 0.8rem 2rem;
+  border-radius: 0.5rem;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s ease;
+  letter-spacing: 0.5px;
+  min-width: 120px;
+  text-align: center;
 }
 
-/* Sign Up Button */
-.sign-up {
-  background: linear-gradient(135deg, #16C47F 0%, #0E9B64 100%);
-  color: white;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding-right: 28px !important;
-}
-
-.button-text {
-  z-index: 1;
-}
-
-.button-icon {
-  font-size: 1.2rem;
-  transition: transform 0.3s ease;
-}
-
-.sign-up:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(22, 196, 127, 0.4);
-}
-
-.sign-up:hover .button-icon {
-  transform: translateX(4px);
-}
-
-/* Learn More Button */
-.learn-more {
-  background: transparent;
-  color: white;
-  border: 2px solid rgba(255, 255, 255, 0.2);
-}
-
-.learn-more:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.3);
-  transform: translateY(-2px);
-}
+.sign-up-btn {
+    appearance: none;
+    backface-visibility: hidden;
+    background-color: #27ae60;
+    border-radius: 8px;
+    border-style: none;
+    box-shadow: rgba(39, 174, 96, .15) 0 4px 9px;
+    box-sizing: border-box;
+    color: #fff;
+    cursor: pointer;
+    display: inline-block;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: normal;
+    line-height: 1.5;
+    outline: none;
+    overflow: hidden;
+    padding: 13px 20px;
+    position: relative;
+    text-align: center;
+    text-decoration: none;
+    transform: translate3d(0, 0, 0);
+    transition: all .3s;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+    vertical-align: top;
+    white-space: nowrap;
+  }
+  
+  .sign-up-btn:hover {
+    background-color: #1e8449;
+    opacity: 1;
+    transform: translateY(0);
+    transition-duration: .35s;
+  }
+  
+  .sign-up-btn:active {
+    transform: translateY(2px);
+    transition-duration: .35s;
+  }
+  
+  .sign-up-btn:hover {
+    box-shadow: rgba(39, 174, 96, .2) 0 6px 12px;
+  }
+  .login-btn {
+    appearance: none;
+    backface-visibility: hidden;
+    background-color: #fff;
+    border-radius: 8px;
+    border-style: none;
+    box-shadow: rgba(39, 174, 96, .15) 0 4px 9px;
+    box-sizing: border-box;
+    color:#27ae60;
+    cursor: pointer;
+    display: inline-block;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: normal;
+    line-height: 1.5;
+    outline: none;
+    overflow: hidden;
+    padding: 13px 20px;
+    position: relative;
+    text-align: center;
+    text-decoration: none;
+    transform: translate3d(0, 0, 0);
+    transition: all .3s;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+    vertical-align: top;
+    white-space: nowrap;
+  }
+  
+  .login-btn:hover {
+    background-color: #1e8449;
+    color:#fff;
+    opacity: 1;
+    transform: translateY(0);
+    transition-duration: .35s;
+  }
+  
+  .login-btn:active {
+    transform: translateY(2px);
+    transition-duration: .35s;
+  }
+  
+  .login-btn:hover {
+    box-shadow: rgba(39, 174, 96, .2) 0 6px 12px;
+  }
 
 /* Modal */
 .modal-overlay {

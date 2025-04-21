@@ -59,17 +59,11 @@ const FaceAuth = ({ onLoginSuccess, email }) => {
     const loadModels = async () => {
         try {
             setMessage('Loading face detection models...');
-            
-            // Load models one by one with error handling
-            await faceapi.nets.tinyFaceDetector.loadFromUri('/models');
-            console.log('Tiny Face Detector loaded');
-            
-            await faceapi.nets.faceLandmark68Net.loadFromUri('/models');
-            console.log('Face Landmark 68 loaded');
-            
-            await faceapi.nets.faceRecognitionNet.loadFromUri('/models');
-            console.log('Face Recognition loaded');
-
+            await Promise.all([
+                faceapi.nets.tinyFaceDetector.loadFromUri('/models'),
+                faceapi.nets.faceLandmark68Net.loadFromUri('/models'),
+                faceapi.nets.faceRecognitionNet.loadFromUri('/models')
+            ]);
             setModelsLoaded(true);
             setMessage('Models loaded successfully! You can now start the camera.');
         } catch (error) {
@@ -79,17 +73,25 @@ const FaceAuth = ({ onLoginSuccess, email }) => {
         }
     };
 
+    const getTinyFaceDetectorOptions = () => {
+        // Use smaller input size on mobile for performance
+        const isMobile = window.innerWidth <= 600;
+        return new faceapi.TinyFaceDetectorOptions({
+            inputSize: isMobile ? 224 : 320, // Lower for mobile, medium for desktop
+            scoreThreshold: 0.45
+        });
+    };
+
     const startVideo = async () => {
         if (!modelsLoaded) {
             setMessage('Please wait for models to load before starting the camera.');
             return;
         }
-
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ 
                 video: {
-                    width: 720,
-                    height: 560,
+                    width: 480,
+                    height: 360,
                     facingMode: 'user'
                 } 
             });
@@ -180,108 +182,68 @@ const FaceAuth = ({ onLoginSuccess, email }) => {
         if (!modelsLoaded || isAuthenticating) {
             return;
         }
-
         setIsAuthenticating(true);
         setMessage('Authenticating...');
-
         try {
-            // Enhanced static image check
             if (checkForStaticImage()) {
                 setMessage('Login using cellphone pictures is not allowed. Please use the live camera directly.');
                 setIsAuthenticating(false);
                 return;
             }
-
-            // Additional movement check
             if (Date.now() - lastMovementTime > 3000) {
                 setMessage('Please move slightly to confirm you are using a live camera.');
                 setIsAuthenticating(false);
                 return;
             }
-
-            // Status check before face auth
             const statusCheck = await axios.post(`${API_BASE_URL}/api/check-user-status`, {
                 email: userEmail
             });
-
             const allowedStatuses = ['verified', 'created'];
             const userStatus = statusCheck.data.user?.status?.toLowerCase();
-
             if (!allowedStatuses.includes(userStatus)) {
                 throw new Error(`Account must be Verified or Created. Current status: ${statusCheck.data.user?.status}`);
             }
-
-            // Special handling for created accounts
             if (statusCheck.data.user?.status?.toLowerCase() === 'created') {
                 console.log('New account - first time face authentication');
             }
-
-            // Check for multiple faces
             const allDetections = await faceapi.detectAllFaces(
                 videoRef.current,
-                new faceapi.TinyFaceDetectorOptions({
-                    inputSize: 416,       // Higher input size for better detection
-                    scoreThreshold: 0.5   // Lower threshold to be more forgiving with different lighting
-                })
+                getTinyFaceDetectorOptions()
             );
-
             if (allDetections.length === 0) {
                 setMessage('No face detected. Try moving closer to the camera.');
                 setIsAuthenticating(false);
                 return;
             }
-
             if (allDetections.length > 1) {
                 setMessage('Multiple faces detected. Make sure only your face is visible.');
                 setIsAuthenticating(false);
                 return;
             }
-
-            // Get face landmarks and descriptor for the single face
             let faceWithLandmarks = await faceapi.detectSingleFace(
                 videoRef.current,
-                new faceapi.TinyFaceDetectorOptions({
-                    inputSize: 416,        // Higher input size for better detection
-                    scoreThreshold: 0.5    // Lower threshold to be more forgiving with different lighting
-                })
+                getTinyFaceDetectorOptions()
             ).withFaceLandmarks().withFaceDescriptor();
-
             if (!faceWithLandmarks) {
                 setMessage('Face features not clear. Try adjusting your position or lighting.');
                 setIsAuthenticating(false);
                 return;
             }
-
-            // Use the state variable that already combines props and localStorage
             if (!userEmail) {
-                // One last attempt to get the email from the DOM
                 const domEmail = document.querySelector('.emailDisplay')?.textContent?.replace('Using email: ', '');
-                
-                console.log('Final attempt to get email from DOM:', domEmail);
-                
                 if (domEmail && domEmail.includes('@')) {
-                    // Valid email found in DOM
                     setUserEmail(domEmail);
                 } else {
-                    console.log('No valid email found in any source');
                     setMessage('Email is missing. Please go back and try again.');
                     setIsAuthenticating(false);
                     return;
                 }
             }
-
-            console.log('Using email for authentication:', userEmail);
             setMessage('Face detected! Authenticating...');
-
-            // Always include email in the payload
             const payload = {
                 descriptor: Array.from(faceWithLandmarks.descriptor),
                 email: userEmail
             };
-            
-            console.log("Authentication payload with email:", payload.email);
-
-            // Send the face descriptor to the server for authentication
             const response = await fetch(`${API_BASE_URL}/api/authenticate-face`, {
                 method: 'POST',
                 headers: {
@@ -289,44 +251,50 @@ const FaceAuth = ({ onLoginSuccess, email }) => {
                 },
                 body: JSON.stringify(payload)
             });
-
-            // Parse the response as JSON, handling potential errors
             let data;
             try {
                 data = await response.json();
             } catch (jsonError) {
-                console.error('Failed to parse response as JSON:', jsonError);
-                throw new Error('Failed to parse authentication response. Please try again.');
+                setMessage('Failed to parse authentication response. Please try again.');
+                setIsAuthenticating(false);
+                return;
             }
-
-            // Check if the response was a 403 indicating Pending status
             if (response.status === 403 && data.isPendingStatus) {
                 setMessage('Your application is currently being reviewed by our administrators.');
                 setIsAuthenticating(false);
                 return;
             }
-
             if (!response.ok) {
                 const errorMessage = data?.error || `Authentication failed with status: ${response.status}`;
-                throw new Error(errorMessage);
+                setMessage(errorMessage);
+                setIsAuthenticating(false);
+                return;
             }
-
-            if (data.success) {
-                setMessage('Authentication successful!');
-                // Check if the user's status is Pending
-                if (data.user && data.user.status === 'Pending') {
-                    setMessage('Your application is currently being reviewed by our administrators.');
-                    return;
+            if (data.success && data.user) {
+                // --- PATCH: Assign role based on table name ---
+                if (!data.user.role) {
+                    if (data.user.table === 'admin') {
+                        data.user.role = 'admin';
+                    } else if (data.user.table === 'superadmin') {
+                        data.user.role = 'superadmin';
+                    } else {
+                        data.user.role = 'user'; // Default
+                    }
                 }
-                // Call the onLoginSuccess callback with the user data
-                if (onLoginSuccess) {
-                    onLoginSuccess(data.user);
+                setMessage('Authentication successful! Redirecting...');
+                if (typeof onLoginSuccess === 'function') {
+                    try {
+                        onLoginSuccess(data.user);
+                    } catch (cbErr) {
+                        setMessage('Login callback error: ' + cbErr.message);
+                    }
+                } else {
+                    setMessage('Login success, but no callback provided.');
                 }
             } else {
-                setMessage(data.error || 'Authentication failed. Please try again.');
+                setMessage((data && data.error) || 'Authentication failed. Please try again.');
             }
         } catch (error) {
-            console.error('Error during authentication:', error);
             setMessage(error.message || 'Error during authentication. Please try again.');
         } finally {
             setIsAuthenticating(false);
@@ -335,20 +303,14 @@ const FaceAuth = ({ onLoginSuccess, email }) => {
 
     const detectFaces = async () => {
         if (!isRunning || !modelsLoaded) return;
-
         try {
             const allDetections = await faceapi.detectAllFaces(
                 videoRef.current,
-                new faceapi.TinyFaceDetectorOptions({
-                    inputSize: 416,       // Higher input size for better detection
-                    scoreThreshold: 0.5   // Lower threshold to be more forgiving with different lighting
-                })
+                getTinyFaceDetectorOptions()
             ).withFaceLandmarks();
-
             // Clear canvas
             const context = canvasRef.current.getContext('2d');
             context.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-
             // Draw detections
             const displaySize = { 
                 width: videoRef.current.width, 
@@ -358,8 +320,9 @@ const FaceAuth = ({ onLoginSuccess, email }) => {
             const resizedDetections = faceapi.resizeResults(allDetections, displaySize);
             faceapi.draw.drawDetections(canvasRef.current, resizedDetections);
             faceapi.draw.drawFaceLandmarks(canvasRef.current, resizedDetections);
-
-            // Update message based on number of faces detected
+            // Run next frame as soon as possible
+            setTimeout(() => requestAnimationFrame(detectFaces), 12); // ~80 FPS max
+            // Update message
             if (allDetections.length === 0) {
                 setMessage('No face detected. Try moving closer to the camera.');
             } else if (allDetections.length > 1) {
@@ -367,9 +330,6 @@ const FaceAuth = ({ onLoginSuccess, email }) => {
             } else {
                 setMessage('Face detected! You can now click "Authenticate" to login.');
             }
-
-            // Continue detection loop
-            requestAnimationFrame(detectFaces);
         } catch (error) {
             console.error('Error detecting faces:', error);
             setMessage('Error detecting faces. Please try again.');

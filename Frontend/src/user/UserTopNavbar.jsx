@@ -4,7 +4,6 @@ import {
   faBell, 
   faChevronDown,
   faSignOutAlt,
-  faQuestionCircle,
   faTimes,
   faCheck,
   faExclamationCircle,
@@ -20,21 +19,9 @@ import LogoutModal from '../components/LogoutModal';
 const UserTopNavbar = () => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [showFAQ, setShowFAQ] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [faqItems] = useState([
-    {
-      question: 'What support services are available?',
-      answer: 'We offer counseling, financial planning, and childcare assistance programs specifically designed for solo parents.'
-    },
-    {
-      question: 'How do I apply for benefits?',
-      answer: 'You can apply online through our portal or visit any of our regional offices for in-person assistance.'
-    }
-  ]);
-
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   const notificationRef = useRef(null);
@@ -266,41 +253,11 @@ const UserTopNavbar = () => {
     };
   }, []);
 
-  // Update the notification section in the return statement
   return (
     <nav className="top-nav">
       <LogoutModal isOpen={showLogoutModal} onConfirm={confirmLogout} onCancel={cancelLogout} />
 
       <div className="nav-right">
-        <button className="nav-btn" onClick={() => setShowFAQ(true)}>
-          <FontAwesomeIcon icon={faQuestionCircle} />
-        </button>
-
-        {/* Add FAQ Modal */}
-        {showFAQ && (
-          <div className="modal-overlay">
-            <div className="faq-modal">
-              <div className="modal-header">
-                <h3>Frequently Asked Questions</h3>
-                <button 
-                  className="close-modal"
-                  onClick={() => setShowFAQ(false)}
-                >
-                  <FontAwesomeIcon icon={faTimes} />
-                </button>
-              </div>
-              <div className="modal-content">
-                {faqItems.map((item, index) => (
-                  <div key={index} className="faq-item">
-                    <h3>{item.question}</h3>
-                    <p>{item.answer}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
         <div className="notification-wrapper" ref={notificationRef}>
           <button 
             className="nav-btn notification-bell-green"

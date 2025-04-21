@@ -182,15 +182,19 @@ const Login = () => {
 
   const handleFaceAuthSuccess = (user) => {
     try {
-      safeSetItem("loggedInUser", JSON.stringify(user));
-      safeSetItem("UserId", user.id);
-      
+      if (!user || typeof user !== 'object') {
+        setFaceAuthError('Invalid user data received from face authentication.');
+        setShowFaceAuth(false);
+        return;
+      }
+      // Store for ProtectedRoute
+      localStorage.setItem("loggedInUser", JSON.stringify(user));
+      localStorage.setItem("UserId", user.id);
       // For backward compatibility with older code
       if (user.role) {
-        safeSetItem("id", user.id);
-        safeSetItem("barangay", user.barangay || "");
+        localStorage.setItem("id", user.id);
+        localStorage.setItem("barangay", user.barangay || "");
       }
-
       // Determine user role - in case the face auth endpoint doesn't return role
       const role = user.role || "user";
       navigateToDashboard(role);

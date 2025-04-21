@@ -600,7 +600,7 @@ const Profile = () => {
       localStorage.clear();
       sessionStorage.clear();
     }
-    window.location.replace('/login');
+    window.location.replace('/mainpage');
   };
 
   const cancelLogout = () => {
@@ -697,11 +697,11 @@ const Profile = () => {
   const isIDExpired = () => {
     if (!user?.validUntil) return false;
     const expirationDate = new Date(user.validUntil);
-    // Use a hardcoded date for testing
-    const today = new Date('2026-04-21');
+    // Use the actual current date (2025-04-21) as provided by the system
+    const today = new Date('2025-04-21');
     today.setHours(0, 0, 0, 0);
     expirationDate.setHours(0, 0, 0, 0);
-    return expirationDate <= today;
+    return expirationDate < today; // Expired if expirationDate is before today
   };
 
   // Define the updateUserStatusToRenewal function before useEffect
