@@ -17,56 +17,6 @@ const safeGetItem = (key) => {
   return null;
 };
 
-// Define the FaceAuthModal component outside the main component to prevent re-rendering
-const FaceAuthModal = ({ 
-  modalEmail, 
-  modalError, 
-  checkingUser, 
-  handleModalEmailChange, 
-  closeModal, 
-  verifyUserForFaceAuth 
-}) => (
-  <div className={styles.modalOverlay} onClick={(e) => e.stopPropagation()}>
-    <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-      <h3>Face Recognition Login</h3>
-      <p>Please enter your email to proceed with face recognition login</p>
-      
-      {modalError && <p className={styles.errorMessage}>{modalError}</p>}
-      
-      <div className={styles.inputGroup}>
-        <label htmlFor="modalEmail">Email</label>
-        <input
-          id="modalEmail"
-          type="email"
-          value={modalEmail}
-          onChange={handleModalEmailChange}
-          placeholder="Enter your email"
-          required
-        />
-      </div>
-      
-      <div className={styles.modalButtons}>
-        <button 
-          type="button" 
-          className={styles.cancelBtn}
-          onClick={closeModal}
-          disabled={checkingUser}
-        >
-          Cancel
-        </button>
-        <button 
-          type="button" 
-          className={styles.proceedBtn}
-          onClick={verifyUserForFaceAuth}
-          disabled={checkingUser}
-        >
-          {checkingUser ? "Checking..." : "Proceed"}
-        </button>
-      </div>
-    </div>
-  </div>
-);
-
 const Login = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
@@ -79,10 +29,6 @@ const Login = () => {
   const [rememberMe, setRememberMe] = useState(false);
   const [showFaceAuth, setShowFaceAuth] = useState(false);
   const [faceAuthError, setFaceAuthError] = useState("");
-  const [showModal, setShowModal] = useState(false);
-  const [modalEmail, setModalEmail] = useState("");
-  const [modalError, setModalError] = useState("");
-  const [checkingUser, setCheckingUser] = useState(false);
 
   useEffect(() => {
     const savedCredentials = safeGetItem('savedCredentials');
@@ -222,88 +168,13 @@ const Login = () => {
     navigate("/forgot-password");
   };
 
-  const openFaceAuthModal = () => {
-    setModalEmail("");
-    setModalError("");
-    setShowModal(true);
+  const openFaceAuth = () => {
+    setShowFaceAuth(true);
   };
 
-  const closeModal = () => {
-    setShowModal(false);
-    setModalEmail("");
-    setModalError("");
-  };
-
-  const handleModalEmailChange = (e) => {
-    setModalEmail(e.target.value);
-    setModalError("");
-  };
-
-  const verifyUserForFaceAuth = async () => {
-    if (!modalEmail) {
-      setModalError("Please enter your email address");
-      return;
-    }
-    
-    console.log("Email entered in modal:", modalEmail);
-    // Store the email in localStorage temporarily to ensure it's available
-    safeSetItem('faceAuthEmail', modalEmail);
-    setCheckingUser(true);
-    setModalError("");
-    
-    try {
-      console.log("Checking user status for email:", modalEmail);
-      const response = await fetch("http://localhost:8081/api/check-user-status", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email: modalEmail }),
-      });
-
-      // Log response details for debugging
-      console.log("Status:", response.status);
-      console.log("Status Text:", response.statusText);
-      
-      // Check if response is ok before parsing JSON
-      if (!response.ok) {
-        if (response.status === 404) {
-          setModalError("Email not found. Please check your email or register a new account.");
-          setCheckingUser(false);
-          return;
-        }
-        
-        const text = await response.text();
-        console.error(`Server responded with status ${response.status}:`, text);
-        throw new Error(`Server responded with status ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log("Response data:", data);
-
-      if (data.success) {
-        if (data.user.status === "Verified") {
-          // Check if user has face recognition photo
-          if (!data.user.hasFaceRecognition) {
-            setModalError("You don't have a registered face. Please register your face first or login with email and password.");
-          } else {
-            // Proceed to face auth
-            console.log("Proceeding to face auth with email:", modalEmail);
-            closeModal();
-            setShowFaceAuth(true);
-          }
-        } else {
-          setModalError("Your account is not verified. Please verify your account before using face recognition.");
-        }
-      } else {
-        setModalError(data.error || "Email not found. Please check your email or register a new account.");
-      }
-    } catch (err) {
-      console.error("Error checking user:", err);
-      setModalError("Email not found. Please check your email or register a new account.");
-    } finally {
-      setCheckingUser(false);
-    }
+  const closeFaceAuth = () => {
+    setShowFaceAuth(false);
+    setFaceAuthError("");
   };
 
   const handleLoginSuccess = (role) => {
@@ -319,23 +190,18 @@ const Login = () => {
   };
 
   if (showFaceAuth) {
-    console.log("Rendering FaceAuth component with email:", modalEmail);
     return (
       <div className={styles.loginContainer}>
         <div className={styles.loginBox}>
           <button 
             className={styles.backButton}
-            onClick={() => {
-              setShowFaceAuth(false);
-              setFaceAuthError("");
-            }}
+            onClick={closeFaceAuth}
           >
             ← Back to Login
           </button>
           {faceAuthError && <p className={styles.errorMessage}>{faceAuthError}</p>}
           <FaceAuth 
             onLoginSuccess={handleFaceAuthSuccess} 
-            email={modalEmail}
           />
         </div>
       </div>
@@ -420,7 +286,7 @@ const Login = () => {
           <button
             type="button"
             className={styles.faceAuthBtn}
-            onClick={openFaceAuthModal}
+            onClick={openFaceAuth}
           >
             Login with Face Recognition
           </button>
@@ -430,17 +296,6 @@ const Login = () => {
           Don't have an account? <a href="/signup">Sign Up</a>
         </p>
       </div>
-      
-      {showModal && (
-        <FaceAuthModal
-          modalEmail={modalEmail}
-          modalError={modalError}
-          checkingUser={checkingUser}
-          handleModalEmailChange={handleModalEmailChange}
-          closeModal={closeModal}
-          verifyUserForFaceAuth={verifyUserForFaceAuth}
-        />
-      )}
     </div>
   );
 };

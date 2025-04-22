@@ -106,7 +106,7 @@ router.post('/check-user-status', async (req, res) => {
 router.post('/', async (req, res) => {
     console.log('\n===== NEW FACE AUTHENTICATION REQUEST =====');
     try {
-        const { descriptor, email } = req.body;
+        const { descriptor } = req.body;
         
         // Validate required inputs
         if (!descriptor) {
@@ -114,132 +114,124 @@ router.post('/', async (req, res) => {
             return res.status(400).json({ success: false, error: 'No face descriptor provided' });
         }
         
-        if (!email) {
-            console.log('No email provided in request payload');
-            return res.status(400).json({ 
-                success: false, 
-                error: 'Email is required for face authentication' 
-            });
-        }
-        
-        console.log(`Checking user status for: ${email}`);
-        const [user] = await queryDatabase(`
+        // Get all verified users with face photos
+        console.log('Retrieving users with registered face photos...');
+        const users = await queryDatabase(`
             SELECT id, email, name, code_id, status, faceRecognitionPhoto
             FROM users 
-            WHERE email = ? 
+            WHERE status = 'Verified' 
             AND faceRecognitionPhoto IS NOT NULL
-        `, [email]);
+        `);
         
-        if (!user) {
-            return res.status(403).json({ 
+        if (!users || users.length === 0) {
+            return res.status(404).json({ 
                 success: false, 
-                error: 'No face registered for this account' 
+                error: 'No users with registered face photos found' 
             });
         }
         
-        console.log(`User status: ${user.status}`);
-        const allowedStatuses = ['verified', 'created'];
-        const userStatus = user.status.toLowerCase();
-
-        // Status validation
-        if (!allowedStatuses.includes(userStatus)) {
-            return res.status(403).json({ 
-                success: false,
-                error: `Account status must be Verified or Created. Current status: ${user.status}`,
-                userStatus: user.status
+        console.log(`Found ${users.length} users with registered face photos`);
+        
+        // Process users in batches for better memory management
+        const BATCH_SIZE = 20; // Process 20 users at a time
+        let bestMatch = null;
+        let bestSimilarity = 0;
+        
+        // Split users into batches
+        for (let i = 0; i < users.length; i += BATCH_SIZE) {
+            const batch = users.slice(i, i + BATCH_SIZE);
+            console.log(`Processing batch ${Math.floor(i/BATCH_SIZE) + 1} of ${Math.ceil(users.length/BATCH_SIZE)}`);
+            
+            // Process batch in parallel
+            const batchPromises = batch.map(async (user) => {
+                try {
+                    // Get the image URL from Cloudinary
+                    const imageUrl = user.faceRecognitionPhoto;
+                    
+                    if (!imageUrl) {
+                        return null;
+                    }
+                    
+                    // Download the image from Cloudinary
+                    const response = await fetch(imageUrl);
+                    
+                    if (!response.ok) {
+                        return null;
+                    }
+                    
+                    const arrayBuffer = await response.arrayBuffer();
+                    const imageBuffer = Buffer.from(arrayBuffer);
+                    
+                    // Create a new Image instance
+                    const image = new Image();
+                    image.src = imageBuffer;
+                    
+                    // Use optimized detection settings for speed
+                    const detectorOptions = new faceapi.TinyFaceDetectorOptions({ 
+                        inputSize: 160,  // Smaller input size for faster processing
+                        scoreThreshold: 0.3
+                    });
+                    
+                    // Detect face with optimized settings
+                    const detections = await faceapi.detectSingleFace(image, detectorOptions)
+                        .withFaceLandmarks()
+                        .withFaceDescriptor();
+                    
+                    if (!detections) {
+                        return null;
+                    }
+                    
+                    // Calculate similarity
+                    const similarity = calculateSimilarityPercentage(descriptor, detections.descriptor);
+                    console.log(`Face match for ${user.name}: ${similarity}%`);
+                    
+                    return { user, similarity };
+                } catch (error) {
+                    console.error(`Error processing user ${user.id}:`, error);
+                    return null;
+                }
             });
-        }
-
-        // Special handling for created accounts
-        if (userStatus === 'created') {
-            console.log('Processing face auth for newly created account');
-        }
-
-        console.log(`Received descriptor with ${descriptor.length} values`);
-        console.log(`Email provided in request: "${email}"`);
-
-        console.log('Checking if email exists and has a registered face photo...');
-        console.log(`Database query for user with email "${email}" returned ${user ? 1 : 0} results`);
-        
-        console.log(`Found user with ID: ${user.id}, Name: ${user.name}, Email: ${user.email}`);
-        
-        // Get the image URL from Cloudinary
-        const imageUrl = user.faceRecognitionPhoto;
-        
-        if (!imageUrl) {
-            console.log(`No face recognition photo URL for user ${user.id}`);
-            return res.status(400).json({ 
-                success: false, 
-                error: 'No face photo registered for this user' 
-            });
+            
+            // Wait for batch to complete
+            const batchResults = await Promise.all(batchPromises);
+            
+            // Filter out null results
+            const validBatchResults = batchResults.filter(result => result !== null);
+            
+            // Find the best match in this batch
+            for (const result of validBatchResults) {
+                if (parseFloat(result.similarity) > parseFloat(bestSimilarity)) {
+                    bestMatch = result;
+                    bestSimilarity = result.similarity;
+                    
+                    // Early exit if we found an excellent match (over 80%)
+                    if (parseFloat(bestSimilarity) > 80) {
+                        console.log(`Found excellent match (${bestSimilarity}%), stopping search`);
+                        i = users.length; // Force exit from outer loop
+                        break;
+                    }
+                }
+            }
         }
         
-        console.log(`Face photo URL: ${imageUrl}`);
-
-        // Download the image from Cloudinary
-        console.log(`Downloading image for user ${user.id}...`);
-        const response = await fetch(imageUrl);
-        
-        if (!response.ok) {
-            console.log(`Failed to fetch image for user ${user.id}: ${response.status}`);
-            return res.status(500).json({ 
-                success: false, 
-                error: 'Failed to retrieve face data. Please try again.' 
-            });
-        }
-
-        const arrayBuffer = await response.arrayBuffer();
-        const imageBuffer = Buffer.from(arrayBuffer);
-        console.log(`Image downloaded successfully, size: ${imageBuffer.length} bytes`);
-
-        // Create a new Image instance
-        const image = new Image();
-        image.src = imageBuffer;
-        console.log(`Image loaded, dimensions: ${image.width}x${image.height}`);
-
-        // Detect face using optimized TinyFaceDetector
-        console.log(`Detecting face for user ${user.id}...`);
-        const detectorOptions = new faceapi.TinyFaceDetectorOptions({ 
-            inputSize: 320,  // Faster processing (default 416)
-            scoreThreshold: 0.5
-        });
-
-        // Run detection and descriptor extraction in parallel
-        const [detections] = await Promise.all([
-            faceapi.detectSingleFace(image, detectorOptions)
-                .withFaceLandmarks()
-                .withFaceDescriptor(),
-            // Add other parallelizable tasks here if needed
-        ]);
-
-        if (!detections) {
-            console.log(`No face detected for user ${user.id}`);
-            return res.status(400).json({ 
-                success: false, 
-                error: 'Face not detected. Please ensure clear visibility.' 
-            });
-        }
-
-        // Optimized similarity calculation
-        const similarity = calculateSimilarityPercentage(descriptor, detections.descriptor);
-        console.log(`Face match: ${similarity}%`);
-
-        // Use a threshold of 65% to make face recognition less sensitive to lighting
-        if (parseFloat(similarity) > 50) {
+        // Check if we found a good match
+        if (bestMatch && parseFloat(bestSimilarity) > 50) {
+            console.log(`Best match: ${bestMatch.user.name} with similarity ${bestSimilarity}%`);
             // Remove sensitive info before response
-            const { faceRecognitionPhoto, ...userData } = user;
+            const { faceRecognitionPhoto, ...userData } = bestMatch.user;
             return res.json({
                 success: true,
                 user: userData,
-                message: 'Face authentication successful'
-            });
-        } else {
-            console.log(`Similarity (${similarity}%) is below required threshold of 60%`);
-            return res.status(401).json({ 
-                success: false, 
-                error: 'Face not recognized. Try adjusting lighting or position your face more clearly in the camera.'
+                similarity: bestSimilarity
             });
         }
+        
+        // No good match found
+        console.log(`No match found above threshold of 50%`);
+        return res.status(401).json({ 
+            success: false, 
+            error: 'Face not recognized. Try adjusting lighting or position your face more clearly in the camera.'
+        });
     } catch (error) {
         console.error('Face authentication error:', error);
         res.status(500).json({ 

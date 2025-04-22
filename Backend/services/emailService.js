@@ -43,7 +43,7 @@ Solo Parent Support Division`
   };
 
   const mailOptions = {
-    from: 'baisasangelo8@gmail.com',
+    from: 'santamariasoloparent@gmail.com',
     to: email,
     subject: action === "Accept" ? "Solo Parent Application Approved!" : "Update on Your Solo Parent Application",
     text: messageTemplates[action]

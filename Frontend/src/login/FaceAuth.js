@@ -15,8 +15,10 @@ const FaceAuth = ({ onLoginSuccess, email }) => {
     const [previousFrames, setPreviousFrames] = useState([]);
     const [staticFrameCount, setStaticFrameCount] = useState(0);
     const [lastMovementTime, setLastMovementTime] = useState(Date.now());
+    const [frameCount, setFrameCount] = useState(0); // New state for frame count
     // Get email from localStorage if it's not passed as a prop
     const [userEmail, setUserEmail] = useState(email || localStorage.getItem('faceAuthEmail') || '');
+    const [userId, setUserId] = useState(null); // New state for user ID
     
     const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
 
@@ -74,11 +76,9 @@ const FaceAuth = ({ onLoginSuccess, email }) => {
     };
 
     const getTinyFaceDetectorOptions = () => {
-        // Use smaller input size on mobile for performance
-        const isMobile = window.innerWidth <= 600;
         return new faceapi.TinyFaceDetectorOptions({
-            inputSize: isMobile ? 224 : 320, // Lower for mobile, medium for desktop
-            scoreThreshold: 0.45
+            inputSize: 160, // Reduced from 320 for faster processing
+            scoreThreshold: 0.4
         });
     };
 
@@ -195,17 +195,6 @@ const FaceAuth = ({ onLoginSuccess, email }) => {
                 setIsAuthenticating(false);
                 return;
             }
-            const statusCheck = await axios.post(`${API_BASE_URL}/api/check-user-status`, {
-                email: userEmail
-            });
-            const allowedStatuses = ['verified', 'created'];
-            const userStatus = statusCheck.data.user?.status?.toLowerCase();
-            if (!allowedStatuses.includes(userStatus)) {
-                throw new Error(`Account must be Verified or Created. Current status: ${statusCheck.data.user?.status}`);
-            }
-            if (statusCheck.data.user?.status?.toLowerCase() === 'created') {
-                console.log('New account - first time face authentication');
-            }
             const allDetections = await faceapi.detectAllFaces(
                 videoRef.current,
                 getTinyFaceDetectorOptions()
@@ -229,21 +218,23 @@ const FaceAuth = ({ onLoginSuccess, email }) => {
                 setIsAuthenticating(false);
                 return;
             }
-            if (!userEmail) {
-                const domEmail = document.querySelector('.emailDisplay')?.textContent?.replace('Using email: ', '');
-                if (domEmail && domEmail.includes('@')) {
-                    setUserEmail(domEmail);
-                } else {
-                    setMessage('Email is missing. Please go back and try again.');
-                    setIsAuthenticating(false);
-                    return;
-                }
+            // Validate that we have a proper face descriptor
+            if (!faceWithLandmarks.descriptor || faceWithLandmarks.descriptor.length === 0) {
+                console.error('Invalid face descriptor', faceWithLandmarks.descriptor);
+                setMessage('Error: Could not extract face data. Please try again.');
+                setIsAuthenticating(false);
+                return { success: false };
             }
-            setMessage('Face detected! Authenticating...');
+            
+            // Ensure descriptor is in the correct format (array of numbers)
+            const descriptorArray = Array.from(faceWithLandmarks.descriptor).map(val => Number(val));
+            
             const payload = {
-                descriptor: Array.from(faceWithLandmarks.descriptor),
-                email: userEmail
+                descriptor: descriptorArray
             };
+            
+            console.log('Sending descriptor with length:', descriptorArray.length);
+            
             const response = await fetch(`${API_BASE_URL}/api/authenticate-face`, {
                 method: 'POST',
                 headers: {
@@ -251,6 +242,12 @@ const FaceAuth = ({ onLoginSuccess, email }) => {
                 },
                 body: JSON.stringify(payload)
             });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP error! Status: ${response.status}, Message: ${errorText}`);
+            }
+
             let data;
             try {
                 data = await response.json();
@@ -260,6 +257,15 @@ const FaceAuth = ({ onLoginSuccess, email }) => {
                 return;
             }
             if (response.status === 403 && data.isPendingStatus) {
+                if (data.userStatus === 'created' && data.userId) {
+                    setMessage('First-time login detected. Please register your face.');
+                    // Switch to face registration mode
+                    setIsRegistering(true);
+                    setIsAuthenticating(false);
+                    // Store the user ID for registration
+                    setUserId(data.userId);
+                    return;
+                }
                 setMessage('Your application is currently being reviewed by our administrators.');
                 setIsAuthenticating(false);
                 return;
@@ -295,14 +301,26 @@ const FaceAuth = ({ onLoginSuccess, email }) => {
                 setMessage((data && data.error) || 'Authentication failed. Please try again.');
             }
         } catch (error) {
-            setMessage(error.message || 'Error during authentication. Please try again.');
-        } finally {
+            console.error('Authentication error:', error);
+            setMessage(`Authentication failed: ${error.message}`);
             setIsAuthenticating(false);
+            return { success: false };
         }
     };
 
     const detectFaces = async () => {
-        if (!isRunning || !modelsLoaded) return;
+        if (!videoRef.current || !canvasRef.current || !modelsLoaded) {
+            return;
+        }
+        
+        // Only run detection every 3rd frame to reduce CPU usage
+        if (frameCount < 3) {
+            setFrameCount(frameCount + 1);
+            requestAnimationFrame(detectFaces);
+            return;
+        }
+        setFrameCount(0);
+        
         try {
             const allDetections = await faceapi.detectAllFaces(
                 videoRef.current,
@@ -321,7 +339,7 @@ const FaceAuth = ({ onLoginSuccess, email }) => {
             faceapi.draw.drawDetections(canvasRef.current, resizedDetections);
             faceapi.draw.drawFaceLandmarks(canvasRef.current, resizedDetections);
             // Run next frame as soon as possible
-            setTimeout(() => requestAnimationFrame(detectFaces), 12); // ~80 FPS max
+            setTimeout(() => requestAnimationFrame(detectFaces), 30); // Reduced from 12ms to 30ms (33 FPS instead of 80 FPS)
             // Update message
             if (allDetections.length === 0) {
                 setMessage('No face detected. Try moving closer to the camera.');
@@ -385,7 +403,7 @@ const FaceAuth = ({ onLoginSuccess, email }) => {
                 `${API_BASE_URL}/updateUserProfile`,
                 { 
                     userId: userId, 
-                    faceRecognitionPhoto: cloudinaryData.secure_url 
+                    faceRecognitionPhoto: cloudinaryData.secure_url
                 }
             );
 
@@ -403,7 +421,11 @@ const FaceAuth = ({ onLoginSuccess, email }) => {
     };
 
     const captureFace = async () => {
-        authenticateUser();
+        if (isRegistering) {
+            registerFacePhoto();
+        } else {
+            authenticateUser();
+        }
     };
 
     useEffect(() => {
@@ -435,9 +457,9 @@ const FaceAuth = ({ onLoginSuccess, email }) => {
                     <button 
                         className="action-btn"
                         onClick={captureFace}
-                        disabled={isAuthenticating}
+                        disabled={isAuthenticating || isRegistering}
                     >
-                        {isAuthenticating ? 'Authenticating...' : 'Authenticate'}
+                        {isAuthenticating ? 'Authenticating...' : isRegistering ? 'Registering...' : 'Authenticate'}
                     </button>
                     
                     {!onLoginSuccess && localStorage.getItem('UserId') && (
