@@ -293,8 +293,7 @@ app.get('/pendingUsers', async (req, res) => {
       'med_cert_documents', 
       'marriage_documents', 
       'cenomar_documents', 
-      'death_cert_documents',
-      'barangay_cert_documents'
+      'death_cert_documents'
     ];
     
     let allDocuments = [];
@@ -307,13 +306,14 @@ app.get('/pendingUsers', async (req, res) => {
                uploaded_at,
                display_name,
                status,
+               category,
                '${table}' as document_type,
                CASE 
                  WHEN file_name LIKE 'http%' THEN file_name 
                  ELSE CONCAT('http://localhost:8081/uploads/', file_name) 
                END as file_url
         FROM ${table}
-        WHERE code_id IN (?)
+        WHERE code_id IN (?) AND category = 'application'
       `;
 
       try {
@@ -753,7 +753,6 @@ app.post('/updateUserStatus', async (req, res) => {
       }
 
       const userId = userResult[0].id;
-      const currentStatus = userResult[0].status;
       const civilStatus = userResult[0].civil_status;
 
       // Update user status
@@ -1222,19 +1221,31 @@ app.post('/superadminUpdateStatus', async (req, res) => {
         );
       }
     } else if (status === "Renewal" && remarks && remarks.toLowerCase().includes("declined")) {
-      // Set barangay_cert document status to Rejected
+      // Set barangay_cert document status to Rejected and delete the record
       if (userInfo[0] && userInfo[0].code_id) {
-        console.log('[DECLINE] Attempting to set barangay_cert_documents to Rejected for code_id:', userInfo[0].code_id, 'remarks:', remarks);
-        const result = await queryDatabase(
-          'UPDATE barangay_cert_documents SET status = ? WHERE code_id = ?',
-          ['Rejected', userInfo[0].code_id]
+        console.log('[DECLINE] Attempting to DELETE barangay_cert_documents for code_id:', userInfo[0].code_id, 'remarks:', remarks);
+        const deleteResult = await queryDatabase(
+          'DELETE FROM barangay_cert_documents WHERE code_id = ?',
+          [userInfo[0].code_id]
         );
-        console.log('[DECLINE] Update result:', result);
-        if (result.affectedRows === 0) {
+        console.log('[DECLINE] Delete result:', deleteResult);
+        if (deleteResult.affectedRows === 0) {
           console.warn('[DECLINE] No barangay_cert_documents row found for code_id:', userInfo[0].code_id);
         }
       }
     } else if (status === "Declined" && remarks) {
+      // Also delete barangay_cert_documents if status is Declined
+      if (userInfo[0] && userInfo[0].code_id) {
+        console.log('[DECLINE] Attempting to DELETE barangay_cert_documents for code_id:', userInfo[0].code_id, 'remarks:', remarks);
+        const deleteResult = await queryDatabase(
+          'DELETE FROM barangay_cert_documents WHERE code_id = ?',
+          [userInfo[0].code_id]
+        );
+        console.log('[DECLINE] Delete result:', deleteResult);
+        if (deleteResult.affectedRows === 0) {
+          console.warn('[DECLINE] No barangay_cert_documents row found for code_id:', userInfo[0].code_id);
+        }
+      }
       await queryDatabase(
         'INSERT INTO declined_users (user_id, remarks, declined_at, is_read) VALUES (?, ?, NOW(), 0)', 
         [userId, remarks]
@@ -2217,75 +2228,144 @@ app.post('/api/documents/updateStatus', async (req, res) => {
   }
 });
 
-// Add this new route for updating document status
 app.post('/updateDocumentStatus', async (req, res) => {
-  const { code_id, documentType, status } = req.body;
-  console.log('Received update request:', { code_id, documentType, status });
+  const { document_type, file_name, status, rejection_reason } = req.body;
+  console.log('Received update request:', { document_type, file_name, status, rejection_reason });
+
+  // List of allowed tables for safety
+  const documentTables = [
+    'itr_documents',
+    'psa_documents',
+    'marriage_documents',
+    'med_cert_documents',
+    'cenomar_documents',
+    'death_cert_documents',
+  ];
+
+  if (!document_type || !documentTables.includes(document_type)) {
+    return res.status(400).json({ success: false, error: 'Invalid or missing document_type' });
+  }
+  if (!file_name) {
+    return res.status(400).json({ success: false, error: 'Missing file_name' });
+  }
 
   try {
-    const documentTables = {
-      'itr_documents': 'itr_documents',
-      'psa_documents': 'psa_documents',
-      'marriage_documents': 'marriage_documents',
-      'med_cert_documents': 'med_cert_documents',
-      'cenomar_documents': 'cenomar_documents',
-      'death_cert_documents': 'death_cert_documents',
-      'missing_documents': 'missing_documents'
-    };
-
-    await queryDatabase('START TRANSACTION');
-
-    // Update all document tables at once if documentType is not specified
-    if (!documentType || documentType === 'all') {
-      for (const table of Object.values(documentTables)) {
-        const updateQuery = `
-          UPDATE ${table} 
-          SET status = ?
-          WHERE code_id = ?
-        `;
-        await queryDatabase(updateQuery, [status, code_id]);
+    if (status === 'Declined') {
+      // Fetch code_id from the document table
+      const codeIdResult = await queryDatabase(`SELECT code_id FROM ${document_type} WHERE file_name = ? LIMIT 1`, [file_name]);
+      const code_id = codeIdResult[0]?.code_id;
+      let user_id = null;
+      if (code_id) {
+        // Fetch user_id from users table
+        const userIdResult = await queryDatabase(`SELECT id FROM users WHERE code_id = ? LIMIT 1`, [code_id]);
+        user_id = userIdResult[0]?.id;
       }
-    } else {
-      // Update single document type
-      const tableName = documentTables[documentType];
-      if (!tableName) {
-        await queryDatabase('ROLLBACK');
-        return res.status(400).json({ 
-          success: false, 
-          error: `Invalid document type: ${documentType}` 
-        });
+      // Delete the document from the database if declined
+      const deleteQuery = `DELETE FROM ${document_type} WHERE file_name = ?`;
+      const deleteResult = await queryDatabase(deleteQuery, [file_name]);
+      if (!deleteResult.affectedRows || deleteResult.affectedRows === 0) {
+        return res.status(404).json({ success: false, error: 'Document not found for deletion' });
       }
-
-      const updateQuery = `
-        UPDATE ${tableName} 
-        SET status = ?
-        WHERE code_id = ?
-      `;
-      await queryDatabase(updateQuery, [status, code_id]);
-    }
-
-    // Add notification if status is Approved
-    if (status === 'Approved') {
-      const userQuery = 'SELECT id FROM users WHERE code_id = ?';
-      const userResult = await queryDatabase(userQuery, [code_id]);
-      
-      if (userResult && userResult.length > 0) {
-        const userId = userResult[0].id;
+      // Insert notification for Declined
+      if (user_id) {
         await queryDatabase(
-          'INSERT INTO follow_up_documents (user_id, message) VALUES (?, ?)',
-          [userId, 'Your follow-up documents have been accepted']
+          `INSERT INTO follow_up_documents (user_id, accepted_at, message, is_read) VALUES (?, NOW(), ?, 0)`,
+          [user_id, rejection_reason || 'Your document was declined.']
         );
       }
+      return res.status(200).json({
+        success: true,
+        message: 'Document declined and deleted successfully'
+      });
     }
 
-    await queryDatabase('COMMIT');
+    // Accept All shortcut (custom logic)
+    if (status === 'Accept All') {
+      // This assumes you want to notify the user who owns the document being processed
+      const codeIdResult = await queryDatabase(`SELECT code_id FROM ${document_type} WHERE file_name = ? LIMIT 1`, [file_name]);
+      const code_id = codeIdResult[0]?.code_id;
+      let user_id = null;
+      if (code_id) {
+        const userIdResult = await queryDatabase(`SELECT id FROM users WHERE code_id = ? LIMIT 1`, [code_id]);
+        user_id = userIdResult[0]?.id;
+      }
+      if (user_id) {
+        await queryDatabase(
+          `INSERT INTO follow_up_documents (user_id, accepted_at, message, is_read) VALUES (?, NOW(), ?, 0)`,
+          [user_id, 'All your documents have been accepted.']
+        );
+      }
+      return res.status(200).json({
+        success: true,
+        message: 'All your documents have been accepted.'
+      });
+    }
+
+    if (status === 'Approved') {
+      const updateQuery = `UPDATE ${document_type} SET status = ?, rejection_reason = NULL WHERE file_name = ?`;
+      const params = [status, file_name];
+      console.log('Running SQL:', updateQuery, 'with params:', params);
+      const result = await queryDatabase(updateQuery, params);
+      if (!result.affectedRows || result.affectedRows === 0) {
+        return res.status(404).json({ success: false, error: 'Document not found' });
+      }
+      // Fetch code_id from the document table
+      const codeIdResult = await queryDatabase(`SELECT code_id FROM ${document_type} WHERE file_name = ? LIMIT 1`, [file_name]);
+      const code_id = codeIdResult[0]?.code_id;
+      let user_id = null;
+      if (code_id) {
+        // Fetch user_id from users table
+        const userIdResult = await queryDatabase(`SELECT id FROM users WHERE code_id = ? LIMIT 1`, [code_id]);
+        user_id = userIdResult[0]?.id;
+      }
+      // Map table name to human-friendly document label
+      const docLabels = {
+        'psa_documents': 'PSA Birth Certificate',
+        'itr_documents': 'Income Tax Return',
+        'med_cert_documents': 'Medical Certificate',
+        'marriage_documents': 'Marriage Certificate',
+        'cenomar_documents': 'CENOMAR',
+        'death_cert_documents': 'Death Certificate'
+      };
+      const docLabel = docLabels[document_type] || document_type;
+      // Insert follow-up notification for the user
+      if (user_id) {
+        const message = `Your ${docLabel} has been accepted.`;
+        await queryDatabase(
+          `INSERT INTO follow_up_documents (user_id, accepted_at, message, is_read) VALUES (?, NOW(), ?, 0)`,
+          [user_id, message]
+        );
+      }
+      return res.status(200).json({ 
+        success: true, 
+        message: `Document status updated to ${status}` 
+      });
+    } else if (status !== 'Declined') {
+      // For statuses other than Declined/Approved
+      const updateQuery = `UPDATE ${document_type} SET status = ? WHERE file_name = ?`;
+      const params = [status, file_name];
+      console.log('Running SQL:', updateQuery, 'with params:', params);
+      const result = await queryDatabase(updateQuery, params);
+      if (!result.affectedRows || result.affectedRows === 0) {
+        return res.status(404).json({ success: false, error: 'Document not found' });
+      }
+      return res.status(200).json({ 
+        success: true, 
+        message: `Document status updated to ${status}` 
+      });
+    }
+    // No update for Declined (already handled by delete above)
+
+
+    if (!result.affectedRows || result.affectedRows === 0) {
+      return res.status(404).json({ success: false, error: 'Document not found' });
+    }
 
     res.status(200).json({ 
       success: true, 
-      message: `Document(s) ${status.toLowerCase()} successfully`
+      message: `Document status updated to ${status}` 
     });
   } catch (error) {
-    await queryDatabase('ROLLBACK');
     console.error('Error updating document status:', error);
     res.status(500).json({ 
       success: false, 
@@ -2336,5 +2416,46 @@ app.post('/updateRenewalDocument', async (req, res) => {
       success: false,
       error: 'Failed to update renewal document status'
     });
+  }
+});
+  // Get all follow-up notifications for a user
+app.get('/followup-notifications/:userId', async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const results = await queryDatabase(
+      'SELECT id, accepted_at as created_at, message, is_read FROM follow_up_documents WHERE user_id = ? ORDER BY accepted_at DESC',
+      [userId]
+    );
+    res.json(results);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch follow-up notifications' });
+  }
+});
+
+// Mark a single follow-up notification as read
+app.put('/followup-notifications/mark-as-read/:userId/:notifId', async (req, res) => {
+  const { userId, notifId } = req.params;
+  try {
+    await queryDatabase(
+      'UPDATE follow_up_documents SET is_read = 1 WHERE user_id = ? AND id = ?',
+      [userId, notifId]
+    );
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to mark follow-up notification as read' });
+  }
+});
+
+// Mark all follow-up notifications as read for a user
+app.put('/followup-notifications/mark-all-as-read/:userId', async (req, res) => {
+  const { userId } = req.params;
+  try {
+    await queryDatabase(
+      'UPDATE follow_up_documents SET is_read = 1 WHERE user_id = ?',
+      [userId]
+    );
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to mark all follow-up notifications as read' });
   }
 });

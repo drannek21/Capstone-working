@@ -4,10 +4,15 @@ import SuperAdminSideBar from './SuperAdminSideBar';
 import './Applications.css';
 
 const Applications = () => {
+  // ...existing state
+  const [documentActionStatus, setDocumentActionStatus] = useState({}); // { [docIndex]: 'Accepted' | 'Declined' | undefined }
+
   const [applications, setApplications] = useState([]);
   const [missingDocuments, setMissingDocuments] = useState([]);
   const [selectedApplication, setSelectedApplication] = useState(null);
+const [selectedFollowup, setSelectedFollowup] = useState(null);
   const [remarks, setRemarks] = useState("");
+const [acceptAllLoading, setAcceptAllLoading] = useState(false);
   const [modalType, setModalType] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -83,7 +88,7 @@ const Applications = () => {
 
   const fetchMissingDocuments = async () => {
     try {
-      const response = await axios.get('http://localhost:8081/api/documents/missing_documents');
+      const response = await axios.get('http://localhost:8081/api/documents/follow_up_documents');
       // Group documents by code_id
       const groupedDocuments = response.data.reduce((acc, doc) => {
         if (!acc[doc.code_id]) {
@@ -94,7 +99,8 @@ const Applications = () => {
           };
         }
         acc[doc.code_id].documents.push({
-          document_type: doc.document_type,
+          document_type: doc.document_type, // comes from backend SQL alias
+          file_name: doc.file_name,         // ensure this is included for update
           status: doc.status,
           follow_up_date: doc.follow_up_date,
           file_url: doc.file_url,
@@ -143,6 +149,8 @@ const Applications = () => {
 
   const closeModal = () => {
     setSelectedApplication(null);
+    setSelectedFollowup(null);
+    setDocumentActionStatus({});
     setRemarks("");
     
     // Handle modal type based on current context
@@ -206,44 +214,79 @@ const Applications = () => {
     }
   };
 
+  // Accept All Follow-up Documents
+  const handleAcceptAllFollowups = async () => {
+    if (!selectedApplication || !selectedApplication.documents) return;
+    const docsToAccept = selectedApplication.documents.filter(doc => doc.status !== 'Approved');
+    if (docsToAccept.length === 0) {
+      alert('All documents are already approved.');
+      return;
+    }
+    setAcceptAllLoading(true);
+    let successCount = 0;
+    let failCount = 0;
+    for (const doc of docsToAccept) {
+      try {
+        const response = await axios.post('http://localhost:8081/updateDocumentStatus', {
+          document_type: doc.document_type,
+          file_name: doc.file_name,
+          status: 'Approved',
+          rejection_reason: ''
+        });
+        if (response.status === 200) {
+          successCount++;
+        } else {
+          failCount++;
+        }
+      } catch (error) {
+        console.error('Error approving document:', doc, error);
+        failCount++;
+      }
+    }
+    await fetchMissingDocuments();
+    setAcceptAllLoading(false);
+    closeModal();
+    alert(`Accepted ${successCount} document(s). ${failCount > 0 ? failCount + ' failed.' : ''}`);
+  };
+
   // New function for handling follow-up document actions
   const handleFollowupAction = async (action) => {
-    if (!selectedApplication) return;
-    
+    if (!selectedFollowup) return;
+
+    // Debug: log selectedFollowup
+    console.log('selectedFollowup in handleFollowupAction:', selectedFollowup);
+
+    // Ensure required fields are present
+    const { document_type, file_name } = selectedFollowup;
+    if (!document_type || !file_name) {
+      alert('Error: Missing document_type or file_name');
+      return;
+    }
+
     try {
       // For decline action, check if remarks are provided
       if (action === "Decline" && !remarks.trim()) {
         alert("Please provide remarks for declining.");
         return;
       }
-  
-      // Ensure documentType is properly formatted
-      let documentType = selectedApplication.document_type;
-      if (!documentType) {
-        console.error('Document type is undefined:', selectedApplication);
-        alert('Error: Document type is missing');
-        return;
-      }
-  
-      // Add _documents suffix if not present
-      if (!documentType.includes('_documents')) {
-        documentType = `${documentType}_documents`;
-      }
-  
+
+      const status = action === "Accept" ? "Approved" : "Declined";
+      const rejection_reason = remarks.trim() || "No remarks provided";
+
       console.log('Sending request with:', {
-        code_id: selectedApplication.code_id,
-        documentType,
-        status: action === "Accept" ? "Approved" : "Declined",
-        remarks: remarks.trim() || "No remarks provided"
+        document_type,
+        file_name,
+        status,
+        rejection_reason
       });
-  
+
       const response = await axios.post('http://localhost:8081/updateDocumentStatus', {
-        code_id: selectedApplication.code_id,
-        documentType,
-        status: action === "Accept" ? "Approved" : "Declined",
-        remarks: remarks.trim() || "No remarks provided"
+        document_type,
+        file_name,
+        status,
+        rejection_reason
       });
-  
+
       if (response.status === 200) {
         alert(action === "Accept" ? "Document accepted successfully!" : "Document declined successfully!");
         await fetchMissingDocuments();
@@ -423,12 +466,6 @@ const Applications = () => {
                     <>
                       <button className="btn view-btn" onClick={() => openModal(item, "viewDocuments")}> 
                         <i className="fas fa-eye"></i> View Documents
-                      </button>
-                      <button className="btn accept-btnsadmin" onClick={() => openModal(item, "confirmAccept")}> 
-                        <i className="fas fa-check"></i> Accept
-                      </button>
-                      <button className="btn decline-btnsadmin" onClick={() => openModal(item, "decline")}> 
-                        <i className="fas fa-times"></i> Decline
                       </button>
                     </>
                   )}
@@ -674,7 +711,7 @@ const Applications = () => {
               {stepPage === 6 && (
                 <div className="detail-section">
                   <h4>Documents</h4>
-                  {selectedApplication.documents && selectedApplication.documents.length > 0 ? (
+                  {selectedApplication && selectedApplication.documents && selectedApplication.documents.length > 0 ? (
                     <div className="documents-list">
                       {selectedApplication.documents.map((doc, index) => {
                         // Extract document type from table name
@@ -704,6 +741,25 @@ const Applications = () => {
                                 onClick={() => window.open(doc.file_url, '_blank')}
                               >
                                 <i className="fas fa-eye"></i> View Full Size
+                              </button>
+                              {/* Accept/Decline buttons for each document */}
+                              <button 
+                                className="btn-accept-btnsadmin"
+                                onClick={async () => {
+                                  setSelectedFollowup(doc);
+                                  setModalType("followupConfirmAccept");
+                                }}
+                              >
+                                <i className="fas fa-check"></i> Accept
+                              </button>
+                              <button 
+                                className="btn decline-btnsadmin"
+                                onClick={async () => {
+                                  setSelectedFollowup(doc);
+                                  setModalType("followupDecline");
+                                }}
+                              >
+                                <i className="fas fa-times"></i> Decline
                               </button>
                             </div>
                           </div>
@@ -821,12 +877,19 @@ const Applications = () => {
             <div className="modal-content">
               <div className="detail-section">
                 <h4>Documents</h4>
+                <button className="btn-accept-btnsadmin" style={{marginBottom: '10px'}} onClick={handleAcceptAllFollowups} disabled={acceptAllLoading}>
+  {acceptAllLoading ? (
+    <span><i className="fas fa-spinner fa-spin"></i> Accepting All...</span>
+  ) : (
+    <span><i className="fas fa-check-double"></i> Accept All</span>
+  )}
+</button>
                 {selectedApplication.documents && selectedApplication.documents.length > 0 ? (
                   <div className="documents-list">
                     {selectedApplication.documents.map((doc, index) => {
                       const displayType = doc.document_type ? 
                         doc.document_type.replace('_documents', '').toUpperCase() : 'Document';
-                      
+                      const actionStatus = documentActionStatus[index];
                       return (
                         <div key={index} className="document-item">
                           <div className="document-header">
@@ -856,6 +919,34 @@ const Applications = () => {
                                 >
                                   <i className="fas fa-eye"></i> View Full Size
                                 </button>
+                              </div>
+                              {/* Accept/Decline controls per document */}
+                              <div className="document-action-buttons" style={{ marginTop: '10px', display: 'flex', gap: '10px' }}>
+                                <button
+                                  className="btn-accept-btnsadmin"
+                                  disabled={!!actionStatus}
+                                  onClick={async () => {
+                                    setSelectedFollowup(doc);
+                                    setModalType("followupConfirmAccept");
+                                  }}
+                                >
+                                  <i className="fas fa-check"></i> Accept
+                                </button>
+                                <button
+                                  className="btn decline-btnsadmin"
+                                  disabled={!!actionStatus}
+                                  onClick={async () => {
+                                    setSelectedFollowup(doc);
+                                    setModalType("followupDecline");
+                                  }}
+                                >
+                                  <i className="fas fa-times"></i> Decline
+                                </button>
+                                {actionStatus && (
+                                  <span style={{ marginLeft: '10px', fontWeight: 'bold', color: actionStatus === 'Accepted' ? 'green' : 'red' }}>
+                                    {actionStatus}
+                                  </span>
+                                )}
                               </div>
                             </>
                           ) : (
@@ -887,7 +978,7 @@ const Applications = () => {
       )}
 
       {/* Follow-up Documents Confirm Accept Modal */}
-      {modalType === "followupConfirmAccept" && selectedApplication && (
+      {modalType === "followupConfirmAccept" && selectedFollowup && (
         <div className="modal-overlay followup-modal" onClick={closeModal}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
@@ -909,7 +1000,7 @@ const Applications = () => {
       )}
 
       {/* Follow-up Documents Decline Modal */}
-      {modalType === "followupDecline" && selectedApplication && (
+      {modalType === "followupDecline" && selectedFollowup && (
         <div className="modal-overlay followup-modal" onClick={closeModal}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
@@ -927,7 +1018,10 @@ const Applications = () => {
               </div>
             </div>
             <div className="modal-footer">
-              <button className="btn decline-btnsadmin" onClick={() => handleFollowupAction("Decline")}>
+              <button className="btn decline-btnsadmin" onClick={() => {
+  console.log('Confirm Decline clicked');
+  handleFollowupAction("Decline");
+}}>
                 <i className="fas fa-times"></i> Confirm Decline
               </button>
               <button className="btn view-btn" onClick={closeModal}>

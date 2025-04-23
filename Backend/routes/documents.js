@@ -610,12 +610,11 @@ router.post('/submitAllSteps', async (req, res) => {
   }
 });
 
-// Handle missing document update
-router.post('/updateMissingDocument', async (req, res) => {
+router.post('/follow_up', async (req, res) => {
   const { code_id, document_type, file_url, display_name, status = 'Pending' } = req.body;
   let connection;
 
-  console.log('Received document upload request:', req.body);
+  console.log('Received follow-up document upload request:', req.body);
 
   try {
     // Validate document type
@@ -652,33 +651,15 @@ router.post('/updateMissingDocument', async (req, res) => {
       throw new Error('Invalid code_id');
     }
 
-    // First, save to missing_documents table
-    const missingDocQuery = `
-      INSERT INTO missing_documents (code_id, document_type, file_url, display_name, status, created_at, follow_up_date)
-      VALUES (?, ?, ?, ?, ?, NOW(), NOW())
-      ON DUPLICATE KEY UPDATE
-        file_url = VALUES(file_url),
-        display_name = VALUES(display_name),
-        status = VALUES(status),
-        updated_at = NOW(),
-        follow_up_date = NOW()
-    `;
-
-    await new Promise((resolve, reject) => {
-      connection.query(missingDocQuery, [code_id, document_type, file_url, display_name, status], (err, result) => {
-        if (err) reject(err);
-        else resolve(result);
-      });
-    });
-
-    // Then, save to the specific document table
+    // Insert directly into the specific document table with category 'followup'
     const insertQuery = `
-      INSERT INTO ${tableName.table} (code_id, file_name, display_name, status, uploaded_at)
-      VALUES (?, ?, ?, ?, NOW())
+      INSERT INTO ${tableName.table} (code_id, file_name, display_name, status, category, uploaded_at)
+      VALUES (?, ?, ?, ?, 'followup', NOW())
       ON DUPLICATE KEY UPDATE
         file_name = VALUES(file_name),
         display_name = VALUES(display_name),
         status = VALUES(status),
+        category = 'followup',
         uploaded_at = NOW()
     `;
 
@@ -696,7 +677,7 @@ router.post('/updateMissingDocument', async (req, res) => {
       });
     });
 
-    res.json({ success: true, message: 'Document updated successfully' });
+    res.json({ success: true, message: 'Follow-up document uploaded successfully' });
   } catch (error) {
     console.error('Error uploading document to updateMissingDocument:', error);
     if (connection) {
@@ -783,11 +764,22 @@ router.post('/:documentType', async (req, res) => {
       console.log('Updated document:', result);
     } else {
       // Insert new document
-      const insertQuery = `
-        INSERT INTO ${tableName.table} (code_id, file_name, uploaded_at, display_name, status)
-        VALUES (?, ?, ?, ?, ?)`;
+      let insertQuery;
+      let insertValues;
+      // Only include 'category' for tables that have that column
+      if (tableName.table !== 'barangay_cert_documents') {
+        insertQuery = `
+          INSERT INTO ${tableName.table} (code_id, file_name, uploaded_at, display_name, status, category)
+          VALUES (?, ?, ?, ?, ?, ?)`;
+        insertValues = [code_id, file_name, new Date(), display_name, 'Pending', 'application'];
+      } else {
+        insertQuery = `
+          INSERT INTO ${tableName.table} (code_id, file_name, uploaded_at, display_name, status)
+          VALUES (?, ?, ?, ?, ?)`;
+        insertValues = [code_id, file_name, new Date(), display_name, 'Pending'];
+      }
       result = await new Promise((resolve, reject) => {
-        connection.query(insertQuery, [code_id, file_name, new Date(), display_name, 'Pending'], (err, result) => {
+        connection.query(insertQuery, insertValues, (err, result) => {
           if (err) reject(err);
           else resolve(result);
         });
@@ -957,7 +949,7 @@ router.post('/barangay_cert', async (req, res) => {
 });
 
 // Get missing documents
-router.get('/missing_documents', async (req, res) => {
+router.get('/follow_up_documents', async (req, res) => {
   let connection;
   try {
     connection = await new Promise((resolve, reject) => {
@@ -969,20 +961,18 @@ router.get('/missing_documents', async (req, res) => {
 
     // Query for all document tables with specific columns
     const queries = [
-      `SELECT code_id, file_name as file_url, display_name, status, 'psa_documents' as document_type, uploaded_at as follow_up_date 
-       FROM psa_documents WHERE status = 'Pending'`,
-      `SELECT code_id, file_name as file_url, display_name, status, 'itr_documents' as document_type, uploaded_at as follow_up_date 
-       FROM itr_documents WHERE status = 'Pending'`,
-      `SELECT code_id, file_name as file_url, display_name, status, 'marriage_documents' as document_type, uploaded_at as follow_up_date 
-       FROM marriage_documents WHERE status = 'Pending'`,
-      `SELECT code_id, file_name as file_url, display_name, status, 'med_cert_documents' as document_type, uploaded_at as follow_up_date 
-       FROM med_cert_documents WHERE status = 'Pending'`,
-      `SELECT code_id, file_name as file_url, display_name, status, 'cenomar_documents' as document_type, uploaded_at as follow_up_date 
-       FROM cenomar_documents WHERE status = 'Pending'`,
-      `SELECT code_id, file_name as file_url, display_name, status, 'death_cert_documents' as document_type, uploaded_at as follow_up_date 
-       FROM death_cert_documents WHERE status = 'Pending'`,
-      `SELECT code_id, file_url, display_name, status, 'missing_documents' as document_type, follow_up_date 
-       FROM missing_documents WHERE status = 'Pending'`
+      `SELECT psa_id AS id, code_id, file_name, file_name as file_url, display_name, status, 'psa_documents' as document_type, uploaded_at as follow_up_date 
+       FROM psa_documents WHERE status = 'Pending' AND category = 'followup'`,
+      `SELECT itr_id AS id, code_id, file_name, file_name as file_url, display_name, status, 'itr_documents' as document_type, uploaded_at as follow_up_date 
+       FROM itr_documents WHERE status = 'Pending' AND category = 'followup'`,
+      `SELECT marriage_id AS id, code_id, file_name, file_name as file_url, display_name, status, 'marriage_documents' as document_type, uploaded_at as follow_up_date 
+       FROM marriage_documents WHERE status = 'Pending' AND category = 'followup'`,
+      `SELECT med_cert_id AS id, code_id, file_name, file_name as file_url, display_name, status, 'med_cert_documents' as document_type, uploaded_at as follow_up_date 
+       FROM med_cert_documents WHERE status = 'Pending' AND category = 'followup'`,
+      `SELECT cenomar_id AS id, code_id, file_name, file_name as file_url, display_name, status, 'cenomar_documents' as document_type, uploaded_at as follow_up_date 
+       FROM cenomar_documents WHERE status = 'Pending' AND category = 'followup'`,
+      `SELECT death_cert_id AS id, code_id, file_name, file_name as file_url, display_name, status, 'death_cert_documents' as document_type, uploaded_at as follow_up_date 
+       FROM death_cert_documents WHERE status = 'Pending' AND category = 'followup'` 
     ];
 
     const combinedQuery = queries.join(' UNION ALL ') + 

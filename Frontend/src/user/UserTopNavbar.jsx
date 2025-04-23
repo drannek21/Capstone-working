@@ -115,6 +115,19 @@ const UserTopNavbar = () => {
         const eventsResponse = await fetch('http://localhost:8081/events');
         const eventsData = await eventsResponse.json();
 
+        // Fetch follow-up notifications
+        let followupData = [];
+        try {
+          const followupResponse = await fetch(`http://localhost:8081/followup-notifications/${userId}`);
+          if (followupResponse.ok) {
+            followupData = await followupResponse.json();
+          } else {
+            followupData = [];
+          }
+        } catch (err) {
+          followupData = [];
+        }
+
         // Convert events to notification format
         const eventNotifications = eventsData.map(event => ({
           id: `event_${event.id}`,
@@ -129,12 +142,24 @@ const UserTopNavbar = () => {
           read: event.is_read === 1 // Convert MySQL TINYINT(1) to boolean
         }));
 
-        // Combine both notifications and events
-        const allNotifications = [...notificationsData, ...eventNotifications];
-        
+        // Normalize follow-up notifications
+        const followupNotifications = Array.isArray(followupData) ? followupData.map(notif => ({
+          id: notif.id,
+          type: 'followup',
+          message: notif.message,
+          created_at: notif.created_at,
+          read: notif.is_read === 1
+        })) : [];
+
+        // Combine all notifications
+        const allNotifications = [
+          ...notificationsData,
+          ...eventNotifications,
+          ...followupNotifications
+        ];
+
         // Sort by creation date (newest first)
         allNotifications.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-        
         setNotifications(allNotifications);
       } catch (error) {
         console.error("Error fetching notifications:", error);
@@ -161,10 +186,19 @@ const UserTopNavbar = () => {
         )
       );
 
-      // If it's an event notification, mark it as read in the backend
       if (type === 'event') {
         const eventId = notificationId.replace('event_', '');
         await fetch(`http://localhost:8081/events/mark-as-read/${eventId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        return;
+      }
+
+      if (type === 'followup') {
+        await fetch(`http://localhost:8081/followup-notifications/mark-as-read/${userId}/${notificationId}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -188,12 +222,19 @@ const UserTopNavbar = () => {
   const markAllAsRead = async () => {
     try {
       const userId = localStorage.getItem("UserId");
-  
+
+      // Mark all regular notifications as read
       await fetch(`http://localhost:8081/notifications/mark-all-as-read/${userId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
       });
-  
+
+      // Mark all follow-up notifications as read
+      await fetch(`http://localhost:8081/followup-notifications/mark-all-as-read/${userId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+      });
+
       setNotifications((prevNotifications) =>
         prevNotifications.map((notif) => ({ ...notif, read: true }))
       );

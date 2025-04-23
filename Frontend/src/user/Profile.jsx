@@ -305,17 +305,8 @@ const Profile = () => {
       
       const documentUrl = response.data.secure_url;
       
-      // First, save to missing_documents table for all document types
-      await axios.post(`${API_BASE_URL}/api/documents/updateMissingDocument`, {
-        code_id: user.code_id,
-        document_type: documentType,
-        status: 'Pending',
-        file_url: documentUrl,
-        display_name: file.name
-      });
-
-      // Then, save to the specific document table
       if (documentType === 'barangay_cert') {
+        // Only upload to barangay_cert_documents for barangay_cert
         await axios.post(`${API_BASE_URL}/api/documents/barangay_cert`, {
           code_id: user.code_id,
           file_name: documentUrl,
@@ -323,6 +314,13 @@ const Profile = () => {
           status: 'Pending'
         });
       } else {
+        await axios.post(`${API_BASE_URL}/api/documents/follow_up`, {
+          code_id: user.code_id,
+          document_type: documentType,
+          status: 'Pending',
+          file_url: documentUrl,
+          display_name: file.name
+        });
         await axios.post(`${API_BASE_URL}/api/documents/${documentType}`, {
           code_id: user.code_id,
           file_name: documentUrl,
@@ -698,7 +696,7 @@ const Profile = () => {
     if (!user?.validUntil) return false;
     const expirationDate = new Date(user.validUntil);
     // Use the actual current date (2025-04-21) as provided by the system
-    const today = new Date('2025-04-21');
+    const today = new Date('2025-04-25');
     today.setHours(0, 0, 0, 0);
     expirationDate.setHours(0, 0, 0, 0);
     return expirationDate < today; // Expired if expirationDate is before today
@@ -865,7 +863,7 @@ const Profile = () => {
                             {document ? (
                               <span className={`status-${document.status.toLowerCase()}`}>
                                 <FontAwesomeIcon 
-                                  icon={document.status === 'Submitted' ? faCheckCircle : faClock} 
+                                  icon={document.status === 'Approved' ? faCheckCircle : faClock} 
                                   className="status-icon" 
                                 />
                                 {document.status === 'Approved' ? 'Submitted' : document.status}

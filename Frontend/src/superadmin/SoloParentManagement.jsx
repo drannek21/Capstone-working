@@ -708,48 +708,61 @@ const SoloParentManagement = () => {
                   </div>
                   <div className="documents-section">
                     <h4>Barangay Certificate</h4>
-                    {selectedUser.documents && selectedUser.documents.length > 0 ? (
-                      <div className="documents-list">
-                        {selectedUser.documents
-                          .filter(doc => doc.document_type === 'barangay_cert_documents')
-                          .map((doc, index) => (
-                            <div key={index} className="document-item">
-                              <div className="document-preview">
-                                <img 
-                                  src={doc.file_url} 
-                                  alt="Barangay Certificate"
-                                  className="document-thumbnail"
-                                  onClick={() => window.open(doc.file_url, '_blank')}
-                                  onError={(e) => {
-                                    e.target.onerror = null;
-                                    e.target.src = "https://placehold.co/200x200/e2e8f0/64748b?text=Certificate+Not+Found";
-                                  }}
-                                />
-                              </div>
-                              <div className="document-actions">
-                                <button 
-                                  className="btn view-btn full-width"
-                                  onClick={() => window.open(doc.file_url, '_blank')}
-                                >
-                                  <i className="fas fa-eye"></i> View Full Size
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                      </div>
-                    ) : (
-                      <div className="no-documents">
-                        <p>No barangay certificate submitted yet.</p>
-                      </div>
-                    )}
+                    {(() => {
+  const certDocs = selectedUser.documents ? selectedUser.documents.filter(doc => doc.document_type === 'barangay_cert_documents') : [];
+  if (certDocs.length > 0) {
+    return (
+      <div className="documents-list">
+        {certDocs.map((doc, index) => (
+          <div key={index} className="document-item">
+            <div className="document-preview">
+              <img
+                src={doc.file_url}
+                alt="Barangay Certificate"
+                className="document-thumbnail"
+                onClick={() => window.open(doc.file_url, '_blank')}
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = "https://placehold.co/200x200/e2e8f0/64748b?text=Certificate+Not+Found";
+                }}
+              />
+            </div>
+            <div className="document-actions">
+              <button
+                className="btn view-btn full-width"
+                onClick={() => window.open(doc.file_url, '_blank')}
+              >
+                <i className="fas fa-eye"></i> View Full Size
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  } else {
+    let message = "No barangay certificate submitted yet.";
+    if (
+      selectedUser.latest_remarks &&
+      selectedUser.latest_remarks.toLowerCase().includes("declined")
+    ) {
+      message = "Barangay certificate was removed after renewal was declined.";
+    }
+    return (
+      <div className="no-documents">
+        <p>{message}</p>
+      </div>
+    );
+  }
+})()}
                   </div>
                   <div className="modal-buttons">
-                    <button 
-                      onClick={() => handleAction("Accept", selectedUser)} 
-                      className="accept-btn"
-                    >
-                      Accept Renewal
-                    </button>
+                    <button
+                       onClick={() => handleAction("Accept", selectedUser)}
+                       className="accept-btn"
+                       disabled={!(selectedUser.documents && selectedUser.documents.filter(doc => doc.document_type === 'barangay_cert_documents').length > 0)}
+                     >
+                       Accept Renewal
+                     </button>
                     <button 
                       onClick={() => handleAction("Decline", selectedUser)} 
                       className="decline-btn"

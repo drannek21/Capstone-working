@@ -143,7 +143,7 @@ const DocumentUpload = ({ formData, updateFormData, prevStep, handleSubmit }) =>
           file_name: url,
           uploaded_at: new Date().toISOString(),
           status: 'pending',
-          display_name: fileName
+          display_name: fileName,
           // rejection_reason will be null by default
         }
       );
