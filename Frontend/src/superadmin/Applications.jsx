@@ -505,26 +505,26 @@ const [acceptAllLoading, setAcceptAllLoading] = useState(false);
       {/* PAGINATED VIEW DETAILS MODAL */}
       {modalType === "view" && selectedApplication && (
         <div 
-          className="modal-overlay" 
+          className="application-view-modal-overlay" 
           onClick={closeModal}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         >
           <div 
-            className="modal" 
+            className="application-view-modal" 
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="modal-header">
+            <div className="application-view-modal-header">
               <h3>Application Details (Step {stepPage}/6)</h3>
             </div>
-            <div className="modal-content">
+            <div className="application-view-modal-content">
               {/* Add step indicators for mobile */}
-              <div className="step-indicators">
+              <div className="application-step-indicators">
                 {[1, 2, 3, 4, 5, 6].map(step => (
                   <div
                     key={step}
-                    className={`step-dot ${stepPage === step ? 'active' : ''}`}
+                    className={`application-step-dot ${stepPage === step ? 'active' : ''}`}
                     onClick={() => setStepPage(step)}
                   />
                 ))}
@@ -712,22 +712,22 @@ const [acceptAllLoading, setAcceptAllLoading] = useState(false);
                 <div className="detail-section">
                   <h4>Documents</h4>
                   {selectedApplication && selectedApplication.documents && selectedApplication.documents.length > 0 ? (
-                    <div className="documents-list">
+                    <div className="application-documents-list">
                       {selectedApplication.documents.map((doc, index) => {
                         // Extract document type from table name
                         const displayType = doc.document_type ? 
                           doc.document_type.replace('_documents', '').toUpperCase() : 'Document';
                         
                         return (
-                          <div key={index} className="document-item">
-                            <div className="document-header">
+                          <div key={index} className="application-document-item">
+                            <div className="application-document-header">
                               <h5>{displayType}</h5>
                             </div>
-                            <div className="document-preview">
+                            <div className="application-document-preview">
                               <img 
                                 src={doc.file_url} 
                                 alt={doc.display_name || displayType}
-                                className="document-thumbnail"
+                                className="application-document-thumbnail"
                                 onClick={() => window.open(doc.file_url, '_blank')}
                                 onError={(e) => {
                                   e.target.onerror = null;
@@ -735,16 +735,16 @@ const [acceptAllLoading, setAcceptAllLoading] = useState(false);
                                 }}
                               />
                             </div>
-                            <div className="document-actions">
+                            <div className="application-document-actions">
                               <button 
-                                className="btn view-btn full-width"
+                                className="application-btn-view full-width"
                                 onClick={() => window.open(doc.file_url, '_blank')}
                               >
                                 <i className="fas fa-eye"></i> View Full Size
                               </button>
                               {/* Accept/Decline buttons for each document */}
                               <button 
-                                className="btn-accept-btnsadmin"
+                                className="application-btn-accept"
                                 onClick={async () => {
                                   setSelectedFollowup(doc);
                                   setModalType("followupConfirmAccept");
@@ -753,7 +753,7 @@ const [acceptAllLoading, setAcceptAllLoading] = useState(false);
                                 <i className="fas fa-check"></i> Accept
                               </button>
                               <button 
-                                className="btn decline-btnsadmin"
+                                className="application-btn-decline"
                                 onClick={async () => {
                                   setSelectedFollowup(doc);
                                   setModalType("followupDecline");
@@ -819,15 +819,15 @@ const [acceptAllLoading, setAcceptAllLoading] = useState(false);
       )}
 
       {modalType === "confirmAccept" && selectedApplication && (
-        <div className="modal-overlay" onClick={closeModal}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
+        <div className="confirm-accept-modal-overlay" onClick={closeModal}>
+          <div className="confirm-accept-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="confirm-accept-modal-header">
               <h3>Confirm Acceptance</h3>
             </div>
-            <div className="modal-content">
+            <div className="confirm-accept-modal-content">
               <p className="confirmation-message">Are you sure you want to accept this application?</p>
             </div>
-            <div className="modal-footer">
+            <div className="confirm-accept-modal-footer">
               <button className="btn-accept-btnsadmin" onClick={() => handleAction("Accept")}>
                 <i className="fas fa-check"></i> Yes, Accept
               </button>
@@ -839,12 +839,12 @@ const [acceptAllLoading, setAcceptAllLoading] = useState(false);
         </div>
       )}
       {modalType === "decline" && selectedApplication && (
-        <div className="modal-overlay" onClick={closeModal}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
+        <div className="decline-modal-overlay" onClick={closeModal}>
+          <div className="decline-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="decline-modal-header">
               <h3>Decline Application</h3>
             </div>
-            <div className="modal-content">
+            <div className="decline-modal-content">
               <div className="remarks-section">
                 <label>Please provide remarks for declining:</label>
                 <textarea
@@ -855,7 +855,7 @@ const [acceptAllLoading, setAcceptAllLoading] = useState(false);
                 />
               </div>
             </div>
-            <div className="modal-footer">
+            <div className="decline-modal-footer">
               <button className="btn decline-btnsadmin" onClick={() => handleAction("Decline")}>
                 <i className="fas fa-times"></i> Confirm Decline
               </button>
@@ -869,15 +869,15 @@ const [acceptAllLoading, setAcceptAllLoading] = useState(false);
 
       {/* Follow-up Documents View Modal */}
       {modalType === "followupViewDocuments" && selectedApplication && (
-        <div className="modal-overlay" onClick={closeModal}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
+        <div className="followup-modal-overlay" onClick={closeModal}>
+          <div className="followup-modal-container" onClick={(e) => e.stopPropagation()}>
+            <div className="followup-modal-header">
               <h3>Follow-up Documents</h3>
             </div>
-            <div className="modal-content">
-              <div className="detail-section">
+            <div className="followup-modal-content">
+              <div className="followup-detail-section">
                 <h4>Documents</h4>
-                <button className="btn-accept-btnsadmin" style={{marginBottom: '10px'}} onClick={handleAcceptAllFollowups} disabled={acceptAllLoading}>
+                <button className="followup-btn-accept" style={{marginBottom: '10px'}} onClick={handleAcceptAllFollowups} disabled={acceptAllLoading}>
   {acceptAllLoading ? (
     <span><i className="fas fa-spinner fa-spin"></i> Accepting All...</span>
   ) : (
@@ -885,26 +885,26 @@ const [acceptAllLoading, setAcceptAllLoading] = useState(false);
   )}
 </button>
                 {selectedApplication.documents && selectedApplication.documents.length > 0 ? (
-                  <div className="documents-list">
+                  <div className="followup-documents-list">
                     {selectedApplication.documents.map((doc, index) => {
                       const displayType = doc.document_type ? 
                         doc.document_type.replace('_documents', '').toUpperCase() : 'Document';
                       const actionStatus = documentActionStatus[index];
                       return (
-                        <div key={index} className="document-item">
-                          <div className="document-header">
+                        <div key={index} className="followup-document-item">
+                          <div className="followup-document-header">
                             <h5>{displayType}</h5>
-                            <span className={`status-${doc.status.toLowerCase()}`}>
+                            <span className={`followup-status-${doc.status.toLowerCase()}`}>
                               {doc.status}
                             </span>
                           </div>
                           {doc.file_url ? (
                             <>
-                              <div className="document-preview">
+                              <div className="followup-document-preview">
                                 <img 
                                   src={doc.file_url} 
                                   alt={doc.display_name || displayType}
-                                  className="document-thumbnail"
+                                  className="followup-document-thumbnail"
                                   onClick={() => window.open(doc.file_url, '_blank')}
                                   onError={(e) => {
                                     e.target.onerror = null;
@@ -912,18 +912,18 @@ const [acceptAllLoading, setAcceptAllLoading] = useState(false);
                                   }}
                                 />
                               </div>
-                              <div className="document-actions">
+                              <div className="followup-document-actions">
                                 <button 
-                                  className="btn view-btn full-width"
+                                  className="followup-btn-view full-width"
                                   onClick={() => window.open(doc.file_url, '_blank')}
                                 >
                                   <i className="fas fa-eye"></i> View Full Size
                                 </button>
                               </div>
                               {/* Accept/Decline controls per document */}
-                              <div className="document-action-buttons" style={{ marginTop: '10px', display: 'flex', gap: '10px' }}>
+                              <div className="followup-document-action-buttons" style={{ marginTop: '10px', display: 'flex', gap: '10px' }}>
                                 <button
-                                  className="btn-accept-btnsadmin"
+                                  className="followup-btn-accept"
                                   disabled={!!actionStatus}
                                   onClick={async () => {
                                     setSelectedFollowup(doc);
@@ -933,7 +933,7 @@ const [acceptAllLoading, setAcceptAllLoading] = useState(false);
                                   <i className="fas fa-check"></i> Accept
                                 </button>
                                 <button
-                                  className="btn decline-btnsadmin"
+                                  className="followup-btn-decline"
                                   disabled={!!actionStatus}
                                   onClick={async () => {
                                     setSelectedFollowup(doc);
@@ -950,10 +950,10 @@ const [acceptAllLoading, setAcceptAllLoading] = useState(false);
                               </div>
                             </>
                           ) : (
-                            <div className="no-document">
+                            <div className="followup-no-document">
                               <p>Document not yet submitted</p>
                               {doc.follow_up_date && (
-                                <p className="follow-up-date">
+                                <p className="followup-date">
                                   Follow-up date: {new Date(doc.follow_up_date).toLocaleDateString()}
                                 </p>
                               )}
@@ -968,8 +968,8 @@ const [acceptAllLoading, setAcceptAllLoading] = useState(false);
                 )}
               </div>
             </div>
-            <div className="modal-footer">
-              <button className="btn view-btn" onClick={closeModal}>
+            <div className="followup-modal-footer">
+              <button className="followup-btn-close" onClick={closeModal}>
                 Close
               </button>
             </div>
@@ -979,19 +979,19 @@ const [acceptAllLoading, setAcceptAllLoading] = useState(false);
 
       {/* Follow-up Documents Confirm Accept Modal */}
       {modalType === "followupConfirmAccept" && selectedFollowup && (
-        <div className="modal-overlay followup-modal" onClick={closeModal}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
+        <div className="followup-confirm-accept-modal-overlay" onClick={closeModal}>
+          <div className="followup-confirm-accept-modal-container" onClick={(e) => e.stopPropagation()}>
+            <div className="followup-confirm-accept-modal-header">
               <h3>Confirm Document Acceptance</h3>
             </div>
-            <div className="modal-content">
-              <p className="confirmation-message">Are you sure you want to accept this document?</p>
+            <div className="followup-confirm-accept-modal-content">
+              <p className="followup-confirmation-message">Are you sure you want to accept this document?</p>
             </div>
-            <div className="modal-footer">
-              <button className="btn-accept-btnsadmin" onClick={() => handleFollowupAction("Accept")}>
+            <div className="followup-confirm-accept-modal-footer">
+              <button className="followup-btn-accept" onClick={() => handleFollowupAction("Accept")}>
                 <i className="fas fa-check"></i> Yes, Accept
               </button>
-              <button className="btn view-btn" onClick={closeModal}>
+              <button className="followup-btn-close" onClick={closeModal}>
                 Cancel
               </button>
             </div>
@@ -1001,30 +1001,31 @@ const [acceptAllLoading, setAcceptAllLoading] = useState(false);
 
       {/* Follow-up Documents Decline Modal */}
       {modalType === "followupDecline" && selectedFollowup && (
-        <div className="modal-overlay followup-modal" onClick={closeModal}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
+        <div className="followup-decline-modal-overlay" onClick={closeModal}>
+          <div className="followup-decline-modal-container" onClick={(e) => e.stopPropagation()}>
+            <div className="followup-decline-modal-header">
               <h3>Decline Document</h3>
             </div>
-            <div className="modal-content">
-              <div className="remarks-section">
+            <div className="followup-decline-modal-content">
+              <div className="followup-remarks-section">
                 <label>Please provide remarks for declining:</label>
                 <textarea
                   value={remarks}
                   onChange={(e) => setRemarks(e.target.value)}
                   placeholder="Enter remarks here"
                   rows="4"
+                  className="followup-textarea"
                 />
               </div>
             </div>
-            <div className="modal-footer">
-              <button className="btn decline-btnsadmin" onClick={() => {
+            <div className="followup-decline-modal-footer">
+              <button className="followup-btn-decline" onClick={() => {
   console.log('Confirm Decline clicked');
   handleFollowupAction("Decline");
 }}>
                 <i className="fas fa-times"></i> Confirm Decline
               </button>
-              <button className="btn view-btn" onClick={closeModal}>
+              <button className="followup-btn-close" onClick={closeModal}>
                 Cancel
               </button>
             </div>

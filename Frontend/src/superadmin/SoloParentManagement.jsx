@@ -100,11 +100,11 @@ const SoloParentManagement = () => {
     document.body.style.overflow = 'auto';
   };
 
-  const handleAccept = async (code_id) => {
+  const handleUnterminate = async (userId) => {
     try {
-      const response = await axios.post('http://localhost:8081/acceptRemarks', { code_id });
+      const response = await axios.post('http://localhost:8081/unTerminateUser', { userId });
       if (response.data.success) {
-        setSuccessMessage('Account Verified');
+        setSuccessMessage('Account Re-verified');
         setShowSuccessModal(true);
         setTimeout(() => {
           setShowSuccessModal(false);
@@ -112,17 +112,17 @@ const SoloParentManagement = () => {
           fetchVerifiedUsers(); // Refresh the list
         }, 2000);
       } else {
-        throw new Error(response.data.message || 'Failed to verify user');
+        throw new Error(response.data.message || 'Failed to re-verify user');
       }
     } catch (err) {
-      console.error('Error verifying user:', err);
-      alert('Failed to verify user');
+      console.error('Error re-verifying user:', err);
+      alert('Failed to re-verify user');
     }
   };
 
-  const handleDecline = async (code_id) => {
+  const handleTerminate = async (userId) => {
     try {
-      const response = await axios.post('http://localhost:8081/declineRemarks', { code_id });
+      const response = await axios.post('http://localhost:8081/terminateUser', { userId });
       if (response.data.success) {
         setSuccessMessage('Account Terminated');
         setShowSuccessModal(true);
@@ -137,6 +137,88 @@ const SoloParentManagement = () => {
     } catch (err) {
       console.error('Error terminating user:', err);
       alert('Failed to terminate user');
+    }
+  };
+
+  const handleAccept = async (codeId) => {
+    try {
+      // Find the user with the given code_id
+      if (!selectedUser) {
+        throw new Error('User not found');
+      }
+      
+      // Log the selectedUser object to debug
+      console.log('Selected user for re-verification:', selectedUser);
+      
+      // Check different possible property names for user ID
+      const userId = selectedUser.id || selectedUser.user_id || selectedUser.userId;
+      
+      if (!userId) {
+        throw new Error('User ID is missing');
+      }
+      
+      console.log('Re-verifying user with ID:', userId);
+      
+      // Call the unTerminateUser endpoint to re-verify the user
+      const response = await axios.post('http://localhost:8081/unTerminateUser', { 
+        userId: userId 
+      });
+      
+      if (response.data.success) {
+        setSuccessMessage('Account Re-verified');
+        setShowSuccessModal(true);
+        setTimeout(() => {
+          setShowSuccessModal(false);
+          closeModal();
+          fetchVerifiedUsers(); // Refresh the list
+        }, 2000);
+      } else {
+        throw new Error(response.data.message || 'Failed to re-verify user');
+      }
+    } catch (err) {
+      console.error('Error re-verifying user:', err);
+      alert('Failed to re-verify user: ' + (err.message || 'Unknown error'));
+    }
+  };
+
+  const handleDecline = async (codeId) => {
+    try {
+      // Find the user with the given code_id
+      if (!selectedUser) {
+        throw new Error('User not found');
+      }
+      
+      // Log the selectedUser object to debug
+      console.log('Selected user for termination:', selectedUser);
+      
+      // Check different possible property names for user ID
+      const userId = selectedUser.id || selectedUser.user_id || selectedUser.userId;
+      
+      if (!userId) {
+        throw new Error('User ID is missing');
+      }
+      
+      console.log('Terminating user with ID:', userId);
+      
+      // Call the terminateUser endpoint to terminate the user
+      const response = await axios.post('http://localhost:8081/terminateUser', { 
+        userId: userId 
+      });
+      
+      if (response.data.success) {
+        setSuccessMessage('Account Terminated');
+        setShowSuccessModal(true);
+        setTimeout(() => {
+          setShowSuccessModal(false);
+          closeModal();
+          fetchVerifiedUsers(); // Refresh the list
+        }, 2000);
+      } else {
+        throw new Error(response.data.message || 'Failed to terminate user');
+      }
+    } catch (err) {
+      console.error('Error terminating user:', err);
+      alert('Failed to terminate user: ' + (err.message || 'Unknown error'));
     }
   };
 
@@ -162,26 +244,6 @@ const SoloParentManagement = () => {
     } catch (err) {
       console.error('Error updating user status:', err);
       alert('Failed to update user status');
-    }
-  };
-
-  const handleUnterminate = async (userId) => {
-    try {
-      const response = await axios.post('http://localhost:8081/unTerminateUser', { userId });
-      if (response.data.success) {
-        setSuccessMessage('Account Re-verified');
-        setShowSuccessModal(true);
-        setTimeout(() => {
-          setShowSuccessModal(false);
-          closeModal();
-          fetchVerifiedUsers(); // Refresh the list
-        }, 2000);
-      } else {
-        throw new Error(response.data.message || 'Failed to re-verify user');
-      }
-    } catch (err) {
-      console.error('Error re-verifying user:', err);
-      alert('Failed to re-verify user');
     }
   };
 
@@ -709,50 +771,64 @@ const SoloParentManagement = () => {
                   <div className="documents-section">
                     <h4>Barangay Certificate</h4>
                     {(() => {
-  const certDocs = selectedUser.documents ? selectedUser.documents.filter(doc => doc.document_type === 'barangay_cert_documents') : [];
-  if (certDocs.length > 0) {
-    return (
-      <div className="documents-list">
-        {certDocs.map((doc, index) => (
-          <div key={index} className="document-item">
-            <div className="document-preview">
-              <img
-                src={doc.file_url}
-                alt="Barangay Certificate"
-                className="document-thumbnail"
-                onClick={() => window.open(doc.file_url, '_blank')}
-                onError={(e) => {
-                  e.target.onerror = null;
-                  e.target.src = "https://placehold.co/200x200/e2e8f0/64748b?text=Certificate+Not+Found";
-                }}
-              />
-            </div>
-            <div className="document-actions">
-              <button
-                className="btn view-btn full-width"
-                onClick={() => window.open(doc.file_url, '_blank')}
-              >
-                <i className="fas fa-eye"></i> View Full Size
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  } else {
-    let message = "No barangay certificate submitted yet.";
-    if (
-      selectedUser.latest_remarks &&
-      selectedUser.latest_remarks.toLowerCase().includes("declined")
-    ) {
-      message = "Barangay certificate was removed after renewal was declined.";
-    }
+  // Check if user has uploaded a barangay certificate
+  const barangayCerts = selectedUser.documents ? 
+    selectedUser.documents.filter(doc => doc.document_type === 'barangay_cert_documents') : [];
+  
+  if (barangayCerts.length === 0) {
     return (
       <div className="no-documents">
-        <p>{message}</p>
+        <i className="fas fa-exclamation-circle document-icon"></i>
+        <p>No barangay certificate has been submitted for renewal.</p>
+        <p className="document-note">A barangay certificate is required to process the renewal.</p>
       </div>
     );
   }
+  
+  // Only show barangay certificates
+  return (
+    <div className="documents-list">
+      {barangayCerts.map((doc, index) => (
+        <div key={index} className="document-item">
+          <div className="document-header">
+            <div className="document-title-row">
+              <h5>Barangay Certificate</h5>
+            </div>
+            <div className="document-meta">
+              <span className="document-date">
+                {doc.upload_date ? new Date(doc.upload_date).toLocaleDateString() : 'Recently Uploaded'}
+              </span>
+              {doc.expiry_date && (
+                <span className="document-expiry">
+                  Expires: {new Date(doc.expiry_date).toLocaleDateString()}
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="document-preview">
+            <img
+              src={doc.file_url}
+              alt="Barangay Certificate"
+              className="document-thumbnail"
+              onClick={() => window.open(doc.file_url, '_blank')}
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.src = "https://placehold.co/400x300/e2e8f0/64748b?text=Certificate+Not+Found";
+              }}
+            />
+          </div>
+          <div className="document-actions">
+            <button
+              className="btn view-btn full-width"
+              onClick={() => window.open(doc.file_url, '_blank')}
+            >
+              <i className="fas fa-eye"></i> View Full Size
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 })()}
                   </div>
                   <div className="modal-buttons">
@@ -1025,9 +1101,9 @@ const SoloParentManagement = () => {
 
       {/* Success Modal */}
       {showSuccessModal && (
-        <div className="modal-overlay">
-          <div className="success-modal">
-            <div className="success-content">
+        <div className="soloparent-modal-overlay">
+          <div className="soloparent-success-modal">
+            <div className="soloparent-success-content">
               <i className="fas fa-check-circle"></i>
               <p>{successMessage}</p>
             </div>
@@ -1037,19 +1113,19 @@ const SoloParentManagement = () => {
 
       {/* ID Card Modal */}
       {showIDModal && (
-        <div className="id-modal-overlay" onClick={closeIDModal}>
-          <div className="id-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="id-modal-header">
+        <div className="soloparent-id-modal-overlay" onClick={closeIDModal}>
+          <div className="soloparent-id-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="soloparent-id-modal-header">
               <h3>Solo Parent ID Card</h3>
               <button 
-                className="close-btn"
+                className="soloparent-close-btn"
                 onClick={closeIDModal}
               >
                 &times;
               </button>
             </div>
-            <div className="id-modal-content">
-              <div className="id-cards-container">
+            <div className="soloparent-id-modal-content">
+              <div className="soloparent-id-cards-container">
                 {/* Front of ID */}
                 <div className="id-card front">
                   <div className="id-card-header">
@@ -1158,21 +1234,21 @@ const SoloParentManagement = () => {
                 </div>
               </div>
             </div>
-            <div className="id-modal-actions">
+            <div className="soloparent-id-modal-actions">
               <button 
-                className="download-btn"
+                className="soloparent-download-btn"
                 onClick={() => downloadID('front')}
               >
                 Download Front
               </button>
               <button 
-                className="download-btn"
+                className="soloparent-download-btn"
                 onClick={() => downloadID('back')}
               >
                 Download Back
               </button>
               <button 
-                className="print-btn"
+                className="soloparent-print-btn"
                 onClick={printID}
               >
                 Print ID

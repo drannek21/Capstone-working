@@ -12,6 +12,10 @@
   margin: 0 auto;
 }
 
+.faq-container {
+  padding: 1rem;
+}
+
 @media (max-width: 768px) {
   .user-content {
     padding: 0 0.5rem;

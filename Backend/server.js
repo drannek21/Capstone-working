@@ -11,7 +11,7 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(bodyParser.json({ limit: '50mb' }));
 
-const { sendStatusEmail } = require('./services/emailService');
+const { sendStatusEmail, sendRenewalStatusEmail, sendRevokeEmail, sendTerminationEmail, sendReverificationEmail } = require('./services/emailService');
 
 // Cloudinary setup
 const cloudinary = require('cloudinary').v2;
@@ -20,7 +20,6 @@ cloudinary.config({
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
-
 
 const { pool, queryDatabase } = require('./database');
 
@@ -346,7 +345,6 @@ app.get('/pendingUsers', async (req, res) => {
   }
 });
 
-
 app.get('/verifiedUsersSA', async (req, res) => {
   try {
     const users = await queryDatabase(`
@@ -475,7 +473,6 @@ app.get('/verifiedUsersSA', async (req, res) => {
   }
 });
 
-
 app.post('/pendingUsers/updateClassification', async (req, res) => {
   const { code_id, classification } = req.body;
 
@@ -586,7 +583,6 @@ app.post('/login', async (req, res) => {
     res.status(500).json({ error: 'Login failed' });
   }
 });
-
 
 app.post('/getUserDetails', async (req, res) => {
   const { userId } = req.body;
@@ -990,7 +986,7 @@ app.get('/notifications/:userId', async (req, res) => {
       notifications.push({
         id: `remark-${userId}-${remark.remarks_at}`,
         type: 'application_remarks',
-        message: `Your application is currently under investigation. Kindly proceed to your designated SPO to complete the necessary compliance requirements. You are given 3 to 5 working days to comply.`,
+        message: `Your application is currently under investigation. Kindly proceed to your designated SPO to complete the necessary compliance requirements. You are given 5 to 7 working days to comply.`,
         read: remark.is_read === 1,
         created_at: remark.remarks_at,
       });
@@ -1204,8 +1200,11 @@ app.post('/superadminUpdateStatus', async (req, res) => {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
     
+    console.log('Processing renewal for user:', userInfo[0]);
+    
     // Update user status
     await queryDatabase('UPDATE users SET status = ? WHERE id = ?', [status, userId]);
+    console.log(`Updated user status to ${status} for userId: ${userId}`);
     
     // Add to accepted_users or declined_users based on status
     if (status === "Verified") {
@@ -1213,12 +1212,31 @@ app.post('/superadminUpdateStatus', async (req, res) => {
         'INSERT INTO accepted_users (user_id, message, accepted_at, is_read) VALUES (?, ?, NOW(), 0)', 
         [userId, remarks || "Your renewal has been approved by a superadmin"]
       );
+      console.log(`Added to accepted_users: ${userId}`);
+      
       // Also set barangay_cert document status to Approved
       if (userInfo[0] && userInfo[0].code_id) {
         await queryDatabase(
           'UPDATE barangay_cert_documents SET status = ? WHERE code_id = ?',
           ['Approved', userInfo[0].code_id]
         );
+        console.log(`Updated barangay_cert_documents status to Approved for code_id: ${userInfo[0].code_id}`);
+      }
+      
+      // Send renewal acceptance email
+      if (userInfo[0] && userInfo[0].email && userInfo[0].first_name) {
+        console.log('Preparing to send renewal acceptance email to:', userInfo[0].email);
+        
+        // Use direct email sending instead of requiring the module again
+        const emailResult = await sendRenewalStatusEmail(
+          userInfo[0].email,
+          userInfo[0].first_name,
+          "Accept"
+        );
+        
+        console.log('Renewal acceptance email result:', emailResult ? 'Sent successfully' : 'Failed to send');
+      } else {
+        console.log('Missing user information for email:', userInfo[0]);
       }
     } else if (status === "Renewal" && remarks && remarks.toLowerCase().includes("declined")) {
       // Set barangay_cert document status to Rejected and delete the record
@@ -1232,6 +1250,23 @@ app.post('/superadminUpdateStatus', async (req, res) => {
         if (deleteResult.affectedRows === 0) {
           console.warn('[DECLINE] No barangay_cert_documents row found for code_id:', userInfo[0].code_id);
         }
+      }
+      
+      // Send renewal decline email
+      if (userInfo[0] && userInfo[0].email && userInfo[0].first_name) {
+        console.log('Preparing to send renewal decline email to:', userInfo[0].email);
+        
+        // Use direct email sending instead of requiring the module again
+        const emailResult = await sendRenewalStatusEmail(
+          userInfo[0].email,
+          userInfo[0].first_name,
+          "Decline",
+          remarks
+        );
+        
+        console.log('Renewal decline email result:', emailResult ? 'Sent successfully' : 'Failed to send');
+      } else {
+        console.log('Missing user information for email:', userInfo[0]);
       }
     } else if (status === "Declined" && remarks) {
       // Also delete barangay_cert_documents if status is Declined
@@ -1410,7 +1445,30 @@ app.post('/saveRemarks', async (req, res) => {
       ['Pending Remarks', user_id]
     );
 
+    // Get user information for the email
+    const userInfo = await queryDatabase(`
+      SELECT u.email, s1.first_name 
+      FROM users u 
+      JOIN step1_identifying_information s1 ON u.code_id = s1.code_id 
+      WHERE u.id = ?
+    `, [user_id]);
+
     await queryDatabase('COMMIT');
+
+    // Send revocation email if user email is available
+    if (userInfo && userInfo.length > 0 && userInfo[0].email && userInfo[0].first_name) {
+      try {
+        const { sendRevokeEmail } = require('./services/emailService');
+        await sendRevokeEmail(
+          userInfo[0].email,
+          userInfo[0].first_name
+        );
+        console.log('Revocation email sent to:', userInfo[0].email);
+      } catch (emailError) {
+        console.error('Error sending revocation email:', emailError);
+        // Continue with the process even if email fails
+      }
+    }
 
     res.status(200).json({ message: 'Remarks saved successfully and status updated to Pending Remarks' });
   } catch (error) {
@@ -1514,7 +1572,7 @@ app.post('/declineRemarks', async (req, res) => {
 
 app.post('/saveDocument', async (req, res) => {
   const { userId, documentType, documentUrl, documentName } = req.body;
-
+  
   try {
     // Update the users table with the document information
     // We'll store documents as JSON in the documents column
@@ -2418,7 +2476,8 @@ app.post('/updateRenewalDocument', async (req, res) => {
     });
   }
 });
-  // Get all follow-up notifications for a user
+
+// Get all follow-up notifications for a user
 app.get('/followup-notifications/:userId', async (req, res) => {
   const { userId } = req.params;
   try {
@@ -2457,5 +2516,117 @@ app.put('/followup-notifications/mark-all-as-read/:userId', async (req, res) => 
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: 'Failed to mark all follow-up notifications as read' });
+  }
+});
+
+// Endpoint to terminate a user account
+app.post('/terminateUser', async (req, res) => {
+  const { userId } = req.body;
+  
+  try {
+    console.log('Terminating user with ID:', userId);
+    
+    // Get the user info first to get code_id and email
+    const userInfo = await queryDatabase(`
+      SELECT u.id, u.code_id, u.email, s1.first_name 
+      FROM users u 
+      JOIN step1_identifying_information s1 ON u.code_id = s1.code_id 
+      WHERE u.id = ?
+    `, [userId]);
+    
+    if (!userInfo || userInfo.length === 0) {
+      console.error('User not found for termination:', userId);
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    
+    console.log('Processing termination for user:', JSON.stringify(userInfo[0]));
+    
+    // Update user status to Terminated
+    await queryDatabase('UPDATE users SET status = ? WHERE id = ?', ['Terminated', userId]);
+    console.log(`Updated user status to Terminated for userId: ${userId}`);
+    
+    // Send termination email if user email is available
+    if (userInfo[0] && userInfo[0].email && userInfo[0].first_name) {
+      try {
+        console.log('Preparing to send termination email to:', userInfo[0].email);
+        
+        // Use direct import to ensure the function is available
+        const { sendTerminationEmail } = require('./services/emailService');
+        
+        const emailResult = await sendTerminationEmail(
+          userInfo[0].email,
+          userInfo[0].first_name
+        );
+        
+        console.log('Termination email result:', emailResult ? 'Sent successfully' : 'Failed to send');
+      } catch (emailError) {
+        console.error('Error sending termination email:', emailError);
+        console.error('Error details:', JSON.stringify(emailError, null, 2));
+        // Continue with the process even if email fails
+      }
+    } else {
+      console.log('Missing user information for email:', JSON.stringify(userInfo[0]));
+    }
+    
+    res.json({ success: true, message: 'User account terminated successfully' });
+  } catch (err) {
+    console.error('Error terminating user account:', err);
+    res.status(500).json({ success: false, message: 'Failed to terminate user account' });
+  }
+});
+
+// Endpoint to re-verify a user account
+app.post('/unTerminateUser', async (req, res) => {
+  const { userId } = req.body;
+  
+  try {
+    console.log('Re-verifying user with ID:', userId);
+    
+    // Get the user info first to get code_id and email
+    const userInfo = await queryDatabase(`
+      SELECT u.id, u.code_id, u.email, s1.first_name 
+      FROM users u 
+      JOIN step1_identifying_information s1 ON u.code_id = s1.code_id 
+      WHERE u.id = ?
+    `, [userId]);
+    
+    if (!userInfo || userInfo.length === 0) {
+      console.error('User not found for re-verification:', userId);
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    
+    console.log('Processing re-verification for user:', JSON.stringify(userInfo[0]));
+    
+    // Update user status to Verified
+    await queryDatabase('UPDATE users SET status = ? WHERE id = ?', ['Verified', userId]);
+    console.log(`Updated user status to Verified for userId: ${userId}`);
+    
+    // Send re-verification email if user email is available
+    if (userInfo[0] && userInfo[0].email && userInfo[0].first_name) {
+      try {
+        console.log('Preparing to send re-verification email to:', userInfo[0].email);
+        
+        // Use direct import to ensure the function is available
+        const { sendReverificationEmail } = require('./services/emailService');
+        
+        const emailResult = await sendReverificationEmail(
+          userInfo[0].email,
+          userInfo[0].first_name
+        );
+        
+        console.log('Re-verification email result:', emailResult ? 'Sent successfully' : 'Failed to send');
+      } catch (emailError) {
+        console.error('Error sending re-verification email:', emailError);
+        console.error('Error details:', JSON.stringify(emailError, null, 2));
+        // Continue with the process even if email fails
+      }
+    } else {
+      console.log('Missing user information for email:', JSON.stringify(userInfo[0]));
+    }
+    
+    res.json({ success: true, message: 'User account re-verified successfully' });
+  } catch (err) {
+    console.error('Error re-verifying user account:', err);
+    res.status(500).json({ success: false, message: 'Failed to re-verify user account' });
   }
 });

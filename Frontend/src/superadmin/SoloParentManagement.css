@@ -311,8 +311,16 @@ tr:hover {
 
 .documents-list {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: 1fr;
   gap: 1.5rem;
+  width: 100%;
+  max-width: 100%;
+}
+
+@media (min-width: 768px) {
+  .documents-list {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  }
 }
 
 .document-item {
@@ -389,35 +397,88 @@ tr:hover {
   }
 }
 
-/* ID Card Modal Styles */
-.id-modal-overlay {
+/* Success Modal Styles */
+.soloparent-modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4px);
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 1000;
   padding: 1rem;
+  animation: fadeIn 0.2s ease-out;
 }
 
-.id-modal {
+.soloparent-success-modal {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  padding: 2.5rem;
+  text-align: center;
+  max-width: 400px;
+  width: 100%;
+  animation: scaleIn 0.3s ease-out;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.soloparent-success-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.soloparent-success-content i {
+  font-size: 4rem;
+  color: #10b981;
+  animation: pulse 1.5s infinite;
+}
+
+.soloparent-success-content p {
+  font-size: 1.25rem;
+  color: #1e293b;
+  margin: 0;
+  font-weight: 500;
+}
+
+/* ID Card Modal Styles */
+.soloparent-id-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 1.5rem;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.soloparent-id-modal {
   background: white;
   width: 100%;
   max-width: 900px;
-  border-radius: 12px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  border-radius: 16px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   overflow: hidden;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
+  animation: slideUp 0.3s ease-out;
+  border: 1px solid rgba(226, 232, 240, 0.8);
 }
 
-.id-modal-header {
-  padding: 1.5rem;
+.soloparent-id-modal-header {
+  padding: 1.5rem 2rem;
   border-bottom: 1px solid #e2e8f0;
   display: flex;
   justify-content: space-between;
@@ -425,34 +486,97 @@ tr:hover {
   background: #f8fafc;
 }
 
-.id-modal-header h3 {
+.soloparent-id-modal-header h3 {
   margin: 0;
-  color: #1e293b;
+  color: #0f172a;
   font-size: 1.5rem;
+  font-weight: 600;
 }
 
-.close-btn {
+.soloparent-close-btn {
   background: none;
   border: none;
-  font-size: 1.5rem;
+  font-size: 1.75rem;
   cursor: pointer;
   color: #64748b;
   padding: 0.5rem;
+  transition: all 0.2s;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  line-height: 1;
 }
 
-.id-modal-content {
-  padding: 2rem;
+.soloparent-close-btn:hover {
+  background: rgba(226, 232, 240, 0.5);
+  color: #334155;
+}
+
+.soloparent-id-modal-content {
+  padding: 2.5rem;
   overflow-y: auto;
   flex-grow: 1;
 }
 
-.id-cards-container {
+.soloparent-id-cards-container {
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: 2.5rem;
   align-items: center;
 }
 
+.soloparent-id-modal-actions {
+  padding: 1.5rem 2rem;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  background: #f8fafc;
+}
+
+.soloparent-download-btn, .soloparent-print-btn {
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+}
+.download-btn{
+  background: #10b981;
+  color: white;
+}
+
+.soloparent-download-btn {
+  background: #10b981;
+  color: white;
+}
+
+.soloparent-print-btn {
+  background: #10b981;
+  color: white;
+}
+
+.soloparent-download-btn:hover {
+  background: #059669;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.soloparent-print-btn:hover {
+  background: #059669;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* ID Card Styles */
 .id-card {
   width: 100%;
   max-width: 500px;
@@ -615,37 +739,6 @@ tr:hover {
   font-weight: 500;
 }
 
-.id-modal-actions {
-  padding: 1.5rem;
-  border-top: 1px solid #e2e8f0;
-  display: flex;
-  justify-content: center;
-  gap: 1rem;
-}
-
-.download-btn, .print-btn {
-  padding: 0.75rem 1.5rem;
-  border-radius: 6px;
-  font-weight: 500;
-  cursor: pointer;
-  border: none;
-  transition: all 0.2s;
-}
-
-.download-btn {
-  background: #00b341;
-  color: white;
-}
-
-.print-btn {
-  background: #00b341;
-  color: white;
-}
-
-.download-btn:hover, .print-btn:hover {
-  background: #009938;
-}
-
 /* Capture styles */
 .id-card.capturing {
   transform: none !important;
@@ -732,42 +825,48 @@ tr:hover {
   margin-top: 0;
 }
 
-/* Unique modal overlay for Solo Parent Management */
+/* Solo Parent Modal Styles */
 .solo-parent-modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  animation: fadeIn 0.2s ease-out;
 }
 
 .solo-parent-modal {
   background: #fff;
   border-radius: 16px;
-  box-shadow: 0 6px 32px rgba(0,0,0,0.18);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   width: 95vw;
-  max-width: 540px;
+  max-width: 700px;
   max-height: 90vh;
   overflow-y: auto;
   position: relative;
-  animation: fadeIn 0.2s;
+  animation: slideUp 0.3s ease-out;
+  border: 1px solid rgba(226, 232, 240, 0.8);
 }
 
 .solo-parent-modal-header {
-  padding: 1.5rem 2rem 1rem 2rem;
+  padding: 1.5rem 2rem;
   border-bottom: 1px solid #e5e7eb;
   background: #f9fafb;
   border-radius: 16px 16px 0 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .solo-parent-modal-header h3 {
   margin: 0;
-  color: #16C47F;
+  color: #0f172a;
   font-size: 1.5rem;
   font-weight: 600;
 }
@@ -778,7 +877,457 @@ tr:hover {
   border-radius: 0 0 16px 16px;
 }
 
+/* Document Section Improvements */
+.documents-section {
+  margin-top: 2.5rem;
+  background: #fff;
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  transition: all 0.3s ease;
+}
+
+.documents-section:hover {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.documents-section h4 {
+  color: #0f172a;
+  font-size: 1.35rem;
+  margin-top: 0;
+  margin-bottom: 1.75rem;
+  font-weight: 600;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e2e8f0;
+  letter-spacing: -0.01em;
+}
+
+.documents-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2rem;
+  width: 100%;
+  max-width: 100%;
+  padding: 0.5rem;
+}
+
+@media (min-width: 768px) {
+  .documents-list {
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  }
+}
+
+.document-item {
+  background: #f8fafc;
+  border-radius: 16px;
+  width: 86%;
+  padding: 1.75rem;
+  transition: all 0.3s ease;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  display: flex;
+  flex-direction: column;
+  height: 90%;
+}
+
+.document-item:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  background: #ffffff;
+}
+
+.document-header {
+  margin-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.document-header h5 {
+  margin: 0;
+  color: #10b981;
+  font-size: 1.2rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.document-date {
+  color: #64748b;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.document-date::before {
+  content: "•";
+  font-size: 1.2rem;
+  color: #cbd5e1;
+}
+
+.no-documents {
+  background: #f1f5f9;
+  border-radius: 12px;
+  padding: 3rem 2rem;
+  text-align: center;
+  color: #64748b;
+  font-size: 1.1rem;
+  border: 1px dashed #cbd5e1;
+  margin: 1rem 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.document-icon {
+  font-size: 3rem;
+  color: #cbd5e1;
+  margin-bottom: 0.5rem;
+}
+
+.document-preview {
+  margin-bottom: 1.5rem;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  flex-grow: 1;
+  position: relative;
+  background: #f1f5f9;
+}
+
+.document-thumbnail {
+  width: 100%;
+  height: 220px;
+  object-fit: cover;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.4s ease;
+}
+
+.document-thumbnail:hover {
+  transform: scale(1.05);
+}
+
+.document-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: auto;
+}
+
+.document-actions .btn.full-width {
+  width: 100%;
+  justify-content: center;
+  padding: 1rem;
+  border-radius: 12px;
+  font-weight: 500;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  border: none;
+  letter-spacing: 0.01em;
+}
+
+.document-actions .view-btn {
+  background-color: #10b981;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.document-actions .view-btn:hover {
+  background-color: #059669;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.document-actions .view-btn i {
+  font-size: 1.1rem;
+}
+
+/* Fix the download button for ID card */
+.download-btn {
+  background: #10b981;
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.print-btn {
+  background: #10b981;
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.download-btn:hover, .print-btn:hover {
+  background: #059669;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* ID Modal Actions */
+.id-modal-actions {
+  padding: 1.5rem;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  background: #f8fafc;
+}
+
+/* Animations */
 @keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes slideUp {
   from { opacity: 0; transform: translateY(30px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+/* Detail Section Improvements */
+.detail-section {
+  background: #fff;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e2e8f0;
+}
+
+.detail-section h4 {
+  color: #0f172a;
+  font-size: 1.25rem;
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  font-weight: 600;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.details-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1.5rem;
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.detail-item .label {
+  color: #64748b;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.detail-item .value {
+  color: #1e293b;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+/* Button Improvements */
+.modal-buttons {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  margin-top: 2rem;
+}
+
+.modal-buttons button {
+  min-width: 130px;
+  padding: 0.75rem 1.5rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.accept-btn {
+  background-color: #10b981;
+  color: white;
+  border: none;
+}
+
+.accept-btn:hover {
+  background-color: #059669;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.decline-btn {
+  background-color: #ef4444;
+  color: white;
+  border: none;
+}
+
+.decline-btn:hover {
+  background-color: #dc2626;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Document Category Styles */
+.document-category {
+  margin-bottom: 3rem;
+}
+
+.document-category:last-child {
+  margin-bottom: 0;
+}
+
+.document-category-title {
+  color: #0f172a;
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0 0 1.5rem 0;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #e2e8f0;
+  letter-spacing: -0.01em;
+}
+
+/* Document Header Improvements */
+.document-header {
+  margin-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.document-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.document-title-row h5 {
+  margin: 0;
+  color: #10b981;
+  font-size: 1.2rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.document-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  font-size: 0.9rem;
+  color: #64748b;
+}
+
+.document-date, .document-expiry {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.document-date::before {
+  content: "\f073"; /* Calendar icon */
+  font-family: "Font Awesome 5 Free";
+  font-weight: 400;
+  color: #94a3b8;
+}
+
+.document-expiry::before {
+  content: "\f017"; /* Clock icon */
+  font-family: "Font Awesome 5 Free";
+  font-weight: 400;
+  color: #94a3b8;
+}
+
+.document-expiry {
+  color: #f59e0b;
+  font-weight: 500;
+}
+
+/* Document Status Styles */
+.document-status {
+  padding: 0.35rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.document-status-approved, 
+.document-status-accepted {
+  background-color: #dcfce7;
+  color: #16a34a;
+}
+
+.document-status-pending {
+  background-color: #fff7ed;
+  color: #ea580c;
+}
+
+.document-status-declined, 
+.document-status-rejected {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+.document-status-expired {
+  background-color: #fef3c7;
+  color: #d97706;
+}
+
+/* Empty State Improvements */
+.no-documents {
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 3.5rem 2rem;
+  text-align: center;
+  color: #64748b;
+  font-size: 1.1rem;
+  border: 1px dashed #cbd5e1;
+  margin: 1rem 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.document-icon {
+  font-size: 3.5rem;
+  color: #cbd5e1;
+  margin-bottom: 0.5rem;
+}
+
+.document-note {
+  color: #ea580c;
+  font-size: 0.95rem;
+  font-style: italic;
+  margin-top: 0.5rem;
+  background-color: #fff7ed;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  display: inline-block;
+  border-left: 3px solid #f97316;
 }
