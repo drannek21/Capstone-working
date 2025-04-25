@@ -613,7 +613,9 @@ app.post('/getUserDetails', async (req, res) => {
           code_id: user.code_id,
           status: user.status,
           remarks: user.latest_remarks || 'No remarks',
-          remarks_at: user.remarks_at
+          remarks_at: user.remarks_at,
+          name: user.name,
+          email: user.email
         });
       }
 

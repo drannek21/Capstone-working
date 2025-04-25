@@ -10,7 +10,10 @@ import {
   faCalendarAlt,
   faFileAlt,
   faFileUpload,
-  faInfoCircle
+  faInfoCircle,
+  faCog,
+  faEye,
+  faEyeSlash
 } from '@fortawesome/free-solid-svg-icons';
 import './UserTopNavbar.css';
 import defaultAvatar from '../assets/avatar.jpg';
@@ -23,6 +26,15 @@ const UserTopNavbar = () => {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
 
   const notificationRef = useRef(null);
 
@@ -283,16 +295,89 @@ const UserTopNavbar = () => {
 
   useEffect(() => {
     const handlePopState = () => {
-      localStorage.removeItem("userToken");
-      localStorage.removeItem("UserId");
-      window.history.pushState(null, "", "/login");
-      window.location.replace("/login");
+      // Only clear storage and redirect if we're actually logging out
+      if (isLoggingOut) {
+        localStorage.removeItem("userToken");
+        localStorage.removeItem("UserId");
+        window.history.pushState(null, "", "/login");
+        window.location.replace("/login");
+      }
     };
     window.addEventListener('popstate', handlePopState);
     return () => {
       window.removeEventListener('popstate', handlePopState);
     };
-  }, []);
+  }, [isLoggingOut]);
+
+  const handleChangePassword = () => {
+    setShowChangePasswordModal(true);
+    setShowDropdown(false);
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setPasswordError('');
+    setPasswordSuccess('');
+    setShowCurrentPassword(false);
+    setShowNewPassword(false);
+    setShowConfirmPassword(false);
+  };
+
+  const submitChangePassword = async (e) => {
+    e.preventDefault();
+    setPasswordError('');
+    setPasswordSuccess('');
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError('New passwords do not match');
+      return;
+    }
+
+    if (newPassword.length < 10 || newPassword.length > 15) {
+      setPasswordError('Password must be between 10 and 15 characters long');
+      return;
+    }
+
+    if (currentPassword === newPassword) {
+      setPasswordError('New password must be different from your current password');
+      return;
+    }
+
+    try {
+      const userId = localStorage.getItem("UserId");
+      const email = localStorage.getItem("loggedInUser");
+      if (!userId && !email) {
+        setPasswordError('User not authenticated');
+        return;
+      }
+
+      const response = await fetch('http://localhost:8081/api/users/change-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId,
+          email,
+          currentPassword,
+          newPassword
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setPasswordSuccess('Password changed successfully');
+        setTimeout(() => {
+          setShowChangePasswordModal(false);
+        }, 2000);
+      } else {
+        setPasswordError(data.message || 'Failed to change password');
+      }
+    } catch (error) {
+      console.error('Error changing password:', error);
+      setPasswordError('An error occurred. Please try again. ' + (error.message || ''));
+    }
+  };
 
   return (
     <nav className="top-nav">
@@ -363,7 +448,11 @@ const UserTopNavbar = () => {
                 onError={(e) => e.target.src = defaultAvatar}
               />
               <span className="profile-name">
-                {user ? `${user.first_name || 'First Name'} ${user.last_name || 'Last Name'}` : 'Guest'}
+                {user ? (
+                  user.status === 'Pending Remarks' 
+                    ? user.name || 'Guest'
+                    : `${user.first_name || 'First Name'} ${user.last_name || 'Last Name'}`
+                ) : 'Guest'}
               </span>
               <FontAwesomeIcon 
                 icon={faChevronDown} 
@@ -374,6 +463,14 @@ const UserTopNavbar = () => {
 
           {showDropdown && (
             <div className="profile-dropdown">
+              <button 
+                className={`dropdown-item ${(user?.status === 'Pending Remarks' || user?.status === 'Terminated') ? 'disabled' : ''}`}
+                onClick={handleChangePassword}
+                disabled={user?.status === 'Pending Remarks' || user?.status === 'Terminated'}
+              >
+                <FontAwesomeIcon icon={faCog} />
+                Change Password
+              </button>
               <button 
                 className="dropdown-item logout-option"
                 onClick={handleLogout}
@@ -386,6 +483,98 @@ const UserTopNavbar = () => {
           )}
         </div>
       </div>
+
+      {showChangePasswordModal && (
+        <div className="modal-overlay" onClick={() => setShowChangePasswordModal(false)}>
+          <div className="modal-content change-password-modal" onClick={e => e.stopPropagation()}>
+            <h3>Change Password</h3>
+            
+            {passwordSuccess && (
+              <div className="success-message">
+                {passwordSuccess}
+              </div>
+            )}
+            
+            {passwordError && (
+              <div className="error-message">
+                {passwordError}
+              </div>
+            )}
+            
+            <form onSubmit={submitChangePassword}>
+              <div className="form-group">
+                <label htmlFor="currentPassword">Current Password</label>
+                <div className="password-input-wrapper">
+                  <input
+                    type={showCurrentPassword ? "text" : "password"}
+                    id="currentPassword"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    required
+                  />
+                  <button 
+                    type="button"
+                    className="toggle-password"
+                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                  >
+                    <FontAwesomeIcon icon={showCurrentPassword ? faEyeSlash : faEye} />
+                  </button>
+                </div>
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="newPassword">New Password</label>
+                <div className="password-input-wrapper">
+                  <input
+                    type={showNewPassword ? "text" : "password"}
+                    id="newPassword"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    required
+                  />
+                  <button 
+                    type="button"
+                    className="toggle-password"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                  >
+                    <FontAwesomeIcon icon={showNewPassword ? faEyeSlash : faEye} />
+                  </button>
+                </div>
+                <small className="password-helper">Password must be between 10-15 characters</small>
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="confirmPassword">Confirm New Password</label>
+                <div className="password-input-wrapper">
+                  <input
+                    type={showConfirmPassword ? "text" : "password"}
+                    id="confirmPassword"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                  />
+                  <button 
+                    type="button"
+                    className="toggle-password"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  >
+                    <FontAwesomeIcon icon={showConfirmPassword ? faEyeSlash : faEye} />
+                  </button>
+                </div>
+              </div>
+              
+              <div className="form-actions">
+                <button type="button" className="cancel-btn" onClick={() => setShowChangePasswordModal(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="submit-btn">
+                  Change Password
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </nav>
   );
 };
