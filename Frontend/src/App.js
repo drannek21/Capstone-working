@@ -7,10 +7,11 @@ import ForgotPassword from "./login/ForgotPassword";
 import ResetPassword from "./login/ResetPassword";
 import MultiStepForm from "./user/MultiStepForm";
 import AdminDashboard from "./admin/AdminDashboard";
-import User from "./user/User"; // Update User import
-import SuperAdminDashboard from "./superadmin/SuperAdminDashboard"; // 
-import SubmissionSuccess from "./user/SubmissionSuccess"; // Add SubmissionSuccess import
-import Profile from "./user/Profile"; // Add Profile import
+import User from "./user/User"; 
+import SuperAdminDashboard from "./superadmin/SuperAdminDashboard"; 
+import SubmissionSuccess from "./user/SubmissionSuccess"; 
+import Profile from "./user/Profile"; 
+import ForumPage from "./user/ForumPage"; 
 import ProtectedRoute from "./components/ProtectedRoute";
 import NotAuthorized from "./pages/NotAuthorized";
 import { AdminProvider } from './contexts/AdminContext';
@@ -37,7 +38,8 @@ const MainContent = () => {
     "/form",
     "/profile",
     "/forgot-password",
-    "/submission-success"
+    "/submission-success",
+    "/forum"
   ].some(path => location.pathname.startsWith(path)) 
   || location.pathname.startsWith("/superadmin");
 
@@ -50,7 +52,7 @@ const MainContent = () => {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />
         <Route path="/signup" element={<MultiStepForm />} />
-        <Route path="/submission-success" element={<SubmissionSuccess />} /> {/* Add SubmissionSuccess route */}
+        <Route path="/submission-success" element={<SubmissionSuccess />} /> 
         <Route path="/profile" element={<Profile />} />
         <Route
           path="/admin-dashboard/*"
@@ -65,6 +67,14 @@ const MainContent = () => {
           element={
             <ProtectedRoute allowedRoles={["user"]}>
               <User />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/forum"
+          element={
+            <ProtectedRoute allowedRoles={["user"]}>
+              <ForumPage />
             </ProtectedRoute>
           }
         />

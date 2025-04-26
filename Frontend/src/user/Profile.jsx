@@ -840,7 +840,7 @@ const Profile = () => {
 
         <div className="dashboard-content">
           {user?.status === 'Incomplete' ? (
-            <div className="documents-section">
+            <div className="documents-section-user">
               <div className="section-header">
                 <h2>Documents</h2>
               </div>
@@ -902,10 +902,10 @@ const Profile = () => {
           ) : (
             <>
               {!isRenewalStatus && (
-                <div className="profile-tabs">
+                <div className="profile-tabsuser">
                   {user?.status !== 'Terminated' && user?.status !== 'Pending Remarks' && (
                     <button 
-                      className={`tab-button ${activeTab === 'personal' ? 'active' : ''}`}
+                      className={`tab-buttonuser ${activeTab === 'personal' ? 'active' : ''}`}
                       onClick={() => setActiveTab('personal')}
                       disabled={hasRestrictedAccess()}
                     >
@@ -914,7 +914,7 @@ const Profile = () => {
                   )}
                   {user?.status !== 'Terminated' && user?.status !== 'Pending Remarks' && (
                     <button 
-                      className={`tab-button ${activeTab === 'documents' ? 'active' : ''}`}
+                      className={`tab-buttonuser ${activeTab === 'documents' ? 'active' : ''}`}
                       onClick={() => setActiveTab('documents')}
                     >
                       Documents
@@ -922,7 +922,7 @@ const Profile = () => {
                   )}
                   {user?.status === 'Verified' && (
                     <button 
-                      className={`tab-button ${activeTab === 'cardId' ? 'active' : ''}`}
+                      className={`tab-buttonuser ${activeTab === 'cardId' ? 'active' : ''}`}
                       onClick={() => setActiveTab('cardId')}
                     >
                       Card ID
@@ -933,7 +933,7 @@ const Profile = () => {
 
               <div className="content-grid">
                 {isRenewalStatus ? (
-                  <div className="documents-section">
+                  <div className="documents-section-user">
                     <div className="section-header">
                       <h2>Renewal Application</h2>
                       <p>Please upload your Barangay Certificate to complete your renewal application.</p>
@@ -1144,7 +1144,7 @@ const Profile = () => {
                           </div>
                           <div className="children-list">
                             {user?.familyMembers?.length > 0 ? (
-                              <div className="detail-item family-members">
+                              <div className="family-members">
                                 <div className="family-list">
                                   {user.familyMembers.map((member, index) => (
                                     <div key={index} className="family-member">
@@ -1165,7 +1165,7 @@ const Profile = () => {
                       </>
                     )}
                     {activeTab === 'documents' ? (
-                      <div className="documents-section">
+                      <div className="documents-section-user">
                         <div className="section-header">
                           <h2>Documents</h2>
                         </div>

@@ -102,6 +102,66 @@ router.post('/change-password', async (req, res) => {
   }
 });
 
+// Get user by ID
+router.get('/:id', async (req, res) => {
+  const userId = req.params.id;
+  console.log('Fetching user data for ID:', userId);
+  
+  // Handle the search route separately
+  if (userId === 'search') {
+    const searchTerm = req.query.q;
+    if (!searchTerm) {
+      return res.status(400).json({ error: 'Search term is required' });
+    }
+    
+    try {
+      // Use LIKE query with the correct column names from your database
+      const searchQuery = `
+        SELECT id, email, name, profilePic, status
+        FROM users 
+        WHERE name LIKE ? OR email LIKE ?
+        LIMIT 20
+      `;
+      
+      const searchPattern = `%${searchTerm}%`;
+      const users = await queryDatabase(searchQuery, [searchPattern, searchPattern]);
+      
+      if (!users || users.length === 0) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      
+      res.json(users);
+    } catch (error) {
+      console.error('Error searching users:', error);
+      res.status(500).json({ error: 'Failed to search users', details: error.message });
+    }
+    return;
+  }
+  
+  try {
+    // Simpler query to get basic user data
+    const userQuery = `
+      SELECT id, email, name, profilePic, status
+      FROM users 
+      WHERE id = ?
+    `;
+    
+    const users = await queryDatabase(userQuery, [userId]);
+    
+    if (!users || users.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const user = users[0];
+    
+    // Return user data
+    res.json(user);
+  } catch (error) {
+    console.error('Error fetching user data:', error);
+    res.status(500).json({ error: 'Failed to fetch user data', details: error.message });
+  }
+});
+
 // Add route to fetch accepted users
 router.get('/accepted-users', async (req, res) => {
   try {

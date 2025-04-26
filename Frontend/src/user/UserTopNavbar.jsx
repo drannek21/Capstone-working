@@ -13,13 +13,16 @@ import {
   faInfoCircle,
   faCog,
   faEye,
-  faEyeSlash
+  faEyeSlash,
+  faComments,
+  faUser
 } from '@fortawesome/free-solid-svg-icons';
 import './UserTopNavbar.css';
 import defaultAvatar from '../assets/avatar.jpg';
+import logo from '../assets/logo.jpg';
 import LogoutModal from '../components/LogoutModal';
 
-const UserTopNavbar = () => {
+const UserTopNavbar = ({ onNavigate }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -35,6 +38,7 @@ const UserTopNavbar = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState('');
+  const [activeSection, setActiveSection] = useState('profile');
 
   const notificationRef = useRef(null);
 
@@ -46,15 +50,29 @@ const UserTopNavbar = () => {
   const confirmLogout = async () => {
     setIsLoggingOut(true);
     try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        localStorage.clear(); // Clear all localStorage items
-        sessionStorage.clear();
-      }
-      window.location.replace('/login');
+      // Clear all localStorage and sessionStorage
+      localStorage.removeItem("UserId");
+      localStorage.removeItem("UserEmail");
+      localStorage.removeItem("UserName");
+      localStorage.removeItem("UserRole");
+      localStorage.removeItem("token");
+      
+      // Clear any other app-specific storage
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('profilePic_') || key.startsWith('cache_')) {
+          localStorage.removeItem(key);
+        }
+      });
+      
+      sessionStorage.clear();
+      
+      // Redirect to login page
+      window.location.href = '/login';
     } catch (error) {
       console.error('Logout error:', error);
       setIsLoggingOut(false);
-      window.location.replace('/login');
+      // Force redirect even if there's an error
+      window.location.href = '/login';
     }
   };
 
@@ -380,109 +398,142 @@ const UserTopNavbar = () => {
   };
 
   return (
-    <nav className="top-nav">
-      <LogoutModal isOpen={showLogoutModal} onConfirm={confirmLogout} onCancel={cancelLogout} />
-
-      <div className="nav-right">
-        <div className="notification-wrapper" ref={notificationRef}>
-          <button 
-            className="nav-btn notification-bell-green"
-            onClick={() => setShowNotifications(!showNotifications)}
-          >
-            <span className="notification-bell-bg">
-              <FontAwesomeIcon icon={faBell} />
-            </span>
-            {getUnreadCount() > 0 && (
-              <span className="notification-badge">{getUnreadCount()}</span>
-            )}
-          </button>
-
-          {showNotifications && (
-            <div className="notification-dropdown">
-              <div className="notification-header">
-                <h4>Notifications</h4>
-                {getUnreadCount() > 0 && (
-                  <button className="mark-all-as-read-btn" onClick={markAllAsRead}>
-                    Mark all as read
-                  </button>
-                )}
-              </div>
-              <div className="notification-list">
-                {notifications.length > 0 ? (
-                  notifications.map((notification) => (
-                    <div
-                      key={`${notification.id}-${notification.created_at}`}
-                      className={`notification-item ${notification.read ? "read" : "unread"}`}
-                      onClick={() => markAsRead(notification.id, notification.type)}
-                    >
-                      <div className="notification-icon-wrapper-new">
-                        {getNotificationIcon(notification.type)}
-                      </div>
-                      <div className="notification-content">
-                        <p className="notification-message">{notification.message}</p>
-                        {notification.details && (
-                          <div className="notification-details">
-                            <p className="notification-date">{notification.details.date}</p>
-                            <p className="notification-time">{notification.details.time}</p>
-                            <p className="notification-location">{notification.details.location}</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <p className="no-notifications">No notifications available</p>
-                )}
-              </div>
-            </div>
-          )}
+    <nav className="user-top-navbar">
+      <div className="usernav-container">
+        <div className="usernav-logo">
+          <img src={logo} alt="Logo" className="nav-logo" />
         </div>
 
-        <div className="nav-profile" onClick={() => setShowDropdown(!showDropdown)}>
-          {!isLoading && (
-            <>
-              <img 
-                src={user?.profilePic || defaultAvatar} 
-                alt="Profile" 
-                className="profile-image"
-                onError={(e) => e.target.src = defaultAvatar}
-              />
-              <span className="profile-name">
-                {user ? (
-                  user.status === 'Pending Remarks' 
-                    ? user.name || 'Guest'
-                    : `${user.first_name || 'First Name'} ${user.last_name || 'Last Name'}`
-                ) : 'Guest'}
-              </span>
-              <FontAwesomeIcon 
-                icon={faChevronDown} 
-                className={`dropdown-icon ${showDropdown ? 'rotate' : ''}`}
-              />
-            </>
-          )}
+        <div className="usernav-links">
+          <button 
+            className={`usernav-link ${activeSection === 'profile' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveSection('profile');
+              if (onNavigate) onNavigate('profile');
+            }}
+          >
+            <FontAwesomeIcon icon={faUser} className="usernav-icon" />
+            <span>Profile</span>
+          </button>
+          <button 
+            className={`usernav-link ${activeSection === 'forum' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveSection('forum');
+              if (onNavigate) onNavigate('forum');
+            }}
+          >
+            <FontAwesomeIcon icon={faComments} className="usernav-icon" />
+            <span>Forum</span>
+          </button>
+        </div>
 
-          {showDropdown && (
-            <div className="profile-dropdown">
-              <button 
-                className={`dropdown-item ${(user?.status === 'Pending Remarks' || user?.status === 'Terminated') ? 'disabled' : ''}`}
-                onClick={handleChangePassword}
-                disabled={user?.status === 'Pending Remarks' || user?.status === 'Terminated'}
-              >
-                <FontAwesomeIcon icon={faCog} />
-                Change Password
-              </button>
-              <button 
-                className="dropdown-item logout-option"
-                onClick={handleLogout}
-                disabled={isLoggingOut}
-              >
-                <FontAwesomeIcon icon={faSignOutAlt} />
-                {isLoggingOut ? 'Signing Out...' : 'Sign Out'}
-              </button>
-            </div>
-          )}
+        <div className="usernav-actions">
+          <div className="notification-container" ref={notificationRef}>
+            <button 
+              className="nav-btn notification-bell-green"
+              onClick={() => setShowNotifications(!showNotifications)}
+            >
+              <span className="notification-bell-bg">
+                <FontAwesomeIcon icon={faBell} />
+              </span>
+              {getUnreadCount() > 0 && (
+                <span className="notification-badge">{getUnreadCount()}</span>
+              )}
+            </button>
+
+            {showNotifications && (
+              <div className="notification-dropdown">
+                <div className="notification-header">
+                  <h4>Notifications</h4>
+                  {getUnreadCount() > 0 && (
+                    <button className="mark-all-as-read-btn" onClick={markAllAsRead}>
+                      Mark all as read
+                    </button>
+                  )}
+                </div>
+                <div className="notification-list">
+                  {notifications.length > 0 ? (
+                    notifications.map((notification) => (
+                      <div
+                        key={`${notification.id}-${notification.created_at}`}
+                        className={`notification-item ${notification.read ? "read" : "unread"}`}
+                        onClick={() => markAsRead(notification.id, notification.type)}
+                      >
+                        <div className="notification-icon-wrapper-new">
+                          {getNotificationIcon(notification.type)}
+                        </div>
+                        <div className="notification-content">
+                          <p className="notification-message">{notification.message}</p>
+                          {notification.details && (
+                            <div className="notification-details">
+                              <p className="notification-date">{notification.details.date}</p>
+                              <p className="notification-time">{notification.details.time}</p>
+                              <p className="notification-location">{notification.details.location}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="no-notifications">No notifications available</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="nav-profile" onClick={() => setShowDropdown(!showDropdown)}>
+            {!isLoading && (
+              <>
+                <img 
+                  src={user?.profilePic || defaultAvatar} 
+                  alt="Profile" 
+                  className="profile-image"
+                  onError={(e) => e.target.src = defaultAvatar}
+                />
+                <span className="profile-name">
+                  {user ? (
+                    user.status === 'Pending Remarks' 
+                      ? user.name || 'Guest'
+                      : `${user.first_name || 'First Name'} ${user.last_name || 'Last Name'}`
+                  ) : 'Guest'}
+                </span>
+                <FontAwesomeIcon 
+                  icon={faChevronDown} 
+                  className={`dropdown-icon ${showDropdown ? 'rotate' : ''}`}
+                />
+              </>
+            )}
+
+            {showDropdown && (
+              <div className="profile-dropdown">
+                <button 
+                  className={`dropdown-item ${(user?.status === 'Pending Remarks' || user?.status === 'Terminated') ? 'disabled' : ''}`}
+                  onClick={handleChangePassword}
+                  disabled={user?.status === 'Pending Remarks' || user?.status === 'Terminated'}
+                >
+                  <FontAwesomeIcon icon={faCog} />
+                  Change Password
+                </button>
+                <button 
+                  className="dropdown-item logout-option"
+                  onClick={handleLogout}
+                  disabled={isLoggingOut}
+                >
+                  <FontAwesomeIcon icon={faSignOutAlt} />
+                  {isLoggingOut ? 'Signing Out...' : 'Sign Out'}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
+
+      <LogoutModal 
+        isOpen={showLogoutModal}
+        onConfirm={confirmLogout}
+        onCancel={cancelLogout}
+      />
 
       {showChangePasswordModal && (
         <div className="modal-overlay" onClick={() => setShowChangePasswordModal(false)}>

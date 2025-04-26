@@ -1,12 +1,15 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import UserTopNavbar from './UserTopNavbar';
 import Profile from './Profile';
+import ForumRoom from './ForumRoom';
 import './User.css';
 import Faq from './Faq';
 import LogoutModal from '../components/LogoutModal';
 
 const User = () => {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [activeSection, setActiveSection] = useState('profile');
 
   useEffect(() => {
     // Prevent direct history manipulation
@@ -47,15 +50,27 @@ const User = () => {
     window.history.pushState(null, '', window.location.pathname);
   };
 
+  const handleNavigation = (section) => {
+    setActiveSection(section);
+  };
+
   return (
     <div className="user-container">
-      <UserTopNavbar />
+      <UserTopNavbar onNavigate={handleNavigation} />
       <div className="user-content">
-        <Profile />
+        {activeSection === 'profile' ? (
+          <Profile />
+        ) : (
+          <div className="forum-container">
+            <ForumRoom />
+          </div>
+        )}
       </div>
-      <div className="faq-floating">
-        <Faq />
-      </div>
+      {activeSection === 'profile' && (
+        <div className="faq-floating">
+          <Faq />
+        </div>
+      )}
       <LogoutModal isOpen={showLogoutModal} onConfirm={confirmLogout} onCancel={cancelLogout} />
     </div>
   );

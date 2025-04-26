@@ -34,11 +34,13 @@ const documentsRouter = require('./routes/documents');
 const usersRouter = require('./routes/users');
 const faceAuthRouter = require('./routes/faceAuth');
 const eventsRouter = require('./routes/events');
+const forumRouter = require('./routes/forumRoutes');
 
 // Use routes
 app.use('/api/documents', documentsRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/events', eventsRouter);
+app.use('/api/forum', forumRouter);
 
 // Configure special route for face authentication with logging
 app.use('/api/authenticate-face', (req, res, next) => {
@@ -305,7 +307,6 @@ app.get('/pendingUsers', async (req, res) => {
                uploaded_at,
                display_name,
                status,
-               category,
                '${table}' as document_type,
                CASE 
                  WHEN file_name LIKE 'http%' THEN file_name 

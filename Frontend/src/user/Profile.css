@@ -169,12 +169,13 @@
   background: white;
   border-radius: 8px;
   padding: 24px;
-  width: 89%;
+  
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
 
 .children-section {
   grid-area: children;
+  width: 88%;
   margin-top: -12px;
 }
 
@@ -195,6 +196,7 @@
 .details-section {
   background: white;
   border-radius: 8px;
+  width: 88%;
   padding: 24px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   margin-bottom: 24px;
@@ -402,7 +404,7 @@
   line-height: 1.5;
 }
 
-.documents-section {
+.documents-section-user {
   background: white;
   border-radius: 12px;
   padding: 28px;
@@ -879,6 +881,7 @@
   padding: 16px;
   transition: all 0.3s ease;
   border: 1px solid rgba(0, 0, 0, 0.05);
+  width: 88%;
 }
 
 .child-card:hover {
@@ -921,7 +924,7 @@
   padding-bottom: 0.5rem;
 }
 
-.tab-button {
+.tab-buttonuser {
   padding: 0.75rem 1.5rem;
   border: none;
   background: none;
@@ -937,11 +940,11 @@
   color: #40916c;
 }
 
-.tab-button.active {
+.tab-buttonuser.active {
   color: #40916c;
 }
 
-.tab-button.active::after {
+.tab-buttonuser.active::after {
   content: '';
   position: absolute;
   bottom: -0.5rem;
@@ -953,12 +956,12 @@
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
-  .profile-tabs {
+  .profile-tabsuser {
     flex-direction: column;
     gap: 0.5rem;
   }
 
-  .tab-button {
+  .tab-buttonuser {
     padding: 0.5rem 1rem;
     text-align: left;
   }

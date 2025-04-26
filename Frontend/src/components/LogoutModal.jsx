@@ -3,6 +3,7 @@ import "./LogoutModal.css";
 
 const LogoutModal = ({ isOpen, onConfirm, onCancel }) => {
   if (!isOpen) return null;
+  
   return (
     <div className="logout-modal-overlay">
       <div className="logout-modal">
