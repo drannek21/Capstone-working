@@ -1,19 +1,93 @@
 import React, { useState, useEffect } from 'react';
-import { Link, NavLink, useLocation } from 'react-router-dom';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { FaTrash } from 'react-icons/fa';
 import { FaTachometerAlt, FaDatabase, FaUsers, FaClipboardList, FaSync, FaBars, FaSignOutAlt, FaUserFriends, FaBell, FaTimes, FaBullhorn, FaLink, FaImage } from 'react-icons/fa';
 import './SuperAdminSideBar.css';
 import logo from '../assets/logo.jpg'; // Import the logo
 
 const SuperAdminSideBar = () => {
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [showNotifModal, setShowNotifModal] = useState(false);
-  const [notifications, setNotifications] = useState([
-    // Example notifications; replace with real data fetching
-    { id: 1, message: 'New application submitted', read: false, date: '2025-04-18' },
-    { id: 2, message: 'Document uploaded by user', read: true, date: '2025-04-17' },
-    { id: 3, message: 'Renewal request pending', read: false, date: '2025-04-16' },
-  ]);
+  const [notifications, setNotifications] = useState([]);
+  const [notifLoading, setNotifLoading] = useState(false);
+  const [notifError, setNotifError] = useState("");
+
+  // Fetch notifications from backend (patterned after UserTopNavbar)
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      setNotifLoading(true);
+      setNotifError("");
+      try {
+        const response = await fetch("http://localhost:8081/api/notifications");
+        if (!response.ok) throw new Error("Failed to fetch notifications");
+        const data = await response.json();
+        // Expect { success, notifications: [...] }
+        const notificationsArr = Array.isArray(data.notifications) ? data.notifications : [];
+        const normalized = notificationsArr.map(n => ({
+          id: n.id,
+          user_id: n.user_id,
+          notif_type: n.notif_type,
+          message: n.message,
+          is_read: n.is_read === 1 || n.is_read === true, // handle 0/1 or boolean
+          created_at: n.created_at
+        }));
+        // Sort by created_at desc
+        normalized.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        setNotifications(normalized);
+      } catch (err) {
+        setNotifError("Failed to load notifications");
+        setNotifications([]);
+      } finally {
+        setNotifLoading(false);
+      }
+    };
+    // Fetch notifications when modal opens for real-time refresh
+    if (showNotifModal) {
+      fetchNotifications();
+    }
+  }, [showNotifModal]);
+
+  // Mark notification as read (patterned after UserTopNavbar)
+  const markAsRead = async (notifId) => {
+    setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, is_read: true } : n));
+    // Optionally, update backend if endpoint exists
+    try {
+      await fetch(`http://localhost:8081/api/notifications/mark-as-read/${notifId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' }
+      });
+    } catch (err) {
+      // Ignore backend error for now, UI stays responsive
+    }
+  };
+
+  // Clear all notifications
+  const clearAllNotifications = async () => {
+    if (!window.confirm('Are you sure you want to clear all notifications?')) return;
+    try {
+      await fetch(`http://localhost:8081/api/notifications`, {
+        method: 'DELETE',
+      });
+      setNotifications([]);
+    } catch (err) {
+      alert('Failed to clear notifications');
+    }
+  };
+
+  // Handle notification click: mark as read and navigate
+  const handleNotifClick = notif => {
+    markAsRead(notif.id);
+    if (notif.notif_type === "remarks") {
+      navigate("/superadmin/solo-parent-management");
+    } else if (notif.notif_type === "new_app") {
+      navigate("/superadmin/applications?tab=regular");
+    } else if (notif.notif_type === "follow_up_doc") {
+      navigate("/superadmin/applications?tab=follow_up");
+    }
+    setShowNotifModal(false);
+  };
 
   // Announcement modal state
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
@@ -57,9 +131,32 @@ const SuperAdminSideBar = () => {
     e.preventDefault();
     setAnnError("");
     setAnnSuccess("");
-    // Require at least title or description
-    if (!announcementTitle.trim() && !announcementDescription.trim()) {
-      setAnnError("Please provide at least a title or description.");
+    // Require title
+    if (!announcementTitle.trim()) {
+      setAnnError("Title is required.");
+      return;
+    }
+    // Require description
+    if (!announcementDescription.trim()) {
+      setAnnError("Description is required.");
+      return;
+    }
+    // Require end date
+    if (!announcementEndDate) {
+      setAnnError("End date is required.");
+      return;
+    }
+    // Validate end date (must not be in the past)
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const inputDate = new Date(announcementEndDate);
+    if (inputDate < today) {
+      setAnnError("End date cannot be in the past.");
+      return;
+    }
+    // Require image
+    if (!announcementImage) {
+      setAnnError("Image is required.");
       return;
     }
     setIsAnnLoading(true);
@@ -132,7 +229,7 @@ const SuperAdminSideBar = () => {
     return location.pathname === path;
   };
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = notifications.filter(n => !n.is_read).length;
 
   return (
     <>
@@ -157,26 +254,103 @@ const SuperAdminSideBar = () => {
         </div>
         {/* Notification Modal */}
         {showNotifModal && (
+  <div className="notif-modal-root">
+    <div className="notif-modal-overlay" onClick={() => setShowNotifModal(false)}>
+      <div className="notif-modal" onClick={e => e.stopPropagation()}>
+        <div className="notif-modal-header">
+          <h3>Notifications</h3>
+          <div style={{display: 'flex', gap: '10px', alignItems: 'center'}}>
+            <button className="notif-action-btn" onClick={async () => {
+              // Mark all as read
+              try {
+                await Promise.all(
+                  notifications.filter(n => !n.is_read).map(n =>
+                    fetch(`http://localhost:8081/api/notifications/mark-as-read/${n.id}`, {method: 'PUT'})
+                  )
+                );
+                setNotifications(notifications.map(n => ({...n, is_read: true})));
+              } catch (err) {
+                alert('Failed to mark all as read');
+              }
+            }}>Mark all as read</button>
+            <button className="notif-action-btn" onClick={async () => {
+              if (!window.confirm('Are you sure you want to clear all notifications?')) return;
+              try {
+                await fetch(`http://localhost:8081/api/notifications`, {method: 'DELETE'});
+                setNotifications([]);
+              } catch (err) {
+                alert('Failed to clear notifications');
+              }
+            }}>Clear all</button>
+            <button className="close-modal" onClick={() => setShowNotifModal(false)}><FaTimes /></button>
+          </div>
+        </div>
+        <div className="notif-modal-content">
+          {notifications.length === 0 ? (
+            <p className="no-notifications">No notifications available.</p>
+          ) : (
+            <ul className="notif-list">
+              {notifications.map(n => (
+                <li key={n.id} className={`notif-item${n.is_read ? '' : ' unread'}`} style={{cursor:'pointer'}} onClick={() => handleNotifClick(n)}>
+                  <span className="notif-message">{n.message}</span>
+                  <span className="notif-date">{n.created_at ? new Date(n.created_at).toLocaleString() : ''}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+        {/* Announcement Modal - SEPARATE */}
+        {showAnnouncementModal && (
           <div className="notif-modal-root">
-            <div className="notif-modal-overlay" onClick={() => setShowNotifModal(false)}>
-              <div className="notif-modal" onClick={e => e.stopPropagation()}>
+            <div className="notif-modal-overlay" onClick={() => setShowAnnouncementModal(false)}>
+              <div className="notif-modal" onClick={e => e.stopPropagation()} style={{width: '420px', maxWidth: '95vw'}}>
                 <div className="notif-modal-header">
-                  <h3>Notifications</h3>
-                  <button className="close-modal" onClick={() => setShowNotifModal(false)}><FaTimes /></button>
+                  <h3><FaBullhorn style={{marginRight: 6}}/>Announcements</h3>
+                  <button className="close-modal" onClick={() => setShowAnnouncementModal(false)}><FaTimes /></button>
                 </div>
-                <div className="notif-modal-content">
-                  {notifications.length === 0 ? (
-                    <p className="no-notifications">No notifications available.</p>
-                  ) : (
-                    <ul className="notif-list">
-                      {notifications.map(n => (
-                        <li key={n.id} className={`notif-item${n.read ? '' : ' unread'}`}>
-                          <span className="notif-message">{n.message}</span>
-                          <span className="notif-date">{n.date}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                <div className="notif-modal-content announcement-modal-content">
+                  <form onSubmit={handleAddAnnouncement} style={{marginBottom: 18, display: 'flex', flexDirection: 'column', gap: 8}}>
+                    <input
+                      type="text"
+                      placeholder="Title"
+                      value={announcementTitle}
+                      onChange={e => setAnnouncementTitle(e.target.value)}
+                    />
+                    <textarea
+                      placeholder="Description"
+                      value={announcementDescription}
+                      onChange={e => setAnnouncementDescription(e.target.value)}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Link (optional)"
+                      value={announcementLink}
+                      onChange={e => setAnnouncementLink(e.target.value)}
+                    />
+                    <input
+                      type="date"
+                      placeholder="End Date (optional)"
+                      value={announcementEndDate}
+                      onChange={e => setAnnouncementEndDate(e.target.value)}
+                    />
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleAnnouncementImageChange}
+                    />
+                    {announcementImagePreview && (
+                      <img src={announcementImagePreview} alt="Preview" style={{maxWidth: 120, margin: '8px 0'}} />
+                    )}
+                    <button type="submit" disabled={isAnnLoading}>
+                      {isAnnLoading ? "Posting..." : "Add Announcement"}
+                    </button>
+                  </form>
+                  {annError && <p style={{fontSize: 15, color: 'red'}}>{annError}</p>}
+                  {annSuccess && <p style={{fontSize: 15, color: 'green'}}>{annSuccess}</p>}
                 </div>
               </div>
             </div>
@@ -252,63 +426,72 @@ const SuperAdminSideBar = () => {
               </div>
               <div className="notif-modal-content announcement-modal-content">
                 <form onSubmit={handleAddAnnouncement} style={{marginBottom: 18, display: 'flex', flexDirection: 'column', gap: 8}}>
-                  <label htmlFor="announcement-title" style={{fontWeight: 500}}>Title</label>
                   <input
-                    id="announcement-title"
                     type="text"
                     placeholder="Title"
                     value={announcementTitle}
                     onChange={e => setAnnouncementTitle(e.target.value)}
-                    required
-                    style={{marginBottom: 4}}
                   />
-                  <label htmlFor="announcement-description" style={{fontWeight: 500}}>Description</label>
                   <textarea
-                    id="announcement-description"
                     placeholder="Description"
                     value={announcementDescription}
                     onChange={e => setAnnouncementDescription(e.target.value)}
-                    required
-                    style={{resize: 'vertical', minHeight: 40, maxHeight: 120, marginBottom: 4}}
                   />
-                  <label htmlFor="announcement-image" style={{fontWeight: 500}}>Image (optional)</label>
                   <input
-                    id="announcement-image"
-                    type="file"
-                    accept="image/*"
-                    onChange={handleAnnouncementImageChange}
-                    style={{marginBottom: 8}}
-                  />
-                  <label htmlFor="announcement-end-date" style={{fontWeight: 500}}>End Date (optional)</label>
-                  <input
-                    id="announcement-end-date"
-                    type="date"
-                    placeholder="End Date (optional)"
-                    value={announcementEndDate}
-                    onChange={e => setAnnouncementEndDate(e.target.value)}
-                    style={{marginBottom: 8}}
-                  />
-                  {announcementImagePreview && (
-                    <img src={announcementImagePreview} alt="preview" style={{maxWidth: '100%', maxHeight: 120, marginBottom: 8, borderRadius: 4}} />
-                  )}
-                  <label htmlFor="announcement-link" style={{fontWeight: 500}}>Link (optional)</label>
-                  <input
-                    id="announcement-link"
                     type="text"
                     placeholder="Link (optional)"
                     value={announcementLink}
                     onChange={e => setAnnouncementLink(e.target.value)}
                   />
-                  <button type="submit" className="superadmin-generate-btn" style={{alignSelf: 'flex-end', marginTop: 4, padding: '6px 18px'}} disabled={isAnnLoading}>Add</button>
+                  <input
+                    type="date"
+                    placeholder="End Date (optional)"
+                    value={announcementEndDate}
+                    onChange={e => setAnnouncementEndDate(e.target.value)}
+                  />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAnnouncementImageChange}
+                  />
+                  {announcementImagePreview && (
+                    <img src={announcementImagePreview} alt="Preview" style={{maxWidth: 120, margin: '8px 0'}} />
+                  )}
+                  <button
+                      type="submit"
+                      className="ann-btn"
+                      disabled={isAnnLoading}
+                      style={{
+                        background: isAnnLoading ? '#ccc' : '#ffb300',
+                        color: isAnnLoading ? '#888' : '#222',
+                        border: 'none',
+                        borderRadius: 6,
+                        padding: '10px 0',
+                        fontWeight: 700,
+                        fontSize: 16,
+                        cursor: isAnnLoading ? 'not-allowed' : 'pointer',
+                        transition: 'background 0.2s, color 0.2s',
+                        boxShadow: isAnnLoading ? 'none' : '0 2px 8px #ffb30044',
+                        marginTop: 8
+                      }}
+                      onMouseOver={e => {
+                        if (!isAnnLoading) e.currentTarget.style.background = '#ff9800';
+                      }}
+                      onMouseOut={e => {
+                        if (!isAnnLoading) e.currentTarget.style.background = '#ffb300';
+                      }}
+                    >
+                      {isAnnLoading ? "Posting..." : "Add Announcement"}
+                    </button>
+                    {annError && <p style={{fontSize: 15, color: 'red', marginTop: 6}}>{annError}</p>}
+                    {annSuccess && <p style={{fontSize: 15, color: 'green', marginTop: 6}}>{annSuccess}</p>}
                 </form>
-                {annError && <p style={{fontSize: 15, color: 'red'}}>{annError}</p>}
-                {annSuccess && <p style={{fontSize: 15, color: 'green'}}>{annSuccess}</p>}
-                {isAnnLoading && <p style={{fontSize: 15, color: '#888'}}>Posting...</p>}
               </div>
             </div>
           </div>
         </div>
       )}
+
     </>
   );
 };

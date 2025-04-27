@@ -47,7 +47,7 @@ const Dashboard = () => {
           return;
         }
 
-        const response = await fetch(`${API_URL}/api/users/admin-info?id=${adminId}`);
+        const response = await fetch(`${API_URL}/admin-info?id=${adminId}`);
         if (!response.ok) {
           throw new Error('Failed to fetch admin info');
         }
@@ -90,7 +90,7 @@ const Dashboard = () => {
         }
 
         // Fetch population data for admin's barangay
-        const populationResponse = await fetch(`${API_URL}/api/users/admin-population-users?${queryString}`);
+        const populationResponse = await fetch(`${API_URL}/admin-population-users?${queryString}`);
         if (!populationResponse.ok) {
           throw new Error(`HTTP error! status: ${populationResponse.status}`);
         }
@@ -98,7 +98,7 @@ const Dashboard = () => {
         console.log('Population data:', populationData);
 
         // Fetch remarks data
-        const remarksResponse = await fetch(`${API_URL}/api/users/remarks-users?${queryString}`);
+        const remarksResponse = await fetch(`${API_URL}/remarks-users?${queryString}`);
         if (!remarksResponse.ok) {
           throw new Error(`HTTP error! status: ${remarksResponse.status}`);
         }
@@ -493,7 +493,7 @@ const Dashboard = () => {
     try {
       // Fetch population data with date range
       const populationResponse = await fetch(
-        `${API_URL}/api/users/admin-population-users?adminId=${adminInfo.id}&startDate=${startDate}&endDate=${endDate}`
+        `${API_URL}/admin-population-users?adminId=${adminInfo.id}&startDate=${startDate}&endDate=${endDate}`
       );
       
       if (!populationResponse.ok) {
@@ -504,7 +504,7 @@ const Dashboard = () => {
 
       // Fetch remarks data with date range
       const remarksResponse = await fetch(
-        `${API_URL}/api/users/remarks-users?adminId=${adminInfo.id}&startDate=${startDate}&endDate=${endDate}`
+        `${API_URL}/remarks-users?adminId=${adminInfo.id}&startDate=${startDate}&endDate=${endDate}`
       );
       
       if (!remarksResponse.ok) {

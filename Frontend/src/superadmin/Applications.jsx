@@ -1,9 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import axios from 'axios';
 import SuperAdminSideBar from './SuperAdminSideBar';
 import './Applications.css';
 
 const Applications = () => {
+  const location = useLocation();
+  // Tab state: 'regular' or 'follow_up'
+  const [activeTab, setActiveTab] = useState('regular');
   // ...existing state
   const [documentActionStatus, setDocumentActionStatus] = useState({}); // { [docIndex]: 'Accepted' | 'Declined' | undefined }
 

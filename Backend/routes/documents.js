@@ -544,6 +544,36 @@ router.post('/submitAllSteps', async (req, res) => {
 
       console.log(`[${timestamp}] All steps committed successfully`);
 
+      // Insert notification for superadmin after successful commit
+      try {
+        // Get the user_id from the users table using the code_id
+        const userIdResult = await new Promise((resolve, reject) => {
+          connection.query('SELECT id FROM users WHERE code_id = ? LIMIT 1', [code_id], (err, result) => {
+            if (err) reject(err);
+            else resolve(result);
+          });
+        });
+        if (userIdResult && userIdResult.length > 0) {
+          const userIdForNotif = userIdResult[0].id;
+          // Insert into superadminnotifications
+          await new Promise((resolve, reject) => {
+            connection.query(
+              `INSERT INTO superadminnotifications (user_id, notif_type, message, is_read, created_at) VALUES (?, ?, ?, 0, NOW())`,
+              [userIdForNotif, 'new_app', 'New application was created'],
+              (err, result) => {
+                if (err) reject(err);
+                else resolve(result);
+              }
+            );
+          });
+          console.log('Superadmin notification inserted');
+        } else {
+          console.warn('User ID not found for notification');
+        }
+      } catch (notifError) {
+        console.error('Error inserting superadmin notification:', notifError);
+      }
+
       res.json({
         success: true,
         message: 'All steps submitted successfully',
@@ -797,6 +827,67 @@ router.post('/:documentType', async (req, res) => {
         }
       });
     });
+
+    // Insert notification for superadmin after successful document upload
+    try {
+      // Get user_id and name for notification
+      let userInfoResult = await new Promise((resolve, reject) => {
+        connection.query('SELECT id, name FROM users WHERE code_id = ? LIMIT 1', [code_id], (err, result) => {
+          if (err) reject(err);
+          else resolve(result);
+        });
+      });
+      let userIdForNotif = null;
+      let userFullName = '';
+      if (userInfoResult && userInfoResult.length > 0) {
+        userIdForNotif = userInfoResult[0].id;
+        userFullName = userInfoResult[0].name; // Use full name directly from users table
+      } else {
+        // Fallback: try to get name from step1_identifying_information
+        userInfoResult = await new Promise((resolve, reject) => {
+          connection.query('SELECT first_name, middle_name, last_name FROM step1_identifying_information WHERE code_id = ? LIMIT 1', [code_id], (err, result) => {
+            if (err) reject(err);
+            else resolve(result);
+          });
+        });
+        userFullName = userInfoResult && userInfoResult.length > 0
+          ? `${userInfoResult[0].first_name || ''} ${userInfoResult[0].middle_name || ''} ${userInfoResult[0].last_name || ''}`.trim().replace(/\s+/g, ' ')
+          : 'Unknown User';
+      }
+      // Get human-readable document label
+      const docLabels = {
+        'psa': 'PSA Birth Certificate',
+        'itr': 'Income Tax Return',
+        'med_cert': 'Medical Certificate',
+        'marriage': 'Marriage Certificate',
+        'cenomar': 'CENOMAR',
+        'death_cert': 'Death Certificate',
+        'barangay_cert': 'Barangay Certificate'
+      };
+      let documentLabel = docLabels[documentType] || documentType;
+      // Always use the human-readable document label from docLabels for the notification.
+      // Do not use display_name (which is the file/picture name).
+      // documentLabel is already set above.
+      if (userIdForNotif) {
+        const notifType = 'follow_up_doc';
+        const notifMessage = `${userFullName} uploaded a follow-up document for his ${documentLabel}`;
+        await new Promise((resolve, reject) => {
+          connection.query(
+            `INSERT INTO superadminnotifications (user_id, notif_type, message, is_read, created_at) VALUES (?, ?, ?, 0, NOW())`,
+            [userIdForNotif, notifType, notifMessage],
+            (err, result) => {
+              if (err) reject(err);
+              else resolve(result);
+            }
+          );
+        });
+        console.log('Superadmin notification inserted for document upload');
+      } else {
+        console.warn('User ID not found for notification');
+      }
+    } catch (notifError) {
+      console.error('Error inserting superadmin notification:', notifError);
+    }
 
     res.json({
       success: true,

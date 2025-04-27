@@ -163,7 +163,7 @@ const SDashboard = () => {
       setIsLoading(true);
       setError(null);
       try {
-        const response = await fetch('http://localhost:8081/api/users/accepted-users');
+        const response = await fetch('http://localhost:8081/accepted-users');
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -201,7 +201,7 @@ const SDashboard = () => {
         }
         const queryString = queryParams.length > 0 ? `?${queryParams.join('&')}` : '';
 
-        const response = await fetch(`${API_URL}/api/users/polulations-users${queryString}`);
+        const response = await fetch(`${API_URL}/polulations-users${queryString}`);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -254,7 +254,7 @@ const SDashboard = () => {
   useEffect(() => {
     const fetchBeneficiariesData = async () => {
       try {
-        const response = await fetch(`${API_URL}/api/users/beneficiaries-users${
+        const response = await fetch(`${API_URL}/beneficiaries-users${
           selectedBrgy !== "All" ? `?barangay=${selectedBrgy}` : ''
         }`);
         if (!response.ok) {
@@ -293,7 +293,7 @@ const SDashboard = () => {
         }
         const queryString = queryParams.length > 0 ? `?${queryParams.join('&')}` : '';
 
-        const response = await fetch(`${API_URL}/api/users/application-status${queryString}`);
+        const response = await fetch(`${API_URL}/application-status${queryString}`);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -603,7 +603,7 @@ const SDashboard = () => {
     try {
       // Fetch population data with date range
       const populationResponse = await fetch(
-        `${API_URL}/api/users/polulations-users?${
+        `${API_URL}/polulations-users?${
           selectedBrgy !== "All" ? `barangay=${selectedBrgy}&` : ''
         }startDate=${startDate}&endDate=${endDate}`
       );
@@ -616,7 +616,7 @@ const SDashboard = () => {
 
       // Fetch beneficiaries data with date range
       const beneficiariesResponse = await fetch(
-        `${API_URL}/api/users/beneficiaries-users?${
+        `${API_URL}/beneficiaries-users?${
           selectedBrgy !== "All" ? `barangay=${selectedBrgy}&` : ''
         }startDate=${startDate}&endDate=${endDate}`
       );
@@ -629,7 +629,7 @@ const SDashboard = () => {
 
       // Fetch application status data
       const applicationStatusResponse = await fetch(
-        `${API_URL}/api/users/application-status?${
+        `${API_URL}/application-status?${
           selectedBrgy !== "All" ? `barangay=${selectedBrgy}&` : ''
         }startDate=${startDate}&endDate=${endDate}`
       );

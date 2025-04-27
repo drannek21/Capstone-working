@@ -8,12 +8,7 @@ const AdminSideBar = () => {
     const navigate = useNavigate();
     const [isOpen, setIsOpen] = useState(window.innerWidth >= 768);
     const [showNotifModal, setShowNotifModal] = useState(false);
-    const [notifications, setNotifications] = useState([
-        // Example notifications; replace with real data fetching
-        { id: 1, message: 'New user registered', read: false, date: '2025-04-18' },
-        { id: 2, message: 'Document approved', read: true, date: '2025-04-17' },
-        { id: 3, message: 'System update scheduled', read: false, date: '2025-04-16' },
-    ]);
+    const [notifications, setNotifications] = useState([]);
     const unreadCount = notifications.filter(n => !n.read).length;
 
     useEffect(() => {
@@ -24,6 +19,31 @@ const AdminSideBar = () => {
         window.addEventListener("resize", handleResize);
         return () => window.removeEventListener("resize", handleResize);
     }, []);
+
+    // Fetch notifications for the logged-in admin's barangay
+    useEffect(() => {
+        const fetchNotifications = async () => {
+            const barangay = localStorage.getItem('barangay');
+            if (!barangay) return;
+            try {
+                const res = await fetch(`http://localhost:8081/api/adminnotifications?barangay=${encodeURIComponent(barangay)}`);
+                const data = await res.json();
+                if (data.success && Array.isArray(data.notifications)) {
+                    // Normalize notification objects for UI
+                    setNotifications(
+                        data.notifications.map(n => ({
+                            ...n,
+                            read: n.is_read === 1 || n.is_read === true,
+                            date: n.created_at ? n.created_at.split('T')[0] : ''
+                        }))
+                    );
+                }
+            } catch (err) {
+                console.error('Failed to fetch admin notifications:', err);
+            }
+        };
+        fetchNotifications();
+    }, [showNotifModal]); // refetch when modal opens/changes
 
     const handleLogout = () => {
         localStorage.removeItem("userToken");
@@ -65,9 +85,9 @@ const AdminSideBar = () => {
                     
                 </div>
                 <div className="notifications" onClick={() => setShowNotifModal(true)}>
-                            <FiBell />
-                            {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
-                        </div>
+    <FiBell />
+    {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
+</div>
                 <ul className="admin-sidebar-menu">
                     <li>
                         <NavLink
@@ -110,24 +130,50 @@ const AdminSideBar = () => {
 
             {/* Notification Modal */}
             {showNotifModal && (
-                <div className="notif-modal-root">
-                    <div className="notif-modal-overlay" onClick={() => setShowNotifModal(false)}>
-                        <div className="notif-modal" onClick={e => e.stopPropagation()}>
-                            <div className="notif-modal-header">
-                                <h3>Notifications</h3>
-                                <button className="close-modal" onClick={() => setShowNotifModal(false)}><FiX /></button>
-                            </div>
-                            <div className="notif-modal-content">
+    <div className="notif-modal-root">
+        <div className="notif-modal-overlay" onClick={() => setShowNotifModal(false)}>
+            <div className="notif-modal" onClick={e => e.stopPropagation()}>
+                <div className="notif-modal-header">
+                    <h3>Notifications</h3>
+                    <div style={{display: 'flex', gap: '10px', alignItems: 'center'}}>
+                        <button className="notif-action-btn" onClick={async () => {
+                            // Mark all as read
+                            try {
+                                await Promise.all(
+                                    notifications.filter(n => !n.read).map(n =>
+                                        fetch(`http://localhost:8081/api/adminnotifications/mark-as-read/${n.id}`, {method: 'PUT'})
+                                    )
+                                );
+                                setNotifications(notifications.map(n => ({...n, read: true})));
+                            } catch (err) {
+                                alert('Failed to mark all as read');
+                            }
+                        }}>Mark all as read</button>
+                        <button className="notif-action-btn" onClick={async () => {
+                            // Clear all notifications
+                            const barangay = localStorage.getItem('barangay');
+                            if (!window.confirm('Are you sure you want to clear all notifications?')) return;
+                            try {
+                                await fetch(`http://localhost:8081/api/adminnotifications?barangay=${encodeURIComponent(barangay)}`, {method: 'DELETE'});
+                                setNotifications([]);
+                            } catch (err) {
+                                alert('Failed to clear notifications');
+                            }
+                        }}>Clear all</button>
+                        <button className="close-modal" onClick={() => setShowNotifModal(false)}><FiX /></button>
+                    </div>
+                </div>
+                <div className="notif-modal-content">
                                 {notifications.length === 0 ? (
                                     <p className="no-notifications">No notifications available.</p>
                                 ) : (
                                     <ul className="notif-list">
                                         {notifications.map(n => (
-                                            <li key={n.id} className={`notif-item${n.read ? '' : ' unread'}`}>
-                                                <span className="notif-message">{n.message}</span>
-                                                <span className="notif-date">{n.date}</span>
-                                            </li>
-                                        ))}
+    <li key={n.id} className={`notif-item${n.read ? '' : ' unread'}`}>
+        <span className="notif-message">{n.message}</span>
+        <span className="notif-date">{n.date}</span>
+    </li>
+))}
                                     </ul>
                                 )}
                             </div>

@@ -42,6 +42,93 @@ app.use('/api/users', usersRouter);
 app.use('/api/events', eventsRouter);
 app.use('/api/forum', forumRouter);
 
+// NOTIFICATIONS ENDPOINTS for SuperAdminSideBar.jsx
+// GET all notifications for superadmin
+app.get('/api/notifications', async (req, res) => {
+  try {
+    // Adjust the query as needed for your schema
+    const notifications = await queryDatabase('SELECT * FROM superadminnotifications ORDER BY created_at DESC');
+    res.json({ success: true, notifications });
+  } catch (err) {
+    console.error('Error fetching notifications:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch notifications' });
+  }
+});
+
+// DELETE all notifications for superadmin
+app.delete('/api/notifications', async (req, res) => {
+  try {
+    await queryDatabase('DELETE FROM superadminnotifications');
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error clearing notifications:', err);
+    res.status(500).json({ success: false, error: 'Failed to clear notifications' });
+  }
+});
+
+// PUT: Mark a notification as read
+app.put('/api/notifications/mark-as-read/:notifId', async (req, res) => {
+  const notifId = req.params.notifId;
+  try {
+    const updateQuery = 'UPDATE superadminnotifications SET is_read = 1 WHERE id = ?';
+    const result = await queryDatabase(updateQuery, [notifId]);
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, message: 'Notification not found' });
+    }
+    res.json({ success: true, message: 'Notification marked as read' });
+  } catch (error) {
+    console.error('Error marking notification as read:', error);
+    res.status(500).json({ success: false, error: 'Failed to mark notification as read' });
+  }
+});
+
+// --- ADMIN NOTIFICATIONS ENDPOINTS ---
+// GET all notifications for admin (filtered by barangay)
+app.get('/api/adminnotifications', async (req, res) => {
+  const { barangay } = req.query;
+  try {
+    if (!barangay) {
+      return res.status(400).json({ success: false, error: 'Barangay is required' });
+    }
+    const notifications = await queryDatabase('SELECT * FROM adminnotifications WHERE barangay = ? ORDER BY id DESC', [barangay]);
+    res.json({ success: true, notifications });
+  } catch (err) {
+    console.error('Error fetching admin notifications:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch notifications' });
+  }
+});
+
+// DELETE all notifications for admin
+app.delete('/api/adminnotifications', async (req, res) => {
+  const { barangay } = req.query;
+  if (!barangay) {
+    return res.status(400).json({ success: false, error: 'Barangay is required' });
+  }
+  try {
+    await queryDatabase('DELETE FROM adminnotifications WHERE barangay = ?', [barangay]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error clearing admin notifications:', err);
+    res.status(500).json({ success: false, error: 'Failed to clear notifications' });
+  }
+});
+
+// PUT: Mark an admin notification as read
+app.put('/api/adminnotifications/mark-as-read/:notifId', async (req, res) => {
+  const notifId = req.params.notifId;
+  try {
+    const updateQuery = 'UPDATE adminnotifications SET is_read = 1 WHERE id = ?';
+    const result = await queryDatabase(updateQuery, [notifId]);
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, message: 'Notification not found' });
+    }
+    res.json({ success: true, message: 'Notification marked as read' });
+  } catch (error) {
+    console.error('Error marking admin notification as read:', error);
+    res.status(500).json({ success: false, error: 'Failed to mark notification as read' });
+  }
+});
+
 // Configure special route for face authentication with logging
 app.use('/api/authenticate-face', (req, res, next) => {
   console.log('Face auth route accessed with method:', req.method);
@@ -561,6 +648,21 @@ app.post('/login', async (req, res) => {
         if (verifyResult.length > 0 && verifyResult[0].status === 'Verified') {
           user.status = 'Verified';
           console.log('Status successfully updated to Verified');
+
+          // Insert notification for admin: new solo parent in barangay
+          const [userInfo] = await queryDatabase(`
+            SELECT u.id, u.name, s1.barangay
+            FROM users u
+            JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
+            WHERE u.id = ?
+          `, [user.id]);
+          if (userInfo) {
+            const notifMessage = `${userInfo.name} is a new solo parent in your barangay.`;
+            await queryDatabase(
+              'INSERT INTO adminnotifications (user_id, notif_type, message, barangay) VALUES (?, ?, ?, ?)',
+              [userInfo.id, 'new_solo_parent', notifMessage, userInfo.barangay]
+            );
+          }
         } else {
           console.error('Status update verification failed');
         }
@@ -1354,6 +1456,22 @@ app.post('/unTerminateUser', async (req, res) => {
       [userId, 'Your account has been reactivated.']
     );
 
+    // Get user info (name, barangay, id)
+    const [userInfo] = await queryDatabase(`
+      SELECT u.id, u.name, s1.barangay
+      FROM users u
+      JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
+      WHERE u.id = ?
+    `, [userId]);
+
+    if (userInfo) {
+      const notifMessage = `${userInfo.name} from your barangay has been cleared and is still qualified as a solo parent after the review.`;
+      await queryDatabase(
+        'INSERT INTO adminnotifications (user_id, notif_type, message, barangay) VALUES (?, ?, ?, ?)',
+        [userInfo.id, 'cleared', notifMessage, userInfo.barangay]
+      );
+    }
+
     await queryDatabase('COMMIT');
 
     res.status(200).json({ success: true, message: 'User status updated to Verified' });
@@ -1448,13 +1566,27 @@ app.post('/saveRemarks', async (req, res) => {
       ['Pending Remarks', user_id]
     );
 
-    // Get user information for the email
+    // Get user information for the email and superadmin notification
     const userInfo = await queryDatabase(`
-      SELECT u.email, s1.first_name 
-      FROM users u 
-      JOIN step1_identifying_information s1 ON u.code_id = s1.code_id 
+      SELECT u.email, s1.first_name, s1.last_name
+      FROM users u
+      JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
       WHERE u.id = ?
     `, [user_id]);
+
+    // Get barangay name of the admin
+    const adminInfo = await queryDatabase('SELECT barangay FROM admin WHERE id = ?', [admin_id]);
+
+    // Prepare and insert superadmin notification
+    if (userInfo && userInfo.length > 0 && adminInfo && adminInfo.length > 0) {
+      const barangayName = adminInfo[0].barangay;
+      const firstName = userInfo[0].first_name;
+      const notifMessage = `From Barangay ${barangayName}: ${firstName} has pending remarks.`;
+      await queryDatabase(
+        'INSERT INTO superadminnotifications (user_id, notif_type, message, is_read, created_at) VALUES (?, ?, ?, 0, NOW())',
+        [user_id, 'remarks', notifMessage]
+      );
+    }
 
     await queryDatabase('COMMIT');
 
@@ -2208,6 +2340,24 @@ app.post('/updateUserStatusIncompleteDocuments', async (req, res) => {
       });
     }
 
+    // Insert notification if user is now Verified
+    if (newStatus === 'Verified') {
+      // Get user info (name, barangay, id)
+      const [userInfo] = await queryDatabase(`
+        SELECT u.id, u.name, s1.barangay
+        FROM users u
+        JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
+        WHERE u.code_id = ?
+      `, [code_id]);
+      if (userInfo) {
+        const notifMessage = `${userInfo.name} is a new solo parent in your barangay.`;
+        await queryDatabase(
+          'INSERT INTO adminnotifications (user_id, notif_type, message, barangay) VALUES (?, ?, ?, ?)',
+          [userInfo.id, 'new_solo_parent', notifMessage, userInfo.barangay]
+        );
+      }
+    }
+
     // Commit transaction
     await queryDatabase('COMMIT');
 
@@ -2522,45 +2672,53 @@ app.put('/followup-notifications/mark-all-as-read/:userId', async (req, res) => 
   }
 });
 
-// Endpoint to terminate a user account
 app.post('/terminateUser', async (req, res) => {
   const { userId } = req.body;
   
   try {
     console.log('Terminating user with ID:', userId);
     
-    // Get the user info first to get code_id and email
-    const userInfo = await queryDatabase(`
-      SELECT u.id, u.code_id, u.email, s1.first_name 
-      FROM users u 
-      JOIN step1_identifying_information s1 ON u.code_id = s1.code_id 
+    // Get the user info first to get code_id, name, email, barangay
+    const [userInfo] = await queryDatabase(`
+      SELECT u.id, u.code_id, u.email, u.name, s1.barangay, s1.first_name
+      FROM users u
+      JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
       WHERE u.id = ?
     `, [userId]);
     
-    if (!userInfo || userInfo.length === 0) {
+    if (!userInfo) {
       console.error('User not found for termination:', userId);
       return res.status(404).json({ success: false, message: 'User not found' });
     }
     
-    console.log('Processing termination for user:', JSON.stringify(userInfo[0]));
+    console.log('Processing termination for user:', JSON.stringify(userInfo));
     
     // Update user status to Terminated
     await queryDatabase('UPDATE users SET status = ? WHERE id = ?', ['Terminated', userId]);
     console.log(`Updated user status to Terminated for userId: ${userId}`);
-    
+
+    // Insert into terminated_users
+    await queryDatabase(
+      'INSERT INTO terminated_users (user_id, message, terminated_at, is_read) VALUES (?, ?, NOW(), 0)',
+      [userInfo.id, 'Your account has been terminated.']
+    );
+
+    // Insert into adminnotifications
+    const notifMessage = `${userInfo.name} from your barangay has been not cleared and he's now disqualified as a solo parent after the review.`;
+    await queryDatabase(
+      'INSERT INTO adminnotifications (user_id, notif_type, message, barangay) VALUES (?, ?, ?, ?)',
+      [userInfo.id, 'terminated', notifMessage, userInfo.barangay]
+    );
+
     // Send termination email if user email is available
-    if (userInfo[0] && userInfo[0].email && userInfo[0].first_name) {
+    if (userInfo.email && userInfo.first_name) {
       try {
-        console.log('Preparing to send termination email to:', userInfo[0].email);
-        
-        // Use direct import to ensure the function is available
+        console.log('Preparing to send termination email to:', userInfo.email);
         const { sendTerminationEmail } = require('./services/emailService');
-        
         const emailResult = await sendTerminationEmail(
-          userInfo[0].email,
-          userInfo[0].first_name
+          userInfo.email,
+          userInfo.first_name
         );
-        
         console.log('Termination email result:', emailResult ? 'Sent successfully' : 'Failed to send');
       } catch (emailError) {
         console.error('Error sending termination email:', emailError);
@@ -2568,9 +2726,9 @@ app.post('/terminateUser', async (req, res) => {
         // Continue with the process even if email fails
       }
     } else {
-      console.log('Missing user information for email:', JSON.stringify(userInfo[0]));
+      console.log('Missing user information for email:', JSON.stringify(userInfo));
     }
-    
+
     res.json({ success: true, message: 'User account terminated successfully' });
   } catch (err) {
     console.error('Error terminating user account:', err);
@@ -2633,3 +2791,568 @@ app.post('/unTerminateUser', async (req, res) => {
     res.status(500).json({ success: false, message: 'Failed to re-verify user account' });
   }
 });
+
+app.get('/accepted-users', async (req, res) => {
+  try {
+    console.log('Fetching accepted users...');
+    const query = `
+      SELECT 
+        au.id,
+        u.name,
+        au.accepted_at
+      FROM users u
+      INNER JOIN (
+        SELECT user_id, MAX(accepted_at) as latest_accepted_at
+        FROM accepted_users
+        WHERE message = 'Your application has been accepted.'
+        GROUP BY user_id
+      ) latest_au ON u.id = latest_au.user_id
+      INNER JOIN accepted_users au ON u.id = au.user_id 
+        AND au.accepted_at = latest_au.latest_accepted_at
+      WHERE u.status IN ('Verified', 'Created')
+      ORDER BY au.accepted_at DESC
+      LIMIT 5
+    `;
+    
+    console.log('Executing query:', query);
+    const results = await queryDatabase(query);
+    console.log('Query results:', results);
+    
+    if (!results || results.length === 0) {
+      console.log('No accepted users found');
+      return res.json([]);
+    }
+    
+    res.json(results);
+  } catch (error) {
+    console.error('Error fetching accepted users:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch accepted users', 
+      details: error.message,
+      stack: error.stack 
+    });
+  }
+});
+
+app.get('/polulations-users', async (req, res) => {
+  try {
+    console.log('Fetching population users...');
+    const { barangay, startDate, endDate } = req.query;
+    
+    // List of valid barangays
+    const validBarangays = [
+      'Adia', 'Bagong Pook', 'Bagumbayan', 'Bubucal', 'Cabooan', 'Calangay',
+      'Cambuja', 'Coralan', 'Cueva', 'Inayapan', 'Jose P. Laurel, Sr.',
+      'Jose P. Rizal', 'Juan Santiago', 'Kayhacat', 'Macasipac', 'Masinao',
+      'Matalinting', 'Pao-o', 'Parang ng Buho', 'Poblacion Dos',
+      'Poblacion Quatro', 'Poblacion Tres', 'Poblacion Uno', 'Talangka', 'Tungkod'
+    ];
+    
+    let query = `
+        SELECT 
+          au.id,
+          au.accepted_at,
+          u.status,
+          s1.barangay,
+          u.id as user_id,
+          u.code_id
+        FROM users u
+        INNER JOIN (
+          SELECT user_id, MAX(accepted_at) as latest_accepted_at
+          FROM accepted_users
+          WHERE message = 'Your application has been accepted.'
+          GROUP BY user_id
+        ) latest_au ON u.id = latest_au.user_id
+        INNER JOIN accepted_users au ON u.id = au.user_id 
+          AND au.accepted_at = latest_au.latest_accepted_at
+        INNER JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
+        WHERE u.status IN ('Verified', 'Renewal', 'Pending Remarks', 'Terminated')
+    `;
+
+    const params = [];
+
+    // Add barangay filter if specified and valid
+    if (barangay && validBarangays.includes(barangay)) {
+      query += ` AND s1.barangay = ?`;
+      params.push(barangay);
+    }
+
+    // Add date range filter if specified
+    if (startDate && endDate) {
+      query += ` AND DATE(au.accepted_at) BETWEEN ? AND ?`;
+      params.push(startDate, endDate);
+    }
+
+    query += ` ORDER BY au.accepted_at ASC`;
+    
+    console.log('Executing query:', query);
+    console.log('Query params:', params);
+    const results = await queryDatabase(query, params);
+    console.log('Query results:', JSON.stringify(results, null, 2));
+    
+    if (!results || results.length === 0) {
+      console.log('No users found');
+      return res.json([]);
+    }
+    
+    // Log unique status counts
+    const statusCounts = results.reduce((acc, curr) => {
+      acc[curr.status] = (acc[curr.status] || 0) + 1;
+      return acc;
+    }, {});
+    console.log('Status counts:', statusCounts);
+    
+    res.json(results);
+  } catch (error) {
+    console.error('Error fetching population users:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch population users', 
+      details: error.message,
+      stack: error.stack 
+    });
+  }
+});
+
+app.get('/beneficiaries-users', async (req, res) => {
+  try {
+    console.log('Fetching beneficiaries users...');
+    const { barangay, startDate, endDate } = req.query;
+
+    let query = `
+      SELECT 
+        u.id,
+        u.status,
+        s1.barangay,
+        s1.income,
+        au.accepted_at,
+        CASE 
+          WHEN s1.income = 'Below ₱10,000' THEN 10000
+          WHEN s1.income = '₱11,000-₱20,000' THEN 20000
+          WHEN s1.income = '₱21,000-₱43,000' THEN 43000
+          WHEN s1.income = '₱44,000 and above' THEN 250001
+          ELSE CAST(REPLACE(REPLACE(s1.income, '₱', ''), ',', '') AS DECIMAL(10, 2))
+        END as income_value
+      FROM users u
+      INNER JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
+      INNER JOIN (
+        SELECT user_id, MAX(accepted_at) as latest_accepted_at
+        FROM accepted_users
+        WHERE message = 'Your application has been accepted.'
+        GROUP BY user_id
+      ) latest_au ON u.id = latest_au.user_id
+      INNER JOIN accepted_users au ON u.id = au.user_id 
+        AND au.accepted_at = latest_au.latest_accepted_at
+      WHERE u.status = 'Verified'
+    `;
+
+    const params = [];
+
+    // Add barangay filter if specified
+    if (barangay && barangay !== 'All') {
+      query += ` AND s1.barangay = ?`;
+      params.push(barangay);
+    }
+
+    // Add date range filter if specified
+    if (startDate && endDate) {
+      query += ` AND DATE(au.accepted_at) BETWEEN ? AND ?`;
+      params.push(startDate, endDate);
+    }
+
+    query += ` ORDER BY u.id ASC`;
+    
+    console.log('Executing query:', query);
+    console.log('Query params:', params);
+    const results = await queryDatabase(query, params);
+    console.log('Query results:', results);
+    
+    if (!results || results.length === 0) {
+      console.log('No users found');
+      return res.json({
+        beneficiaries: 0,
+        nonBeneficiaries: 0,
+        users: []
+      });
+    }
+
+    // Process results to count beneficiaries and non-beneficiaries
+    const processedResults = {
+      beneficiaries: results.filter(user => user.income_value < 250000).length,
+      nonBeneficiaries: results.filter(user => user.income_value >= 250000).length,
+      users: results
+    };
+    
+    console.log('Processed results:', processedResults);
+    res.json(processedResults);
+  } catch (error) {
+    console.error('Error fetching beneficiaries users:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch beneficiaries users', 
+      details: error.message,
+      stack: error.stack 
+    });
+  }
+});
+
+// Add the new application-status endpoint
+app.get('/application-status', async (req, res) => {
+  try {
+    console.log('Fetching application status...');
+    const { barangay, startDate, endDate } = req.query;
+    
+    let query = `
+      SELECT 
+        u.status,
+        COUNT(*) as count,
+        MAX(
+          CASE 
+            WHEN u.status = 'Verified' THEN au.accepted_at
+            WHEN u.status = 'Created' THEN au.accepted_at
+            WHEN u.status = 'Pending Remarks' THEN ur.remarks_at
+            WHEN u.status = 'Terminated' THEN tu.terminated_at
+            WHEN u.status = 'Declined' THEN COALESCE(du.declined_at, u.created_at)
+            WHEN u.status = 'Pending' THEN u.created_at
+          END
+        ) as latest_status_date
+      FROM users u
+      INNER JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
+      LEFT JOIN (
+        SELECT user_id, MAX(accepted_at) as accepted_at
+        FROM accepted_users
+        GROUP BY user_id
+      ) au ON u.id = au.user_id
+      LEFT JOIN (
+        SELECT user_id, MAX(remarks_at) as remarks_at
+        FROM user_remarks
+        GROUP BY user_id
+      ) ur ON u.id = ur.user_id
+      LEFT JOIN (
+        SELECT user_id, MAX(terminated_at) as terminated_at
+        FROM terminated_users
+        GROUP BY user_id
+      ) tu ON u.id = tu.user_id
+      LEFT JOIN (
+        SELECT user_id, MAX(declined_at) as declined_at
+        FROM declined_users
+        GROUP BY user_id
+      ) du ON u.id = du.user_id
+      WHERE u.status IN ('Declined', 'Pending', 'Verified', 'Created', 'Pending Remarks', 'Terminated')
+    `;
+
+    const params = [];
+
+    // Add barangay filter if specified
+    if (barangay && barangay !== 'All') {
+      query += ` AND s1.barangay = ?`;
+      params.push(barangay);
+    }
+
+    // Add date range filter if specified
+    if (startDate && endDate) {
+      query += ` AND DATE(
+        CASE 
+          WHEN u.status = 'Verified' THEN au.accepted_at
+          WHEN u.status = 'Created' THEN au.accepted_at
+          WHEN u.status = 'Pending Remarks' THEN ur.remarks_at
+          WHEN u.status = 'Terminated' THEN tu.terminated_at
+          WHEN u.status = 'Declined' THEN COALESCE(du.declined_at, u.created_at)
+          WHEN u.status = 'Pending' THEN u.created_at
+        END
+      ) BETWEEN ? AND ?`;
+      params.push(startDate, endDate);
+    }
+
+    query += ` GROUP BY u.status`;
+    
+    console.log('Executing query:', query);
+    console.log('Query params:', params);
+    const results = await queryDatabase(query, params);
+    console.log('Query results:', results);
+    
+    // Initialize counts
+    const statusCounts = {
+      declined: 0,
+      pending: 0,
+      accepted: 0
+    };
+
+    // Process results
+    results.forEach(row => {
+      if (row.status === 'Declined') {
+        statusCounts.declined = row.count;
+      } else if (row.status === 'Pending') {
+        statusCounts.pending = row.count;
+      } else if (row.status === 'Verified' || row.status === 'Created' || 
+                 row.status === 'Pending Remarks' || row.status === 'Terminated') {
+        statusCounts.accepted += row.count;  // Add all accepted-type statuses to accepted count
+      }
+    });
+    
+    res.json(statusCounts);
+  } catch (error) {
+    console.error('Error fetching application status:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch application status', 
+      details: error.message,
+      stack: error.stack 
+    });
+  }
+});
+
+// Add new endpoint for admin population data
+app.get('/admin-population-users', async (req, res) => {
+  try {
+    console.log('Fetching population data...');
+    const { adminId, startDate, endDate } = req.query;
+    
+    if (!adminId) {
+      return res.status(400).json({ error: 'Admin ID is required' });
+    }
+
+    // First get the admin's barangay
+    const adminQuery = 'SELECT barangay FROM admin WHERE id = ?';
+    const adminResult = await queryDatabase(adminQuery, [adminId]);
+    
+    if (!adminResult || adminResult.length === 0) {
+      return res.status(404).json({ error: 'Admin not found' });
+    }
+
+    const adminBarangay = adminResult[0].barangay;
+
+    let query = `
+      SELECT 
+        au.id,
+        au.accepted_at,
+        u.status,
+        s1.barangay,
+        u.id as user_id,
+        u.code_id,
+        s1.employment_status,
+        s1.gender
+      FROM users u
+      INNER JOIN (
+        SELECT user_id, MAX(accepted_at) as latest_accepted_at
+        FROM accepted_users
+        WHERE message = 'Your application has been accepted.'
+        GROUP BY user_id
+      ) latest_au ON u.id = latest_au.user_id
+      INNER JOIN accepted_users au ON u.id = au.user_id 
+        AND au.accepted_at = latest_au.latest_accepted_at
+      INNER JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
+      WHERE u.status IN ('Verified', 'Renewal', 'Pending Remarks', 'Terminated')
+      AND s1.barangay = ?
+    `;
+
+    const params = [adminBarangay];
+
+    // Add date range filter if specified
+    if (startDate && endDate) {
+      query += ` AND DATE(au.accepted_at) BETWEEN ? AND ?`;
+      params.push(startDate, endDate);
+    }
+
+    query += ` ORDER BY au.accepted_at ASC`;
+    
+    console.log('Executing query:', query);
+    console.log('Query params:', params);
+    const results = await queryDatabase(query, params);
+    console.log('Query results:', JSON.stringify(results, null, 2));
+    
+    if (!results || results.length === 0) {
+      console.log('No users found for barangay:', adminBarangay);
+      return res.json([]);
+    }
+
+    // Log unique status counts
+    const statusCounts = results.reduce((acc, curr) => {
+      acc[curr.status] = (acc[curr.status] || 0) + 1;
+      return acc;
+    }, {});
+    console.log('Status counts:', statusCounts);
+    
+    res.json(results);
+  } catch (error) {
+    console.error('Error fetching population data:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch population data', 
+      details: error.message,
+      stack: error.stack 
+    });
+  }
+});
+
+// Helper function to standardize employment status
+function standardizeEmploymentStatus(status) {
+  if (!status) return 'Not employed';
+  
+  status = status.toLowerCase().trim();
+  
+  if (status.includes('self') || status.includes('self-employed') || status.includes('business')) {
+    return 'Self-employed';
+  } else if (status.includes('employ') || status.includes('working')) {
+    return 'Employed';
+  } else {
+    return 'Not employed';
+  }
+}
+
+// Add endpoint to fetch admin info
+app.get('/admin-info', async (req, res) => {
+  try {
+    console.log('Fetching admin info...');
+    const adminId = req.query.id || req.headers['x-admin-id'];
+    
+    if (!adminId) {
+      return res.status(400).json({ error: 'Admin ID is required' });
+    }
+
+    const query = 'SELECT id, barangay FROM admin WHERE id = ?';
+    const results = await queryDatabase(query, [adminId]);
+    
+    if (!results || results.length === 0) {
+      return res.status(404).json({ error: 'Admin not found' });
+    }
+
+    res.json(results[0]);
+  } catch (error) {
+    console.error('Error fetching admin info:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch admin info', 
+      details: error.message 
+    });
+  }
+});
+
+// Add endpoint to fetch remarks data
+app.get('/remarks-users', async (req, res) => {
+  try {
+    console.log('Fetching remarks data...');
+    const { adminId, startDate, endDate } = req.query;
+    
+    if (!adminId) {
+      return res.status(400).json({ error: 'Admin ID is required' });
+    }
+
+    // First get the admin's barangay
+    const adminQuery = 'SELECT barangay FROM admin WHERE id = ?';
+    const adminResult = await queryDatabase(adminQuery, [adminId]);
+    
+    if (!adminResult || adminResult.length === 0) {
+      return res.status(404).json({ error: 'Admin not found' });
+    }
+
+    const adminBarangay = adminResult[0].barangay;
+
+    let query = `
+      SELECT 
+        ur.id,
+        ur.remarks,
+        ur.remarks_at,
+        ur.is_read,
+        ur.user_id,
+        ur.admin_id,
+        u.status,
+        s1.barangay,
+        u.code_id,
+        DATE_FORMAT(ur.remarks_at, '%Y-%m') as remark_month
+      FROM user_remarks ur
+      INNER JOIN users u ON ur.user_id = u.id
+      INNER JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
+      WHERE ur.admin_id = ?
+      AND s1.barangay = ?
+      AND ur.id IN (
+        SELECT MAX(id)
+        FROM user_remarks ur2
+        GROUP BY user_id, DATE_FORMAT(remarks_at, '%Y-%m')
+      )
+    `;
+
+    const params = [adminId, adminBarangay];
+
+    // Add date range filter if specified
+    if (startDate && endDate) {
+      query += ` AND DATE(ur.remarks_at) BETWEEN ? AND ?`;
+      params.push(startDate, endDate);
+    }
+
+    query += ` ORDER BY ur.remarks_at ASC`;
+    
+    console.log('Executing query:', query);
+    console.log('Query params:', params);
+    const results = await queryDatabase(query, params);
+    console.log('Query results:', JSON.stringify(results, null, 2));
+    
+    if (!results || results.length === 0) {
+      console.log('No remarks found for barangay:', adminBarangay);
+      return res.json([]);
+    }
+    
+    res.json(results);
+  } catch (error) {
+    console.error('Error fetching remarks data:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch remarks data', 
+      details: error.message,
+      stack: error.stack 
+    });
+  }
+});
+app.get('/:id', async (req, res) => {
+  const userId = req.params.id;
+  console.log('Fetching user data for ID:', userId);
+  
+  // Handle the search route separately
+  if (userId === 'search') {
+    const searchTerm = req.query.q;
+    if (!searchTerm) {
+      return res.status(400).json({ error: 'Search term is required' });
+    }
+    
+    try {
+      // Use LIKE query with the correct column names from your database
+      const searchQuery = `
+        SELECT id, email, name, profilePic, status
+        FROM users 
+        WHERE name LIKE ? OR email LIKE ?
+        LIMIT 20
+      `;
+      
+      const searchPattern = `%${searchTerm}%`;
+      const users = await queryDatabase(searchQuery, [searchPattern, searchPattern]);
+      
+      if (!users || users.length === 0) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      
+      res.json(users);
+    } catch (error) {
+      console.error('Error searching users:', error);
+      res.status(500).json({ error: 'Failed to search users', details: error.message });
+    }
+    return;
+  }
+  
+  try {
+    // Simpler query to get basic user data
+    const userQuery = `
+      SELECT id, email, name, profilePic, status
+      FROM users 
+      WHERE id = ?
+    `;
+    
+    const users = await queryDatabase(userQuery, [userId]);
+    
+    if (!users || users.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const user = users[0];
+    
+    // Return user data
+    res.json(user);
+  } catch (error) {
+    console.error('Error fetching user data:', error);
+    res.status(500).json({ error: 'Failed to fetch user data', details: error.message });
+  }
+});
+

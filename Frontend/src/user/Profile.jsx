@@ -696,7 +696,7 @@ const Profile = () => {
     if (!user?.validUntil) return false;
     const expirationDate = new Date(user.validUntil);
     // Use the actual current date (2025-04-21) as provided by the system
-    const today = new Date('2025-04-25');
+    const today = new Date('2025-04-28');
     today.setHours(0, 0, 0, 0);
     expirationDate.setHours(0, 0, 0, 0);
     return expirationDate < today; // Expired if expirationDate is before today
