@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import './Profile.css';
 import './ResendApplicationModal.css';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -17,6 +17,29 @@ import { toast, Toaster } from 'react-hot-toast';
 import LogoutModal from '../components/LogoutModal';
 import { QRCodeSVG } from 'qrcode.react';
 import dswdLogo from '../assets/dswd-logo.png';
+import santaMariaBarangays from '../data/santaMariaBarangays.json';
+import philippinesData from '../data/philippines.json';
+
+// Function to calculate age from birthdate
+const calculateAge = (birthdate) => {
+  if (!birthdate) return null;
+  
+  const birthDate = new Date(birthdate);
+  const today = new Date();
+  
+  // Check if birthdate is valid
+  if (isNaN(birthDate.getTime())) return null;
+  
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  
+  // If birthday hasn't occurred yet this year, subtract 1
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  
+  return age;
+};
 
 const Profile = () => {
   const [showResendModal, setShowResendModal] = useState(false);
@@ -275,7 +298,7 @@ const Profile = () => {
     setRefreshKey(oldKey => oldKey + 1);
   }, [user?.profilePic]);
 
-  // Add this function to validate document URL
+  // Add function to validate document URL
   const getValidDocumentUrl = (doc) => {
     if (!doc) return null;
     
@@ -856,8 +879,8 @@ const Profile = () => {
               </div>
             </div>
             {showResendModal && (
-  <ResendApplicationModal onClose={() => setShowResendModal(false)} />
-)}
+              <ResendApplicationModal onClose={() => setShowResendModal(false)} />
+            )}
           </>
         )}
 
@@ -1359,7 +1382,7 @@ const Profile = () => {
                                 <div className="id-detail">
                                   <span className="id-label">Birthdate:</span>
                                   <span className="id-value">
-                                    {user?.date_of_birth ? new Date(user.date_of_birth).toLocaleDateString() : 'N/A'}
+                                    {user?.date_of_birth ? new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(new Date(user.date_of_birth)) : 'N/A'}
                                   </span>
                                 </div>
                                 <div className="id-detail">
@@ -1514,6 +1537,56 @@ function ResendApplicationModal({ onClose }) {
   const [error, setError] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editValues, setEditValues] = useState({});
+  const [selectedProvince, setSelectedProvince] = useState("");
+  const [selectedMunicipality, setSelectedMunicipality] = useState("");
+  const [municipalities, setMunicipalities] = useState([]);
+  const [showOthersInput, setShowOthersInput] = useState(false);
+  
+  // Classification options
+  const classifications = [
+    { code: "001", label: "Birth due to rape / Kapanganakan dahil sa panggagahasa", saveValue: "001" },
+    { code: "002", label: "Death of spouse / Pagkamatay ng asawa", saveValue: "002" },
+    { code: "003", label: "Detention of spouse / Pagkakakulong ng asawa", saveValue: "003" },
+    { code: "004", label: "Spouse's physical/mental incapacity / Pisikal o mental na kapansanan ng asawa", saveValue: "004" },
+    { code: "005", label: "Legal/de facto separation / Legal o de facto na paghihiwalay", saveValue: "005" },
+    { code: "006", label: "Annulled/nullified marriage / Pinawalang-bisa o nullified na kasal", saveValue: "006" },
+    { code: "007", label: "Abandoned by spouse / Inabandona ng asawa", saveValue: "007" },
+    { code: "008", label: "OFW's spouse/family member / Asawa o miyembro ng pamilya ng OFW", saveValue: "008" },
+    { code: "009", label: "Unmarried mother/father / Nakakaisang ina o ama", saveValue: "009" },
+    { code: "010", label: "Legal guardian/adoptive parent / Legal na tagapag-alaga o adoptibong magulang", saveValue: "010" },
+    { code: "011", label: "Relative caring for child / Kamag-anak na nag-aalaga sa bata", saveValue: "011" },
+    { code: "012", label: "Pregnant woman solo caregiver / Buntis na babae na solo caregiver", saveValue: "012" },
+    { code: "013", label: "Others / Iba pa", saveValue: "Others" }
+  ];
+  
+  // Extract all provinces from the Philippines data
+  const allProvinces = useMemo(() => {
+    return Object.values(philippinesData)
+      .flatMap(region => 
+        Object.keys(region.province_list)
+      )
+      .sort((a, b) => a.localeCompare(b));
+  }, []);
+
+  // Update municipalities when province changes
+  useEffect(() => {
+    if (selectedProvince) {
+      // Find the region that contains this province
+      const region = Object.values(philippinesData).find(region => 
+        Object.keys(region.province_list).includes(selectedProvince)
+      );
+      
+      if (region) {
+        // Get municipalities for this province
+        const municipalitiesList = Object.keys(region.province_list[selectedProvince].municipality_list);
+        setMunicipalities(municipalitiesList.sort((a, b) => a.localeCompare(b)));
+      } else {
+        setMunicipalities([]);
+      }
+    } else {
+      setMunicipalities([]);
+    }
+  }, [selectedProvince]);
 
   useEffect(() => {
     setLoading(true);
@@ -1546,6 +1619,102 @@ function ResendApplicationModal({ onClose }) {
   // Handler for saving all edits and submitting to backend
   const saveEditAll = async () => {
     if (loading) return;
+    
+    // Validate required fields - ALL fields must be filled
+    const errors = [];
+    
+    // Personal Information Validation - All fields required
+    if (!editValues.first_name?.trim()) errors.push("First name is required");
+    if (!editValues.middle_name?.trim()) errors.push("Middle name is required");
+    if (!editValues.last_name?.trim()) errors.push("Last name is required");
+    if (!editValues.age?.toString().trim()) errors.push("Age is required");
+    if (!editValues.gender?.trim()) errors.push("Gender is required");
+    
+    // Strict date validation for date of birth
+    if (!editValues.date_of_birth || editValues.date_of_birth === "") {
+      errors.push("Date of birth is required");
+    }
+    
+    if (!editValues.place_of_birth?.trim()) errors.push("Place of birth is required");
+    if (!editValues.barangay?.trim()) errors.push("Barangay is required");
+    if (!editValues.education?.trim()) errors.push("Education is required");
+    if (!editValues.civil_status?.trim()) errors.push("Civil status is required");
+    if (!editValues.occupation?.trim()) errors.push("Occupation is required");
+    if (!editValues.religion?.trim()) errors.push("Religion is required");
+    if (!editValues.company?.trim()) errors.push("Company is required");
+    if (!editValues.income?.trim()) errors.push("Income is required");
+    if (!editValues.employment_status?.trim()) errors.push("Employment status is required");
+    if (!editValues.contact_number?.trim()) errors.push("Contact number is required");
+    if (editValues.contact_number && !/^\d{11}$/.test(editValues.contact_number.replace(/\s/g, ''))) {
+      errors.push("Contact number must be 11 digits");
+    }
+    if (editValues.pantawid_beneficiary === undefined || editValues.pantawid_beneficiary === null || editValues.pantawid_beneficiary === "") {
+      errors.push("Pantawid beneficiary status is required");
+    }
+    if (editValues.indigenous === undefined || editValues.indigenous === null || editValues.indigenous === "") {
+      errors.push("Indigenous status is required");
+    }
+    if (!editValues.email?.trim()) errors.push("Email is required");
+    if (editValues.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editValues.email)) {
+      errors.push("Email format is invalid");
+    }
+    
+    // Emergency Contact Validation - All fields required
+    if (!editValues.emergency_name?.trim()) errors.push("Emergency contact name is required");
+    if (!editValues.emergency_relationship?.trim()) errors.push("Emergency contact relationship is required");
+    if (!editValues.emergency_address?.trim()) errors.push("Emergency contact address is required");
+    if (!editValues.emergency_contact?.trim()) errors.push("Emergency contact number is required");
+    if (editValues.emergency_contact && !/^\d{11}$/.test(editValues.emergency_contact.replace(/\s/g, ''))) {
+      errors.push("Emergency contact number must be 11 digits");
+    }
+    
+    // Classification Validation
+    if (!editValues.classification?.trim()) errors.push("Classification is required");
+    if ((editValues.classification === "013" || editValues.classification === "Others") && 
+        !editValues.classification_others?.trim()) {
+      errors.push("Please specify 'Others' classification");
+    }
+    
+    // Needs/Problems Validation
+    if (!editValues.needs_problems?.trim()) errors.push("Needs/Problems field is required");
+    
+    // Family Members Validation - All fields required for each member
+    if (editValues.familyMembers && editValues.familyMembers.length > 0) {
+      editValues.familyMembers.forEach((fm, index) => {
+        if (!fm.family_member_name?.trim()) errors.push(`Family member #${index + 1}: Name is required`);
+        
+        // Strict date validation for birthdate
+        if (!fm.birthdate || fm.birthdate === "") {
+          errors.push(`Family member #${index + 1}: Birthdate is required`);
+        }
+        
+        if (!fm.age?.toString().trim()) errors.push(`Family member #${index + 1}: Age is required`);
+        if (!fm.educational_attainment?.trim()) errors.push(`Family member #${index + 1}: Educational attainment is required`);
+      });
+    }
+    
+    // Log validation for debugging
+    console.log("Validation errors:", errors);
+    console.log("Date of birth value:", editValues.date_of_birth);
+    console.log("Family member birthdates:", editValues.familyMembers?.map(fm => fm.birthdate));
+    
+    // If there are validation errors, display them and stop submission
+    if (errors.length > 0) {
+      setLoading(false);
+      toast.error(
+        <div>
+          <strong>Please fill in all required fields:</strong>
+          <ul style={{ marginLeft: '20px', marginTop: '8px' }}>
+            {errors.map((error, index) => (
+              <li key={index} style={{ marginBottom: '4px' }}>{error}</li>
+            ))}
+          </ul>
+        </div>,
+        { duration: 8000 }
+      );
+      return;
+    }
+    
     setLoading(true);
     try {
       // Prepare the steps data based on editValues
@@ -1555,7 +1724,7 @@ function ResendApplicationModal({ onClose }) {
         last_name: editValues.last_name,
         age: editValues.age,
         gender: editValues.gender,
-        date_of_birth: editValues.date_of_birth,
+        date_of_birth: editValues.date_of_birth ? editValues.date_of_birth.split('T')[0] : editValues.date_of_birth,
         place_of_birth: editValues.place_of_birth,
         barangay: editValues.barangay,
         education: editValues.education,
@@ -1582,7 +1751,7 @@ function ResendApplicationModal({ onClose }) {
             last_name: last_name || '',
             age: fm.age,
             educational_attainment: fm.educational_attainment,
-            birthdate: fm.birthdate || '',
+            birthdate: fm.birthdate ? fm.birthdate.split('T')[0] : fm.birthdate,
           };
         })
       };
@@ -1619,9 +1788,100 @@ function ResendApplicationModal({ onClose }) {
   // Handler for updating family member fields
   const updateFamilyMember = (idx, key, value) => {
     setEditValues(prev => {
-      const updated = prev.familyMembers.map((fm, i) => i === idx ? { ...fm, [key]: value } : fm);
+      const updated = prev.familyMembers ? 
+        prev.familyMembers.map((fm, i) => i === idx ? { ...fm, [key]: value } : fm) :
+        [];
       return { ...prev, familyMembers: updated };
     });
+  };
+
+  useEffect(() => {
+    if (isEditing) {
+      setShowOthersInput(editValues.classification === "013" || editValues.classification === "Others");
+    }
+  }, [isEditing, editValues.classification]);
+
+  useEffect(() => {
+    if (selectedProvince) {
+      // Find the region that contains this province
+      const region = Object.values(philippinesData).find(region => 
+        Object.keys(region.province_list).includes(selectedProvince)
+      );
+      
+      if (region) {
+        // Get municipalities for this province
+        const municipalitiesList = Object.keys(region.province_list[selectedProvince].municipality_list);
+        setMunicipalities(municipalitiesList.sort((a, b) => a.localeCompare(b)));
+      } else {
+        setMunicipalities([]);
+      }
+    } else {
+      setMunicipalities([]);
+    }
+  }, [selectedProvince]);
+
+  useEffect(() => {
+    if (isEditing) {
+      let newPlaceOfBirth = "";
+      
+      if (selectedProvince && selectedMunicipality) {
+        newPlaceOfBirth = `${selectedMunicipality}, ${selectedProvince}`;
+      } else if (selectedProvince) {
+        newPlaceOfBirth = selectedProvince;
+      }
+      
+      if (newPlaceOfBirth) {
+        setEditValues(prev => ({...prev, place_of_birth: newPlaceOfBirth}));
+      }
+    }
+  }, [selectedProvince, selectedMunicipality, isEditing]);
+
+  useEffect(() => {
+    if (isEditing && editValues.place_of_birth) {
+      const parts = editValues.place_of_birth.split(', ');
+      if (parts.length >= 2) {
+        const province = parts[parts.length - 1];
+        const municipality = parts[parts.length - 2];
+        
+        setSelectedProvince(province);
+        // Municipality will be set by the effect that watches selectedProvince
+        setTimeout(() => {
+          setSelectedMunicipality(municipality);
+        }, 100);
+      } else if (parts.length === 1) {
+        setSelectedProvince(parts[0]);
+        setSelectedMunicipality("");
+      }
+    }
+  }, [isEditing, editValues.place_of_birth]);
+
+  // Calculate age from birthdate
+  const calculateAge = (birthdate) => {
+    if (!birthdate) return "";
+    const birthDateObj = new Date(birthdate);
+    const today = new Date();
+    
+    // Check if birthdate is in the future
+    if (birthDateObj > today) {
+      return "Invalid date";
+    }
+    
+    let age = today.getFullYear() - birthDateObj.getFullYear();
+    const monthDiff = today.getMonth() - birthDateObj.getMonth();
+
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDateObj.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  // Get today's date in YYYY-MM-DD format for date input max attribute
+  const getTodayDate = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
   return (
@@ -1630,68 +1890,231 @@ function ResendApplicationModal({ onClose }) {
         <div className="resend-modal-content">
           <div className="resend-modal-header">
             <h2>Resend Application</h2>
-            <button className="resend-modal-close" onClick={onClose} title="Close">&times;</button>
+            <button className="resend-modal-close" onClick={onClose} title="Close">
+              <FontAwesomeIcon icon="times" />
+            </button>
           </div>
           <div className="resend-modal-body">
-            {loading && <p>Loading...</p>}
-            {error && <p style={{color:'red'}}>{error}</p>}
+            {loading && (
+              <div style={{display: 'flex', justifyContent: 'center', padding: '20px'}}>
+                <FontAwesomeIcon icon="spinner" spin size="2x" color="#2E7D32" />
+              </div>
+            )}
+            {error && (
+              <div style={{
+                background: '#ffebee', 
+                color: '#c62828', 
+                padding: '12px 16px', 
+                borderRadius: '8px',
+                marginBottom: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}>
+                <FontAwesomeIcon icon="exclamation-circle" />
+                <span>{error}</span>
+              </div>
+            )}
             {info && (
               <>
-                <div style={{textAlign: 'right', marginBottom: '10px'}}>
+                <div style={{
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center', 
+                  marginBottom: '20px',
+                  background: '#f5f5f5',
+                  padding: '12px 16px',
+                  borderRadius: '10px'
+                }}>
+                  <div>
+                    <h3 style={{margin: '0 0 4px 0', fontSize: '1.1rem'}}>Application Details</h3>
+                    <p style={{margin: 0, color: '#666', fontSize: '0.9rem'}}>
+                      Review and update your information before resubmitting
+                    </p>
+                  </div>
                   {!isEditing ? (
-                    <button className="resend-btn" onClick={startEditAll} disabled={loading || isEditing}>Edit</button>
+                    <button className="resend-btn" onClick={startEditAll} disabled={loading || isEditing}>
+                      <FontAwesomeIcon icon="edit" style={{marginRight: '8px'}} />
+                      Edit
+                    </button>
                   ) : (
-                    <button className="resend-btn cancel" onClick={cancelEditAll}>Cancel</button>
+                    <button className="resend-btn cancel" onClick={cancelEditAll}>
+                      <FontAwesomeIcon icon="times" style={{marginRight: '8px'}} />
+                      Cancel
+                    </button>
                   )}
                 </div>
                 <div className="info-row">
                   <label>Email:</label>
                   <span>{isEditing ? (
-                    <input value={editValues.email} onChange={e => setEditValues(v => ({...v, email: e.target.value}))} style={{width: '180px'}} />
+                    <input 
+                      value={editValues.email} 
+                      onChange={e => setEditValues(v => ({...v, email: e.target.value}))} 
+                      style={{width: '100%', maxWidth: '280px'}} 
+                    />
                   ) : (
-                    info.email
+                    <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                      <FontAwesomeIcon icon="envelope" style={{color: '#2E7D32'}} />
+                      {info.email}
+                    </div>
                   )}</span>
                 </div>
                 <div className="info-row">
                   <label>Status:</label>
-                  <span>{info.status}</span>
+                  <span>
+                    <div style={{
+                      display: 'inline-flex', 
+                      alignItems: 'center', 
+                      background: info.status === 'Declined' ? '#ffebee' : '#e8f5e9',
+                      color: info.status === 'Declined' ? '#c62828' : '#2E7D32',
+                      padding: '2px 8px',
+                      borderRadius: '12px',
+                      fontSize: '0.8rem',
+                      fontWeight: '500'
+                    }}>
+                      <FontAwesomeIcon 
+                        icon={info.status === 'Declined' ? 'times-circle' : 'check-circle'} 
+                        style={{marginRight: '6px'}} 
+                      />
+                      {info.status}
+                    </div>
+                  </span>
                 </div>
                 <div className="info-row">
                   <label>Classification:</label>
                   <span>{isEditing ? (
-                    <input value={editValues.classification} onChange={e => setEditValues(v => ({...v, classification: e.target.value}))} style={{width: '120px'}} />
+                    <div style={{display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', maxWidth: '280px'}}>
+                      <select 
+                        value={editValues.classification} 
+                        onChange={e => setEditValues(v => ({...v, classification: e.target.value}))}
+                        style={{width: '100%'}}
+                      >
+                        <option value="">Select Classification</option>
+                        {classifications.map((classification, index) => (
+                          <option key={index} value={classification.saveValue}>{classification.label}</option>
+                        ))}
+                      </select>
+                      
+                      {showOthersInput && (
+                        <input
+                          placeholder="Please specify other classification"
+                          value={editValues.others_details || ''}
+                          onChange={e => {
+                            setEditValues(v => ({
+                              ...v, 
+                              others_details: e.target.value,
+                              classification: e.target.value ? e.target.value : "013"
+                            }));
+                          }}
+                          style={{width: '100%'}}
+                        />
+                      )}
+                    </div>
                   ) : (
                     info.classification || 'N/A'
                   )}</span>
                 </div>
                 <div className="info-row">
                   <label>Gender:</label>
-                  <span>{isEditing ? (
-                    <input value={editValues.gender} onChange={e => setEditValues(v => ({...v, gender: e.target.value}))} style={{width: '80px'}} />
-                  ) : (
-                    info.gender
-                  )}</span>
+                  <span>{info.gender}</span>
                 </div>
                 <div className="info-row">
                   <label>Date of Birth:</label>
                   <span>{isEditing ? (
-                    <input type="date" value={editValues.date_of_birth} onChange={e => setEditValues(v => ({...v, date_of_birth: e.target.value}))} />
+                    <input 
+                      type="date" 
+                      value={editValues.date_of_birth} 
+                      onChange={e => setEditValues(v => ({...v, date_of_birth: e.target.value}))}
+                      style={{width: '100%', maxWidth: '280px'}}
+                      max={getTodayDate()}
+                    />
                   ) : (
-                    info.date_of_birth
+                    <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                      <FontAwesomeIcon icon="calendar-alt" style={{color: '#2E7D32'}} />
+                      {info.date_of_birth ? new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(new Date(info.date_of_birth)) : ''}
+                    </div>
                   )}</span>
                 </div>
                 <div className="info-row">
                   <label>Place of Birth:</label>
-                  <span>{isEditing ? (
-                    <input value={editValues.place_of_birth} onChange={e => setEditValues(v => ({...v, place_of_birth: e.target.value}))} style={{width: '120px'}} />
-                  ) : (
-                    info.place_of_birth
-                  )}</span>
+                  <span>
+                    {isEditing ? (
+                      <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '8px',
+                        width: '100%',
+                        maxWidth: '280px'
+                      }}>
+                        <div style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '4px'
+                        }}>
+                          <label style={{
+                            fontSize: '0.85rem',
+                            color: '#555',
+                            fontWeight: '500',
+                            marginBottom: '2px'
+                          }}>
+                            Province:
+                          </label>
+                          <select 
+                            value={selectedProvince} 
+                            onChange={e => setSelectedProvince(e.target.value)} 
+                            style={{width: '100%'}}
+                          >
+                            <option value="">Select Province</option>
+                            {allProvinces.map((province, index) => (
+                              <option key={index} value={province}>{province}</option>
+                            ))}
+                          </select>
+                        </div>
+                        
+                        <div style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '4px'
+                        }}>
+                          <label style={{
+                            fontSize: '0.85rem',
+                            color: '#555',
+                            fontWeight: '500',
+                            marginBottom: '2px'
+                          }}>
+                            Municipality/City:
+                          </label>
+                          <select 
+                            value={selectedMunicipality} 
+                            onChange={e => setSelectedMunicipality(e.target.value)} 
+                            style={{width: '100%'}}
+                            disabled={!selectedProvince}
+                          >
+                            <option value="">Select Municipality/City</option>
+                            {municipalities.map((municipality, index) => (
+                              <option key={index} value={municipality}>{municipality}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    ) : (
+                      info.place_of_birth
+                    )}
+                  </span>
                 </div>
                 <div className="info-row">
-                  <label>Barangay:</label>
+                  <label>Current Barangay:</label>
                   <span>{isEditing ? (
-                    <input value={editValues.barangay} onChange={e => setEditValues(v => ({...v, barangay: e.target.value}))} style={{width: '120px'}} />
+                    <select 
+                      value={editValues.barangay} 
+                      onChange={e => setEditValues(v => ({...v, barangay: e.target.value}))} 
+                      style={{width: '100%', maxWidth: '280px'}} 
+                    >
+                      <option value="">Select Barangay</option>
+                      {santaMariaBarangays.Barangays.map((barangay, index) => (
+                        <option key={index} value={barangay}>{barangay}</option>
+                      ))}
+                    </select>
                   ) : (
                     info.barangay
                   )}</span>
@@ -1699,7 +2122,11 @@ function ResendApplicationModal({ onClose }) {
                 <div className="info-row">
                   <label>Education:</label>
                   <span>{isEditing ? (
-                    <input value={editValues.education} onChange={e => setEditValues(v => ({...v, education: e.target.value}))} style={{width: '120px'}} />
+                    <input 
+                      value={editValues.education} 
+                      onChange={e => setEditValues(v => ({...v, education: e.target.value}))} 
+                      style={{width: '100%', maxWidth: '280px'}} 
+                    />
                   ) : (
                     info.education
                   )}</span>
@@ -1707,7 +2134,11 @@ function ResendApplicationModal({ onClose }) {
                 <div className="info-row">
                   <label>Civil Status:</label>
                   <span>{isEditing ? (
-                    <input value={editValues.civil_status} onChange={e => setEditValues(v => ({...v, civil_status: e.target.value}))} style={{width: '120px'}} />
+                    <input 
+                      value={editValues.civil_status} 
+                      onChange={e => setEditValues(v => ({...v, civil_status: e.target.value}))} 
+                      style={{width: '100%', maxWidth: '280px'}} 
+                    />
                   ) : (
                     info.civil_status
                   )}</span>
@@ -1715,7 +2146,14 @@ function ResendApplicationModal({ onClose }) {
                 <div className="info-row">
                   <label>Occupation:</label>
                   <span>{isEditing ? (
-                    <input value={editValues.occupation} onChange={e => setEditValues(v => ({...v, occupation: e.target.value}))} style={{width: '120px'}} />
+                    <input
+                      value={editValues.occupation} 
+                      onChange={e => setEditValues(v => ({...v, occupation: e.target.value}))} 
+                      style={{width: '100%', maxWidth: '280px'}}
+                      >
+                      
+                    </input>                    
+                    
                   ) : (
                     info.occupation
                   )}</span>
@@ -1723,7 +2161,11 @@ function ResendApplicationModal({ onClose }) {
                 <div className="info-row">
                   <label>Religion:</label>
                   <span>{isEditing ? (
-                    <input value={editValues.religion} onChange={e => setEditValues(v => ({...v, religion: e.target.value}))} style={{width: '120px'}} />
+                    <input 
+                      value={editValues.religion} 
+                      onChange={e => setEditValues(v => ({...v, religion: e.target.value}))} 
+                      style={{width: '100%', maxWidth: '280px'}} 
+                    />
                   ) : (
                     info.religion
                   )}</span>
@@ -1731,7 +2173,11 @@ function ResendApplicationModal({ onClose }) {
                 <div className="info-row">
                   <label>Company:</label>
                   <span>{isEditing ? (
-                    <input value={editValues.company} onChange={e => setEditValues(v => ({...v, company: e.target.value}))} style={{width: '120px'}} />
+                    <input 
+                      value={editValues.company} 
+                      onChange={e => setEditValues(v => ({...v, company: e.target.value}))} 
+                      style={{width: '100%', maxWidth: '280px'}} 
+                    />
                   ) : (
                     info.company
                   )}</span>
@@ -1739,7 +2185,17 @@ function ResendApplicationModal({ onClose }) {
                 <div className="info-row">
                   <label>Income:</label>
                   <span>{isEditing ? (
-                    <input value={editValues.income} onChange={e => setEditValues(v => ({...v, income: e.target.value}))} style={{width: '120px'}} />
+                    <select 
+                      value={editValues.income} 
+                      onChange={e => setEditValues(v => ({...v, income: e.target.value}))} 
+                      style={{width: '100%', maxWidth: '280px'}} 
+                    >
+                      <option value="">Select Income Range</option>
+                      <option value="Below ₱10,000">Below ₱10,000</option>
+                      <option value="₱11,000-₱20,000">₱11,000-₱20,000</option>
+                      <option value="₱21,000-₱43,000">₱21,000-₱43,000</option>
+                      <option value="₱44,000 and above">₱44,000 and above</option>
+                    </select>
                   ) : (
                     info.income
                   )}</span>
@@ -1747,7 +2203,16 @@ function ResendApplicationModal({ onClose }) {
                 <div className="info-row">
                   <label>Employment Status:</label>
                   <span>{isEditing ? (
-                    <input value={editValues.employment_status} onChange={e => setEditValues(v => ({...v, employment_status: e.target.value}))} style={{width: '120px'}} />
+                    <select
+                      value={editValues.employment_status} 
+                      onChange={e => setEditValues(v => ({...v, employment_status: e.target.value}))} 
+                      style={{width: '100%', maxWidth: '280px'}} 
+                    >
+                      <option value="" disabled>Please choose</option>
+                      <option value="Employed">Employed</option>
+                      <option value="Self-employed">Self-employed</option>
+                      <option value="Not employed">Not employed</option>
+                      </select>
                   ) : (
                     info.employment_status
                   )}</span>
@@ -1755,7 +2220,11 @@ function ResendApplicationModal({ onClose }) {
                 <div className="info-row">
                   <label>Contact Number:</label>
                   <span>{isEditing ? (
-                    <input value={editValues.contact_number} onChange={e => setEditValues(v => ({...v, contact_number: e.target.value}))} style={{width: '120px'}} />
+                    <input 
+                      value={editValues.contact_number} 
+                      onChange={e => setEditValues(v => ({...v, contact_number: e.target.value}))} 
+                      style={{width: '100%', maxWidth: '280px'}} 
+                    />
                   ) : (
                     info.contact_number
                   )}</span>
@@ -1763,7 +2232,11 @@ function ResendApplicationModal({ onClose }) {
                 <div className="info-row">
                   <label>Pantawid Beneficiary:</label>
                   <span>{isEditing ? (
-                    <select value={editValues.pantawid_beneficiary} onChange={e => setEditValues(v => ({...v, pantawid_beneficiary: e.target.value}))}>
+                    <select 
+                      value={editValues.pantawid_beneficiary} 
+                      onChange={e => setEditValues(v => ({...v, pantawid_beneficiary: e.target.value}))}
+                      style={{width: '100%', maxWidth: '280px'}}
+                    >
                       <option value="">Select</option>
                       <option value="Yes">Yes</option>
                       <option value="No">No</option>
@@ -1775,7 +2248,11 @@ function ResendApplicationModal({ onClose }) {
                 <div className="info-row">
                   <label>Indigenous:</label>
                   <span>{isEditing ? (
-                    <select value={editValues.indigenous} onChange={e => setEditValues(v => ({...v, indigenous: e.target.value}))}>
+                    <select 
+                      value={editValues.indigenous} 
+                      onChange={e => setEditValues(v => ({...v, indigenous: e.target.value}))}
+                      style={{width: '100%', maxWidth: '280px'}}
+                    >
                       <option value="">Select</option>
                       <option value="Yes">Yes</option>
                       <option value="No">No</option>
@@ -1784,58 +2261,317 @@ function ResendApplicationModal({ onClose }) {
                     info.indigenous ? 'Yes' : 'No'
                   )}</span>
                 </div>
-                <div className="info-row">
-                  <label>Needs/Problems:</label>
-                  <span>{isEditing ? (
-                    <input value={editValues.needs_problems} onChange={e => setEditValues(v => ({...v, needs_problems: e.target.value}))} style={{width: '120px'}} />
-                  ) : (
-                    info.needs_problems
-                  )}</span>
-                </div>
-                <div className="info-row">
+                <div className="info-row emergency-contact-row">
                   <label>Emergency Contact:</label>
-                  <span>{isEditing ? (
-                    <>
-                      <input value={editValues.emergency_name} onChange={e => setEditValues(v => ({...v, emergency_name: e.target.value}))} style={{width: '100px'}} placeholder="Name" />
-                      <input value={editValues.emergency_relationship} onChange={e => setEditValues(v => ({...v, emergency_relationship: e.target.value}))} style={{width: '80px'}} placeholder="Relationship" />
-                      <input value={editValues.emergency_address} onChange={e => setEditValues(v => ({...v, emergency_address: e.target.value}))} style={{width: '120px'}} placeholder="Address" />
-                      <input value={editValues.emergency_contact} onChange={e => setEditValues(v => ({...v, emergency_contact: e.target.value}))} style={{width: '100px'}} placeholder="Contact" />
-                    </>
-                  ) : (
-                    <>
-                      {info.emergency_name} ({info.emergency_relationship})<br/>
-                      Address: {info.emergency_address}<br/>
-                      Contact: {info.emergency_contact}
-                    </>
-                  )}</span>
-                </div>
-                <div className="info-row">
-                  <label>Family Members:</label>
-                  <span>
-                    {(editValues.familyMembers || []).length === 0 ? <span>None</span> : editValues.familyMembers.map((fm, i) => (
-                      <div key={i} className="family-row">
-                        {isEditing ? (
-                          <>
-                            <input value={fm.family_member_name} onChange={e => updateFamilyMember(i, 'family_member_name', e.target.value)} style={{width: '120px'}} placeholder="Name" />
-                            <input value={fm.age} onChange={e => updateFamilyMember(i, 'age', e.target.value)} style={{width: '60px'}} placeholder="Age" />
-                            <input value={fm.educational_attainment} onChange={e => updateFamilyMember(i, 'educational_attainment', e.target.value)} style={{width: '120px'}} placeholder="Education" />
-                          </>
-                        ) : (
-                          <>
-                            {fm.family_member_name} ({fm.age} yrs, {fm.educational_attainment})
-                          </>
-                        )}
+                  <span className="emergency-contact-container">
+                    {isEditing ? (
+                      <div className="emergency-contact-edit">
+                        <div className="emergency-field-row">
+                          <div className="emergency-field-label">Name</div>
+                          <input 
+                            value={editValues.emergency_name} 
+                            onChange={e => setEditValues(v => ({...v, emergency_name: e.target.value}))} 
+                            className="emergency-field-input"
+                            placeholder="Enter name" 
+                          />
+                        </div>
+                        <div className="emergency-field-row address-field">
+                          <div className="emergency-field-label">Address</div>
+                          <div className="address-inputs">
+                            <div className="address-input-group">
+                              <label className="address-sublabel">Province/City</label>
+                              <select
+                                value={editValues.emergency_address ? editValues.emergency_address.split(',')[0] || '' : ''} 
+                                onChange={e => {
+                                  const currentAddress = editValues.emergency_address ? editValues.emergency_address.split(',') : ['', ''];
+                                  currentAddress[0] = e.target.value;
+                                  setEditValues(v => ({...v, emergency_address: currentAddress.join(',')}));
+                                }} 
+                                className="emergency-field-input"
+                              >
+                                <option value="">Select Province/City</option>
+                                {allProvinces.map((province, index) => (
+                                  <option key={`emergency-province-${index}`} value={province}>{province}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="address-input-group">
+                              <label className="address-sublabel">Municipality/Barangay</label>
+                              <select
+                                value={editValues.emergency_address ? editValues.emergency_address.split(',')[1] || '' : ''} 
+                                onChange={e => {
+                                  const currentAddress = editValues.emergency_address ? editValues.emergency_address.split(',') : ['', ''];
+                                  currentAddress[1] = e.target.value;
+                                  setEditValues(v => ({...v, emergency_address: currentAddress.join(',')}));
+                                }} 
+                                className="emergency-field-input"
+                                disabled={!(editValues.emergency_address && editValues.emergency_address.split(',')[0])}
+                              >
+                                <option value="">Select Municipality/Barangay</option>
+                                {selectedProvince && municipalities.map((municipality, index) => (
+                                  <option key={`emergency-municipality-${index}`} value={municipality}>{municipality}</option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="emergency-field-row">
+                          <div className="emergency-field-label">Relationship</div>
+                          <input 
+                            value={editValues.emergency_relationship} 
+                            onChange={e => setEditValues(v => ({...v, emergency_relationship: e.target.value}))} 
+                            className="emergency-field-input"
+                            placeholder="Enter relationship" 
+                          />
+                        </div>
+                        <div className="emergency-field-row">
+                          <div className="emergency-field-label">Contact</div>
+                          <input 
+                            value={editValues.emergency_contact} 
+                            onChange={e => setEditValues(v => ({...v, emergency_contact: e.target.value}))} 
+                            className="emergency-field-input"
+                            placeholder="Enter contact number" 
+                          />
+                        </div>
                       </div>
-                    ))}
+                    ) : (
+                      <div className="emergency-contact-display">
+                        <div className="emergency-field-row">
+                          <div className="emergency-field-label">Name</div>
+                          <div className="emergency-field-value">{info.emergency_name || 'Not provided'}</div>
+                        </div>
+                        <div className="emergency-field-row address-field">
+                          <div className="emergency-field-label">Address</div>
+                          <div className="emergency-field-value">{info.emergency_address || 'Not provided'}</div>
+                        </div>
+                        <div className="emergency-field-row">
+                          <div className="emergency-field-label">Relationship</div>
+                          <div className="emergency-field-value">{info.emergency_relationship || 'Not provided'}</div>
+                        </div>
+                        <div className="emergency-field-row">
+                          <div className="emergency-field-label">Contact</div>
+                          <div className="emergency-field-value">{info.emergency_contact || 'Not provided'}</div>
+                        </div>
+                      </div>
+                    )}
                   </span>
                 </div>
                 <input type="hidden" name="faceRecognitionPhoto" value={editValues.faceRecognitionPhoto || ''} />
+                
+                <div className="info-row family-members-row">
+                  <label>Family Members:</label>
+                  <span className="family-members-container">
+                    {isEditing ? (
+                      <div className="family-members-edit">
+                        {(editValues.familyMembers || []).length === 0 ? (
+                          <div className="no-family-members">
+                            <button 
+                              type="button" 
+                              className="add-family-member-btn"
+                              onClick={() => setEditValues(prev => ({
+                                ...prev, 
+                                familyMembers: [...(prev.familyMembers || []), { 
+                                  id: '', 
+                                  code_id: '', 
+                                  family_member_name: '', 
+                                  age: '', 
+                                  created_at: '', 
+                                  educational_attainment: '',
+                                  birthdate: ''
+                                }]
+                              }))}
+                            >
+                              <FontAwesomeIcon icon="plus" style={{marginRight: '8px'}} />
+                              Add Family Member
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="family-members-list">
+                            {editValues.familyMembers.map((fm, i) => (
+                              <div key={i} className="family-member-item">
+                                <div className="family-member-header">
+                                  <div className="family-member-title">Family Member #{i+1}</div>
+                                  <button 
+                                    type="button" 
+                                    className="remove-family-member-btn"
+                                    onClick={() => setEditValues(prev => ({
+                                      ...prev, 
+                                      familyMembers: prev.familyMembers.filter((_, idx) => idx !== i)
+                                    }))}
+                                  >
+                                    <FontAwesomeIcon icon="times" />
+                                  </button>
+                                </div>
+                                <div className="family-member-fields">
+                                  <div className="family-field-row">
+                                    <div className="family-field-label">Name</div>
+                                    <input 
+                                      value={fm.family_member_name || ''} 
+                                      onChange={e => updateFamilyMember(i, 'family_member_name', e.target.value)} 
+                                      className="family-field-input"
+                                      placeholder="Enter full name" 
+                                    />
+                                  </div>
+                                  <div className="family-field-row">
+                                    <div className="family-field-label">Birthdate</div>
+                                    <input 
+                                      type="date" 
+                                      value={fm.birthdate || ''} 
+                                      onChange={e => {
+                                        updateFamilyMember(i, 'birthdate', e.target.value);
+                                        // Auto-update age when birthdate changes
+                                        const age = calculateAge(e.target.value);
+                                        updateFamilyMember(i, 'age', age);
+                                      }} 
+                                      className="family-field-input"
+                                      placeholder="Enter birthdate" 
+                                      max={getTodayDate()}
+                                    />
+                                  </div>
+                                  <div className="family-field-row">
+                                    <div className="family-field-label">Age (Auto-Calculated)</div>
+                                    <div className="age-display-container">
+                                      <input 
+                                        value={calculateAge(fm.birthdate) !== null ? `${calculateAge(fm.birthdate)}` : ''}
+                                        disabled={true} 
+                                        className="family-field-input age-input"
+                                        placeholder="Age will be calculated automatically" 
+                                      />
+                                      {fm.birthdate && calculateAge(fm.birthdate) !== null && (
+                                        <div className="age-calculation-badge">
+                                          {calculateAge(fm.birthdate)} years old
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="family-field-row">
+                                    <div className="family-field-label">Educational Attainment</div>
+                                    <input 
+                                      value={fm.educational_attainment || ''} 
+                                      onChange={e => updateFamilyMember(i, 'educational_attainment', e.target.value)} 
+                                      className="family-field-input"
+                                      placeholder="Enter educational attainment" 
+                                    />
+                                  </div>
+                                  {/* Hidden fields for id and code_id if they exist */}
+                                  <input type="hidden" value={fm.id || ''} />
+                                  <input type="hidden" value={fm.code_id || ''} />
+                                  <input type="hidden" value={fm.created_at || ''} />
+                                </div>
+                              </div>
+                            ))}
+                            <button 
+                              type="button" 
+                              className="add-family-member-btn"
+                              onClick={() => setEditValues(prev => ({
+                                ...prev, 
+                                familyMembers: [...(prev.familyMembers || []), { 
+                                  id: '', 
+                                  code_id: '', 
+                                  family_member_name: '', 
+                                  age: '', 
+                                  created_at: '', 
+                                  educational_attainment: '',
+                                  birthdate: ''
+                                }]
+                              }))}
+                            >
+                              <FontAwesomeIcon icon="plus" style={{marginRight: '8px'}} />
+                              Add Another Family Member
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="family-members-display">
+                        {(info.familyMembers || []).length === 0 ? (
+                          <div className="no-family-members">No family members added</div>
+                        ) : (
+                          <div className="family-members-list">
+                            {info.familyMembers.map((fm, i) => (
+                              <div key={i} className="family-member-item">
+                                <div className="family-member-title">Family Member #{i+1}</div>
+                                <div className="family-member-details">
+                                  <div className="family-detail-row">
+                                    <span className="family-detail-label">Name:</span>
+                                    <span className="family-detail-value">{fm.family_member_name || 'Not provided'}</span>
+                                  </div>
+                                  <div className="family-detail-row">
+                                    <span className="family-detail-label">Birthdate:</span>
+                                    <span className="family-detail-value">
+                                      {fm.birthdate ? new Date(fm.birthdate).toLocaleDateString('en-US', { dateStyle: 'medium' }) : 'Not provided'}
+                                    </span>
+                                  </div>
+                                  <div className="family-detail-row">
+                                    <span className="family-detail-label">Age:</span>
+                                    <span className="family-detail-value age-display">
+                                      {calculateAge(fm.birthdate) !== null ? (
+                                        <>
+                                          <span className="age-badge">{calculateAge(fm.birthdate)} years old</span>
+                                        </>
+                                      ) : 'Not provided'}
+                                    </span>
+                                  </div>
+                                  <div className="family-detail-row">
+                                    <span className="family-detail-label">Educational Attainment:</span>
+                                    <span className="family-detail-value">{fm.educational_attainment || 'Not provided'}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </span>
+                </div>
+                
                 <div className="info-row">
                   <label>Documents:</label>
                   <span>
-                    {(info.documents || []).length === 0 ? <span>None</span> : info.documents.map((doc, i) => (
+                    {(info.documents || []).length === 0 ? (
+                      <div style={{
+                        padding: '10px', 
+                        background: '#f5f5f5', 
+                        borderRadius: '8px', 
+                        color: '#666',
+                        textAlign: 'center'
+                      }}>
+                        <FontAwesomeIcon icon="file-alt" style={{marginRight: '8px'}} />
+                        No documents uploaded
+                      </div>
+                    ) : info.documents.map((doc, i) => (
                       <div key={i} className="document-row">
-                        {doc.display_name} - <a href={doc.file_url} target="_blank" rel="noopener noreferrer">View</a> ({doc.status})
+                        <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
+                          <FontAwesomeIcon icon="file-pdf" style={{color: '#2E7D32'}} />
+                          <span>{doc.display_name}</span>
+                          <a 
+                            href={doc.file_url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              color: '#1976d2',
+                              textDecoration: 'none',
+                              fontWeight: '500'
+                            }}
+                          >
+                            <FontAwesomeIcon icon="external-link-alt" />
+                            View
+                          </a>
+                          <span style={{
+                            background: doc.status === 'Approved' ? '#e8f5e9' : '#fff3e0',
+                            color: doc.status === 'Approved' ? '#2E7D32' : '#ef6c00',
+                            padding: '2px 8px',
+                            borderRadius: '12px',
+                            fontSize: '0.8rem',
+                            fontWeight: '500'
+                          }}>
+                            {doc.status}
+                          </span>
+                        </div>
                       </div>
                     ))}
                   </span>
@@ -1846,17 +2582,33 @@ function ResendApplicationModal({ onClose }) {
           <div className="resend-modal-footer">
             <button
               className="resend-btn save"
-              style={{ marginTop: '10px', fontWeight: 'bold', fontSize: '1.05rem', padding: '10px 26px', borderRadius: '7px' }}
               onClick={saveEditAll}
               disabled={loading || (isEditing && loading)}
             >
-              {isEditing ? (loading ? 'Saving...' : 'Confirm') : 'Confirm'}
+              {isEditing ? (
+                loading ? (
+                  <>
+                    <FontAwesomeIcon icon="spinner" spin style={{marginRight: '8px'}} />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <FontAwesomeIcon icon="paper-plane" style={{marginRight: '8px'}} />
+                    Submit
+                  </>
+                )
+              ) : (
+                <>
+                  <FontAwesomeIcon icon="check" style={{marginRight: '8px'}} />
+                  Confirm
+                </>
+              )}
             </button>
             <button
               className="resend-btn cancel"
               onClick={onClose}
-              style={{ marginLeft: '8px' }}
             >
+              <FontAwesomeIcon icon="times" style={{marginRight: '8px'}} />
               Cancel
             </button>
           </div>
