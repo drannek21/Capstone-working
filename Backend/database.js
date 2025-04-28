@@ -34,13 +34,26 @@ const queryDatabase = (sql, params) => new Promise((resolve, reject) => {
       return reject(err);
     }
 
-    connection.query(sql, params, (err, result) => {
-      connection.release();
+    console.log('\n=== Database Query Debug ===');
+    console.log('SQL:', sql);
+    console.log('Parameters:', params);
+
+    // Reset the connection before executing the query
+    connection.query('RESET QUERY CACHE', (err) => {
       if (err) {
-        console.error('Query error:', err);
-        return reject(err);
+        console.error('Error resetting query cache:', err);
       }
-      resolve(result);
+
+      connection.query(sql, params, (err, result) => {
+        connection.release();
+        if (err) {
+          console.error('Query error:', err);
+          return reject(err);
+        }
+        console.log('Query result:', result);
+        console.log('=========================\n');
+        resolve(result);
+      });
     });
   });
 });

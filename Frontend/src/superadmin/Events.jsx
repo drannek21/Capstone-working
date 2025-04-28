@@ -4,6 +4,7 @@ import axios from 'axios';
 import './Events.css';
 import { FaTimes, FaQrcode } from 'react-icons/fa';
 import QrScanner from 'qr-scanner';
+import santaMariaBarangays from '../data/santaMariaBarangays.json';
 
 const Events = () => {
   const [events, setEvents] = useState([]);
@@ -22,7 +23,8 @@ const Events = () => {
     endTime: '',
     location: '',
     status: 'Upcoming',
-    visibility: 'everyone'
+    visibility: 'everyone',
+    barangay: 'All'
   });
   const [editingEvent, setEditingEvent] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -35,6 +37,9 @@ const Events = () => {
   const [selectedEventTitle, setSelectedEventTitle] = useState('');
   const [showScanner, setShowScanner] = useState(false);
   const [scannerError, setScannerError] = useState('');
+  const [showTimeConflictModal, setShowTimeConflictModal] = useState(false);
+  const [conflictInfo, setConflictInfo] = useState(null);
+  const loggedInUserId = localStorage.getItem('UserId');
 
   useEffect(() => {
     fetchEvents();
@@ -79,11 +84,14 @@ const Events = () => {
 
   const fetchEvents = async () => {
     try {
-      const response = await axios.get('http://localhost:8081/events');
-      setEvents(response.data);
+      const response = await axios.get(`http://localhost:8081/api/events?userId=${loggedInUserId}`);
+      if (response.data) {
+        setEvents(response.data);
+        console.log('Events fetched:', response.data);
+      }
     } catch (error) {
       console.error('Error fetching events:', error);
-      toast.error('Failed to fetch events');
+      setStatusMessage('Failed to fetch events');
     }
   };
 
@@ -107,62 +115,269 @@ const Events = () => {
 
   const formatTime = (time) => {
     if (!time) return '';
-    const [hours, minutes] = time.split(':');
-    const hour = parseInt(hours);
-    const ampm = hour >= 12 ? 'pm' : 'am';
-    const formattedHour = hour % 12 || 12;
-    return `${formattedHour}:${minutes} ${ampm}`;
+    const [hours, minutes] = time.split(':').map(Number);
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const displayHours = hours % 12 || 12;
+    return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
+  };
+
+  const convertTo24Hour = (timeStr) => {
+    if (!timeStr) return '';
+    const [time, period] = timeStr.split(' ');
+    let [hours, minutes] = time.split(':').map(Number);
+    
+    if (period === 'PM' && hours !== 12) {
+      hours += 12;
+    } else if (period === 'AM' && hours === 12) {
+      hours = 0;
+    }
+    
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+  };
+
+  const formatBufferTimeMessage = (event, bufferStart, bufferEnd) => {
+    // Strip seconds from time display
+    const eventStartTime = formatTime(event.startTime);
+    const eventEndTime = formatTime(event.endTime);
+    
+    // Convert buffer times from minutes to HH:mm format
+    const formatMinutesToTime = (minutes) => {
+      if (typeof minutes !== 'number' || isNaN(minutes)) return '--:--';
+      const hours = Math.floor(minutes / 60);
+      const mins = minutes % 60;
+      return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+    };
+
+    const bufferStartTime = formatMinutesToTime(bufferStart);
+    const bufferEndTime = formatMinutesToTime(bufferEnd);
+
+    return `There must be a 1-hour gap between events. Event "${event.title}" runs from ${eventStartTime} to ${eventEndTime}, blocking the time slot from ${bufferStartTime} to ${bufferEndTime}.`;
+  };
+
+  const checkTimeConflict = async (newStartDate, newEndDate, newStartTime, newEndTime, excludeEventId = null) => {
+    try {
+      // Validate input times
+      if (!newStartTime || !newEndTime) {
+        return {
+          hasConflict: true,
+          conflictingEvent: null,
+          message: 'Please select both start and end times'
+        };
+      }
+
+      const response = await axios.get('http://localhost:8081/api/events');
+      const existingEvents = response.data.filter(event => 
+        event.id !== excludeEventId &&
+        event.startDate.split('T')[0] === newStartDate.split('T')[0]
+      );
+
+      // Convert times to minutes for easier comparison, handling HH:mm:ss format
+      const parseTimeToMinutes = (timeStr) => {
+        const [hours, minutes] = timeStr.split(':').map(Number);
+        if (isNaN(hours) || isNaN(minutes)) return null;
+        return hours * 60 + minutes;
+      };
+
+      const newStart = parseTimeToMinutes(newStartTime);
+      const newEnd = parseTimeToMinutes(newEndTime);
+
+      if (newStart === null || newEnd === null) {
+        return {
+          hasConflict: true,
+          conflictingEvent: null,
+          message: 'Invalid time format'
+        };
+      }
+
+      // Check each existing event for overlap including 1-hour buffer
+      for (const event of existingEvents) {
+        const existingStart = parseTimeToMinutes(event.startTime);
+        const existingEnd = parseTimeToMinutes(event.endTime);
+        
+        if (existingStart === null || existingEnd === null) {
+          continue; // Skip invalid events
+        }
+
+        // Add 1-hour buffer before and after existing events
+        const bufferStart = existingStart - 60; // 1 hour before event starts
+        const bufferEnd = existingEnd + 60;    // 1 hour after event ends
+
+        // Check if there's any overlap including buffer time
+        if ((newStart >= bufferStart && newStart < bufferEnd) || 
+            (newEnd > bufferStart && newEnd <= bufferEnd) ||
+            (newStart <= bufferStart && newEnd >= bufferEnd)) {
+          return {
+            hasConflict: true,
+            conflictingEvent: event,
+            message: formatBufferTimeMessage(event, bufferStart, bufferEnd)
+          };
+        }
+      }
+
+      return {
+        hasConflict: false,
+        conflictingEvent: null,
+        message: null
+      };
+    } catch (error) {
+      console.error('Error checking time conflicts:', error);
+      return {
+        hasConflict: false,
+        conflictingEvent: null,
+        message: null
+      };
+    }
+  };
+
+  const timeToMinutes = (time) => {
+    const [hours, minutes] = time.split(':').map(Number);
+    return hours * 60 + minutes;
   };
 
   const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    const { name } = e.target;
+    let value = e.target.value;
+    console.log(`Input changed - name: ${name}, value: ${value}`);
+
+    if (name === 'startDate' || name === 'endDate') {
+      // Validate dates
+      const selectedDate = new Date(value);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      if (selectedDate < today) {
+        toast.error('Cannot select a past date');
+        return;
+      }
+
+      if (name === 'endDate' && value < formData.startDate) {
+        toast.error('End date cannot be before start date');
+        return;
+      }
+    }
+
+    if (name === 'startTime' || name === 'endTime') {
+      // Convert from 12-hour to 24-hour format if needed
+      if (value.includes('AM') || value.includes('PM')) {
+        value = convertTo24Hour(value);
+      }
+
+      // Validate times
+      if (formData.startDate && formData.startDate === formData.endDate) {
+        const startMinutes = name === 'startTime' ? timeToMinutes(value) : timeToMinutes(formData.startTime);
+        const endMinutes = name === 'endTime' ? timeToMinutes(value) : timeToMinutes(formData.endTime);
+
+        if (startMinutes && endMinutes && endMinutes <= startMinutes) {
+          toast.error('End time must be after start time');
+          return;
+        }
+      }
+    }
+
+    setFormData(prev => {
+      const newData = {
+        ...prev,
+        [name]: value
+      };
+      console.log('Updated form data:', newData);
+      return newData;
+    });
   };
 
   const handleAddEvent = async (e) => {
     e.preventDefault();
     try {
-      await axios.post('http://localhost:8081/events', formData);
-      toast.success('Event added successfully');
-      setShowAddModal(false);
-      setFormData({
-        title: '',
-        description: '',
-        startDate: '',
-        endDate: '',
-        startTime: '',
-        endTime: '',
-        location: '',
-        status: 'Upcoming',
-        visibility: 'everyone'
-      });
-      fetchEvents();
+      // Validate end time is after start time
+      const startMinutes = timeToMinutes(formData.startTime);
+      const endMinutes = timeToMinutes(formData.endTime);
+      
+      if (endMinutes <= startMinutes) {
+        toast.error('End time must be after start time');
+        return;
+      }
+
+      const eventData = { ...formData };
+      const response = await axios.post('http://localhost:8081/api/events', eventData);
+      
+      if (response.data) {
+        toast.success('Event added successfully');
+        setShowAddModal(false);
+        setFormData({
+          title: '',
+          description: '',
+          startDate: '',
+          endDate: '',
+          startTime: '',
+          endTime: '',
+          location: '',
+          status: 'Upcoming',
+          visibility: 'everyone',
+          barangay: 'All'
+        });
+        fetchEvents();
+      }
     } catch (error) {
       console.error('Error adding event:', error);
-      toast.error('Failed to add event');
+      if (error.response?.data?.error === 'Time Conflict' && error.response?.data?.conflictingEvent) {
+        setConflictInfo(error.response.data.conflictingEvent);
+        setShowTimeConflictModal(true);
+      } else if (error.response?.data?.message) {
+        toast.error(error.response.data.message);
+      } else {
+        toast.error('Failed to add event');
+      }
     }
   };
 
   const handleEditEvent = async (e) => {
     e.preventDefault();
     try {
-      await axios.put(`http://localhost:8081/events/${selectedEvent.id}`, formData);
-      toast.success('Event updated successfully');
-      setShowEditModal(false);
-      fetchEvents();
+      // Validate end time is after start time
+      const startMinutes = timeToMinutes(formData.startTime);
+      const endMinutes = timeToMinutes(formData.endTime);
+      
+      if (endMinutes <= startMinutes) {
+        toast.error('End time must be after start time');
+        return;
+      }
+
+      const eventData = { ...formData };
+      const response = await axios.put(`http://localhost:8081/api/events/${selectedEvent.id}`, eventData);
+      
+      if (response.data) {
+        toast.success('Event updated successfully');
+        setShowEditModal(false);
+        setFormData({
+          title: '',
+          description: '',
+          startDate: '',
+          endDate: '',
+          startTime: '',
+          endTime: '',
+          location: '',
+          status: 'Upcoming',
+          visibility: 'everyone',
+          barangay: 'All'
+        });
+        fetchEvents();
+      }
     } catch (error) {
       console.error('Error updating event:', error);
-      toast.error('Failed to update event');
+      if (error.response?.data?.error === 'Time Conflict' && error.response?.data?.conflictingEvent) {
+        setConflictInfo(error.response.data.conflictingEvent);
+        setShowTimeConflictModal(true);
+      } else if (error.response?.data?.message) {
+        toast.error(error.response.data.message);
+      } else {
+        toast.error('Failed to update event');
+      }
     }
   };
 
   const handleDeleteEvent = async (id) => {
     if (window.confirm('Are you sure you want to delete this event?')) {
       try {
-        await axios.delete(`http://localhost:8081/events/${id}`);
+        await axios.delete(`http://localhost:8081/api/events/${id}`);
         toast.success('Event deleted successfully');
         fetchEvents();
       } catch (error) {
@@ -188,7 +403,8 @@ const Events = () => {
       endTime: event.endTime,
       location: event.location,
       status: event.status,
-      visibility: event.visibility || 'everyone'
+      visibility: event.visibility,
+      barangay: event.barangay
     });
     setShowEditModal(true);
   };
@@ -393,6 +609,79 @@ const Events = () => {
     </div>
   );
 
+  // Time conflict modal component
+  const TimeConflictModal = () => {
+    if (!showTimeConflictModal || !conflictInfo) return null;
+
+    return (
+      <div className="modal-overlay">
+        <div className="time-conflict-modal">
+          <div className="modal-header warning">
+            <h5 className="modal-title">
+              <i className="fas fa-exclamation-triangle"></i>
+              Time Conflict Detected
+            </h5>
+            <button 
+              type="button" 
+              className="btn-close"
+              onClick={() => setShowTimeConflictModal(false)}
+              aria-label="Close"
+            />
+          </div>
+          <div className="modal-body">
+            <div className="conflict-details">
+              <h6 className="mb-3">Existing Event:</h6>
+              <div className="event-info-card">
+                <div className="event-info-item">
+                  <span className="event-info-label">Title:</span>
+                  <span>{conflictInfo.title}</span>
+                </div>
+                <div className="event-info-item">
+                  <span className="event-info-label">Time:</span>
+                  <span>{formatTime(conflictInfo.startTime)} - {formatTime(conflictInfo.endTime)}</span>
+                </div>
+                <div className="event-info-item">
+                  <span className="event-info-label">Date:</span>
+                  <span>{formatDate(conflictInfo.startDate)}</span>
+                </div>
+                <div className="event-info-item mb-0">
+                  <span className="event-info-label">Location:</span>
+                  <span>{conflictInfo.location}</span>
+                </div>
+              </div>
+              <div className="warning-box">
+                <p className="warning-message">
+                  <i className="fas fa-exclamation-triangle"></i>
+                  There must be a 1-hour gap between events.
+                </p>
+                <p className="mb-2">Please select a time that is:</p>
+                <ul className="time-suggestions">
+                  <li className="time-suggestion-item">
+                    <i className="fas fa-clock"></i>
+                    At least 1 hour after the existing event ends ({formatTime(conflictInfo.endTime)} + 1 hour)
+                  </li>
+                  <li className="time-suggestion-item mb-0">
+                    <i className="fas fa-clock"></i>
+                    OR at least 1 hour before the existing event starts ({formatTime(conflictInfo.startTime)} - 1 hour)
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div className="modal-footer">
+            <button 
+              type="button" 
+              className="close-button"
+              onClick={() => setShowTimeConflictModal(false)}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="events-container">
       <div className="events-header">
@@ -410,6 +699,7 @@ const Events = () => {
               <th>Date</th>
               <th>Time</th>
               <th>Location</th>
+              <th>Barangay</th>
               <th>Status</th>
               <th>Actions</th>
             </tr>
@@ -429,6 +719,7 @@ const Events = () => {
                   {formatTime(event.startTime)} - {formatTime(event.endTime)}
                 </td>
                 <td>{event.location}</td>
+                <td>{event.barangay || 'All'}</td>
                 <td>
                   <span className={`events-status-badge ${event.status.toLowerCase()}`}>
                     {event.status}
@@ -513,7 +804,9 @@ const Events = () => {
                   value={formData.startTime}
                   onChange={handleInputChange}
                   required
+                  step="900"
                 />
+                <span className="time-format">{formData.startTime ? formatTime(formData.startTime) : ''}</span>
               </div>
               <div className="events-form-group">
                 <label>End Time</label>
@@ -523,7 +816,9 @@ const Events = () => {
                   value={formData.endTime}
                   onChange={handleInputChange}
                   required
+                  step="900"
                 />
+                <span className="time-format">{formData.endTime ? formatTime(formData.endTime) : ''}</span>
               </div>
               <div className="events-form-group">
                 <label>Location</label>
@@ -534,6 +829,31 @@ const Events = () => {
                   onChange={handleInputChange}
                   required
                 />
+              </div>
+              <div className="events-form-group">
+                <label>Barangay</label>
+                <select
+                  name="barangay"
+                  value={formData.barangay}
+                  onChange={(e) => {
+                    const value = e.target.value === "" ? "All" : e.target.value;
+                    console.log("Barangay dropdown changed to:", value);
+                    console.log("Previous formData:", formData);
+                    handleInputChange({
+                      target: {
+                        name: "barangay",
+                        value: value
+                      }
+                    });
+                  }}
+                  required
+                >
+                  <option value="">Select Barangay</option>
+                  {santaMariaBarangays.Barangays.map(barangay => (
+                    <option key={barangay} value={barangay}>{barangay}</option>
+                  ))}
+                  <option value="All">All</option>
+                </select>
               </div>
               <div className="events-form-group">
                 <label>Status</label>
@@ -655,6 +975,31 @@ const Events = () => {
                   onChange={handleInputChange}
                   required
                 />
+              </div>
+              <div className="events-form-group">
+                <label>Barangay</label>
+                <select
+                  name="barangay"
+                  value={formData.barangay}
+                  onChange={(e) => {
+                    const value = e.target.value === "" ? "All" : e.target.value;
+                    console.log("Barangay dropdown changed to:", value);
+                    console.log("Previous formData:", formData);
+                    handleInputChange({
+                      target: {
+                        name: "barangay",
+                        value: value
+                      }
+                    });
+                  }}
+                  required
+                >
+                  <option value="">Select Barangay</option>
+                  {santaMariaBarangays.Barangays.map(barangay => (
+                    <option key={barangay} value={barangay}>{barangay}</option>
+                  ))}
+                  <option value="All">All</option>
+                </select>
               </div>
               <div className="events-form-group">
                 <label>Status</label>
@@ -851,6 +1196,8 @@ const Events = () => {
           </div>
         </div>
       )}
+
+      <TimeConflictModal />
     </div>
   );
 };

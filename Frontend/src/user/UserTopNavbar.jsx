@@ -142,7 +142,10 @@ const UserTopNavbar = ({ onNavigate }) => {
         const notificationsData = await notificationsResponse.json();
 
         // Fetch events
-        const eventsResponse = await fetch('http://localhost:8081/events');
+        const eventsResponse = await fetch(`http://localhost:8081/api/events?userId=${userId}`);
+        if (!eventsResponse.ok) {
+          throw new Error('Failed to fetch events');
+        }
         const eventsData = await eventsResponse.json();
 
         // Fetch follow-up notifications
@@ -158,19 +161,20 @@ const UserTopNavbar = ({ onNavigate }) => {
           followupData = [];
         }
 
-        // Convert events to notification format
-        const eventNotifications = eventsData.map(event => ({
+        // Convert events to notification format (only if eventsData is an array)
+        const eventNotifications = Array.isArray(eventsData) ? eventsData.map(event => ({
           id: `event_${event.id}`,
           type: 'event',
           message: `New Event: ${event.title}`,
           details: {
             date: `${formatDate(event.startDate)} - ${formatDate(event.endDate)}`,
             time: `${formatTime(event.startTime)} - ${formatTime(event.endTime)}`,
-            location: event.location
+            location: event.location,
+            status: event.status
           },
-          created_at: event.created_at,
+          created_at: event.created_at || new Date().toISOString(),
           read: event.is_read === 1 // Convert MySQL TINYINT(1) to boolean
-        }));
+        })) : [];
 
         // Normalize follow-up notifications
         const followupNotifications = Array.isArray(followupData) ? followupData.map(notif => ({

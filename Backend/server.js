@@ -36,14 +36,13 @@ app.use((req, res, next) => {
 const documentsRouter = require('./routes/documents');
 const usersRouter = require('./routes/users');
 const faceAuthRouter = require('./routes/faceAuth');
-const eventsRouter = require('./routes/events');
 const forumRouter = require('./routes/forumRoutes');
 
 // Use routes
 app.use('/api/documents', documentsRouter);
 app.use('/api/users', usersRouter);
-app.use('/api/events', eventsRouter);
 app.use('/api/forum', forumRouter);
+app.use('/api/events', require('./routes/events'));  // Use the events router
 
 // NOTIFICATIONS ENDPOINTS for SuperAdminSideBar.jsx
 // GET all notifications for superadmin
@@ -392,20 +391,24 @@ app.get('/pendingUsers', async (req, res) => {
     // Query each document table and combine results
     for (const table of documentTables) {
       const documentsQuery = `
-        SELECT code_id,
-               file_name,
-               uploaded_at,
-               display_name,
-               status,
-               '${table}' as document_type,
-               CASE 
-                 WHEN file_name LIKE 'http%' THEN file_name 
-                 ELSE CONCAT('http://localhost:8081/uploads/', file_name) 
-               END as file_url
-        FROM ${table}
-        WHERE code_id IN (?) AND category = 'application'
+        SELECT t.* FROM (
+          SELECT code_id,
+                 file_name,
+                 uploaded_at,
+                 display_name,
+                 status,
+                 '${table}' as document_type,
+                 CASE 
+                   WHEN file_name LIKE 'http%' THEN file_name 
+                   ELSE CONCAT('http://localhost:8081/uploads/', file_name) 
+                 END as file_url
+          FROM ${table}
+          WHERE code_id IN (?)
+          ORDER BY uploaded_at DESC
+        ) t
+        GROUP BY t.code_id
       `;
-
+    
       try {
         const docs = await queryDatabase(documentsQuery, [codeIds]);
         allDocuments = [...allDocuments, ...docs];
@@ -938,18 +941,18 @@ app.get('/users', async (req, res) => {
   }
 });
 
-app.get('/admin', async (req, res) => {
+app.get("/admins", async (req, res) => {
   try {
-    const adminData = await queryDatabase('SELECT * FROM admin');
+    const adminData = await queryDatabase("SELECT * FROM admin");
     res.json(adminData);
   } catch (err) {
     res.status(500).json({ error: 'Error fetching admin data' });
   }
 });
 
-app.get('/superadmin', async (req, res) => {
+app.get("/superadmin", async (req, res) => {
   try {
-    const superadminData = await queryDatabase('SELECT * FROM superadmin');
+    const superadminData = await queryDatabase("SELECT * FROM superadmin");
     res.json(superadminData);
   } catch (err) {
     res.status(500).json({ error: 'Error fetching superadmin data' });
@@ -1591,7 +1594,7 @@ app.post('/unTerminateUser', async (req, res) => {
     `, [userId]);
 
     if (userInfo) {
-      const notifMessage = `${userInfo.name} from your barangay has been cleared and is still qualified as a solo parent after the review.`;
+      const notifMessage = `${userInfo.name} is a new solo parent in your barangay.`;
       await queryDatabase(
         'INSERT INTO adminnotifications (user_id, notif_type, message, barangay) VALUES (?, ?, ?, ?)',
         [userInfo.id, 'cleared', notifMessage, userInfo.barangay]
@@ -2238,106 +2241,6 @@ app.post('/changePassword', async (req, res) => {
   }
 });
 
-// Events routes
-app.get('/events', async (req, res) => {
-  try {
-    const query = 'SELECT * FROM events ORDER BY created_at DESC';
-    const results = await queryDatabase(query);
-    
-    res.json(results.map(event => ({
-      ...event,
-      is_read: event.is_read || 0,
-      created_at: event.created_at || new Date().toISOString()
-    })));
-  } catch (err) {
-    console.error('Error fetching events:', err);
-    res.status(500).json({ error: 'Error fetching events' });
-  }
-});
-
-app.post('/events', async (req, res) => {
-  const { title, description, startDate, endDate, startTime, endTime, location, status, visibility } = req.body;
-  
-  try {
-    const result = await queryDatabase(
-      'INSERT INTO events (title, description, startDate, endDate, startTime, endTime, location, status, visibility) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [title, description, startDate, endDate, startTime, endTime, location, status, visibility]
-    );
-    
-    res.status(201).json({
-      id: result.insertId,
-      title,
-      description,
-      startDate,
-      endDate,
-      startTime,
-      endTime,
-      location,
-      status,
-      visibility
-    });
-  } catch (error) {
-    console.error('Error creating event:', error);
-    res.status(500).json({ error: 'Error creating event' });
-  }
-});
-
-app.put('/events/:id', async (req, res) => {
-  const { id } = req.params;
-  const { title, description, startDate, endDate, startTime, endTime, location, status, visibility } = req.body;
-  
-  try {
-    await queryDatabase(
-      'UPDATE events SET title = ?, description = ?, startDate = ?, endDate = ?, startTime = ?, endTime = ?, location = ?, status = ?, visibility = ? WHERE id = ?',
-      [title, description, startDate, endDate, startTime, endTime, location, status, visibility, id]
-    );
-    
-    res.json({
-      id,
-      title,
-      description,
-      startDate,
-      endDate,
-      startTime,
-      endTime,
-      location,
-      status,
-      visibility
-    });
-  } catch (error) {
-    console.error('Error updating event:', error);
-    res.status(500).json({ error: 'Error updating event' });
-  }
-});
-
-app.put('/events/mark-as-read/:id', async (req, res) => {
-  const { id } = req.params;
-  
-  try {
-    await queryDatabase(
-      'UPDATE events SET is_read = 1 WHERE id = ?',
-      [id]
-    );
-    
-    res.json({ success: true, message: 'Event marked as read' });
-  } catch (error) {
-    console.error('Error marking event as read:', error);
-    res.status(500).json({ error: 'Error marking event as read' });
-  }
-});
-
-app.delete('/events/:id', async (req, res) => {
-  const { id } = req.params;
-  
-  try {
-    await queryDatabase('DELETE FROM events WHERE id = ?', [id]);
-    res.json({ message: 'Event deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting event:', error);
-    res.status(500).json({ error: 'Error deleting event' });
-  }
-});
-
 // Define table names and ID columns for document types
 const TABLE_NAMES = {
   psa: {
@@ -2565,153 +2468,6 @@ app.post('/api/documents/updateStatus', async (req, res) => {
   }
 });
 
-app.post('/updateDocumentStatus', async (req, res) => {
-  const { document_type, file_name, status, rejection_reason } = req.body;
-  console.log('Received update request:', { document_type, file_name, status, rejection_reason });
-
-  // List of allowed tables for safety
-  const documentTables = [
-    'itr_documents',
-    'psa_documents',
-    'marriage_documents',
-    'med_cert_documents',
-    'cenomar_documents',
-    'death_cert_documents',
-  ];
-
-  if (!document_type || !documentTables.includes(document_type)) {
-    return res.status(400).json({ success: false, error: 'Invalid or missing document_type' });
-  }
-  if (!file_name) {
-    return res.status(400).json({ success: false, error: 'Missing file_name' });
-  }
-
-  try {
-    if (status === 'Declined') {
-      // Fetch code_id from the document table
-      const codeIdResult = await queryDatabase(`SELECT code_id FROM ${document_type} WHERE file_name = ? LIMIT 1`, [file_name]);
-      const code_id = codeIdResult[0]?.code_id;
-      let user_id = null;
-      if (code_id) {
-        // Fetch user_id from users table
-        const userIdResult = await queryDatabase(`SELECT id FROM users WHERE code_id = ? LIMIT 1`, [code_id]);
-        user_id = userIdResult[0]?.id;
-      }
-      // Delete the document from the database if declined
-      const deleteQuery = `DELETE FROM ${document_type} WHERE file_name = ?`;
-      const deleteResult = await queryDatabase(deleteQuery, [file_name]);
-      if (!deleteResult.affectedRows || deleteResult.affectedRows === 0) {
-        return res.status(404).json({ success: false, error: 'Document not found for deletion' });
-      }
-      // Insert notification for Declined
-      if (user_id) {
-        await queryDatabase(
-          `INSERT INTO follow_up_documents (user_id, accepted_at, message, is_read) VALUES (?, NOW(), ?, 0)`,
-          [user_id, rejection_reason || 'Your document was declined.']
-        );
-      }
-      return res.status(200).json({
-        success: true,
-        message: 'Document declined and deleted successfully'
-      });
-    }
-
-    // Accept All shortcut (custom logic)
-    if (status === 'Accept All') {
-      // This assumes you want to notify the user who owns the document being processed
-      const codeIdResult = await queryDatabase(`SELECT code_id FROM ${document_type} WHERE file_name = ? LIMIT 1`, [file_name]);
-      const code_id = codeIdResult[0]?.code_id;
-      let user_id = null;
-      if (code_id) {
-        const userIdResult = await queryDatabase(`SELECT id FROM users WHERE code_id = ? LIMIT 1`, [code_id]);
-        user_id = userIdResult[0]?.id;
-      }
-      if (user_id) {
-        await queryDatabase(
-          `INSERT INTO follow_up_documents (user_id, accepted_at, message, is_read) VALUES (?, NOW(), ?, 0)`,
-          [user_id, 'All your documents have been accepted.']
-        );
-      }
-      return res.status(200).json({
-        success: true,
-        message: 'All your documents have been accepted.'
-      });
-    }
-
-    if (status === 'Approved') {
-      const updateQuery = `UPDATE ${document_type} SET status = ?, rejection_reason = NULL WHERE file_name = ?`;
-      const params = [status, file_name];
-      console.log('Running SQL:', updateQuery, 'with params:', params);
-      const result = await queryDatabase(updateQuery, params);
-      if (!result.affectedRows || result.affectedRows === 0) {
-        return res.status(404).json({ success: false, error: 'Document not found' });
-      }
-      // Fetch code_id from the document table
-      const codeIdResult = await queryDatabase(`SELECT code_id FROM ${document_type} WHERE file_name = ? LIMIT 1`, [file_name]);
-      const code_id = codeIdResult[0]?.code_id;
-      let user_id = null;
-      if (code_id) {
-        // Fetch user_id from users table
-        const userIdResult = await queryDatabase(`SELECT id FROM users WHERE code_id = ? LIMIT 1`, [code_id]);
-        user_id = userIdResult[0]?.id;
-      }
-      // Map table name to human-friendly document label
-      const docLabels = {
-        'psa_documents': 'PSA Birth Certificate',
-        'itr_documents': 'Income Tax Return',
-        'med_cert_documents': 'Medical Certificate',
-        'marriage_documents': 'Marriage Certificate',
-        'cenomar_documents': 'CENOMAR',
-        'death_cert_documents': 'Death Certificate'
-      };
-      const docLabel = docLabels[document_type] || document_type;
-      // Insert follow-up notification for the user
-      if (user_id) {
-        const message = `Your ${docLabel} has been accepted.`;
-        await queryDatabase(
-          `INSERT INTO follow_up_documents (user_id, accepted_at, message, is_read) VALUES (?, NOW(), ?, 0)`,
-          [user_id, message]
-        );
-      }
-      return res.status(200).json({ 
-        success: true, 
-        message: `Document status updated to ${status}` 
-      });
-    } else if (status !== 'Declined') {
-      // For statuses other than Declined/Approved
-      const updateQuery = `UPDATE ${document_type} SET status = ? WHERE file_name = ?`;
-      const params = [status, file_name];
-      console.log('Running SQL:', updateQuery, 'with params:', params);
-      const result = await queryDatabase(updateQuery, params);
-      if (!result.affectedRows || result.affectedRows === 0) {
-        return res.status(404).json({ success: false, error: 'Document not found' });
-      }
-      return res.status(200).json({ 
-        success: true, 
-        message: `Document status updated to ${status}` 
-      });
-    }
-    // No update for Declined (already handled by delete above)
-
-
-    if (!result.affectedRows || result.affectedRows === 0) {
-      return res.status(404).json({ success: false, error: 'Document not found' });
-    }
-
-    res.status(200).json({ 
-      success: true, 
-      message: `Document status updated to ${status}` 
-    });
-  } catch (error) {
-    console.error('Error updating document status:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to update document status' 
-    });
-  }
-});
-
-// Add this new route for updating renewal document status
 app.post('/updateRenewalDocument', async (req, res) => {
   const { code_id, document_type, status } = req.body;
   console.log('Received updateRenewalDocument request:', { code_id, document_type, status });
@@ -2840,11 +2596,14 @@ app.post('/terminateUser', async (req, res) => {
     if (userInfo.email && userInfo.first_name) {
       try {
         console.log('Preparing to send termination email to:', userInfo.email);
+        
+        // Use direct email sending instead of requiring the module again
         const { sendTerminationEmail } = require('./services/emailService');
         const emailResult = await sendTerminationEmail(
           userInfo.email,
           userInfo.first_name
         );
+        
         console.log('Termination email result:', emailResult ? 'Sent successfully' : 'Failed to send');
       } catch (emailError) {
         console.error('Error sending termination email:', emailError);
@@ -3033,87 +2792,6 @@ app.get('/polulations-users', async (req, res) => {
     console.error('Error fetching population users:', error);
     res.status(500).json({ 
       error: 'Failed to fetch population users', 
-      details: error.message,
-      stack: error.stack 
-    });
-  }
-});
-
-app.get('/beneficiaries-users', async (req, res) => {
-  try {
-    console.log('Fetching beneficiaries users...');
-    const { barangay, startDate, endDate } = req.query;
-
-    let query = `
-      SELECT 
-        u.id,
-        u.status,
-        s1.barangay,
-        s1.income,
-        au.accepted_at,
-        CASE 
-          WHEN s1.income = 'Below ₱10,000' THEN 10000
-          WHEN s1.income = '₱11,000-₱20,000' THEN 20000
-          WHEN s1.income = '₱21,000-₱43,000' THEN 43000
-          WHEN s1.income = '₱44,000 and above' THEN 250001
-          ELSE CAST(REPLACE(REPLACE(s1.income, '₱', ''), ',', '') AS DECIMAL(10, 2))
-        END as income_value
-      FROM users u
-      INNER JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
-      INNER JOIN (
-        SELECT user_id, MAX(accepted_at) as latest_accepted_at
-        FROM accepted_users
-        WHERE message = 'Your application has been accepted.'
-        GROUP BY user_id
-      ) latest_au ON u.id = latest_au.user_id
-      INNER JOIN accepted_users au ON u.id = au.user_id 
-        AND au.accepted_at = latest_au.latest_accepted_at
-      WHERE u.status = 'Verified'
-    `;
-
-    const params = [];
-
-    // Add barangay filter if specified
-    if (barangay && barangay !== 'All') {
-      query += ` AND s1.barangay = ?`;
-      params.push(barangay);
-    }
-
-    // Add date range filter if specified
-    if (startDate && endDate) {
-      query += ` AND DATE(au.accepted_at) BETWEEN ? AND ?`;
-      params.push(startDate, endDate);
-    }
-
-    query += ` ORDER BY u.id ASC`;
-    
-    console.log('Executing query:', query);
-    console.log('Query params:', params);
-    const results = await queryDatabase(query, params);
-    console.log('Query results:', results);
-    
-    if (!results || results.length === 0) {
-      console.log('No users found');
-      return res.json({
-        beneficiaries: 0,
-        nonBeneficiaries: 0,
-        users: []
-      });
-    }
-
-    // Process results to count beneficiaries and non-beneficiaries
-    const processedResults = {
-      beneficiaries: results.filter(user => user.income_value < 250000).length,
-      nonBeneficiaries: results.filter(user => user.income_value >= 250000).length,
-      users: results
-    };
-    
-    console.log('Processed results:', processedResults);
-    res.json(processedResults);
-  } catch (error) {
-    console.error('Error fetching beneficiaries users:', error);
-    res.status(500).json({ 
-      error: 'Failed to fetch beneficiaries users', 
       details: error.message,
       stack: error.stack 
     });
@@ -3482,3 +3160,19 @@ app.get('/:id', async (req, res) => {
   }
 });
 
+app.get('/events', async (req, res) => {
+  try {
+    const query = 'SELECT * FROM events ORDER BY created_at DESC';
+    const results = await queryDatabase(query);
+    
+    res.json(results.map(event => ({
+      ...event,
+      is_read: event.is_read || 0,
+      created_at: event.created_at || new Date().toISOString(),
+      barangay: event.barangay || 'All'  // Ensure barangay has a default value
+    })));
+  } catch (err) {
+    console.error('Error fetching events:', err);
+    res.status(500).json({ error: 'Error fetching events' });
+  }
+});

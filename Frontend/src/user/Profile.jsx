@@ -80,7 +80,7 @@ const Profile = () => {
   const [refreshKey, setRefreshKey] = useState(0);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [documentToDelete, setDocumentToDelete] = useState(null);
-  const [events, setEvents] = useState([]);
+  const [events, setEvents] = useState([]); // State for events
   const [attendanceModal, setAttendanceModal] = useState({
     show: false,
     message: '',
@@ -490,27 +490,54 @@ const Profile = () => {
   // Add this function to fetch events
   const fetchEvents = async () => {
     try {
-      const response = await axios.get('http://localhost:8081/events');
-      setEvents(response.data);
+      const response = await axios.get(`http://localhost:8081/api/events?userId=${loggedInUserId}`);
+      if (response.data) {
+        // Filter events based on user's barangay
+        const userBarangay = user?.barangay;
+        const filteredEvents = response.data.filter(event => 
+          event.barangay === 'All' || event.barangay === userBarangay
+        );
+        
+        // Sort events by date
+        filteredEvents.sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+        
+        setEvents(filteredEvents);
+      }
     } catch (error) {
       console.error('Error fetching events:', error);
+      toast.error('Failed to fetch events');
     }
   };
 
-  // Add this useEffect to fetch events when component mounts
+  // Add useEffect to fetch events when user data changes
   useEffect(() => {
-    fetchEvents();
-  }, []);
+    if (loggedInUserId && user) {
+      fetchEvents();
+    }
+  }, [loggedInUserId, user]);
 
-  // Add this function to format date and time
-  const formatDateTime = (date, time) => {
-    if (!date || !time) return '';
-    const formattedDate = new Date(date).toLocaleDateString();
-    const [hours, minutes] = time.split(':');
-    const hour = parseInt(hours);
-    const ampm = hour >= 12 ? 'pm' : 'am';
-    const formattedHour = hour % 12 || 12;
-    return `${formattedDate} ${formattedHour}:${minutes} ${ampm}`;
+  // Format date for display
+  const formatDate = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  // Format time for display
+  const formatTime = (timeString) => {
+    if (!timeString) return '';
+    const [hours, minutes] = timeString.split(':');
+    const date = new Date();
+    date.setHours(parseInt(hours), parseInt(minutes));
+    return date.toLocaleTimeString('en-US', { 
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true 
+    });
   };
 
   const checkAttendance = async (eventId) => {
@@ -1443,18 +1470,15 @@ const Profile = () => {
                   </>
                 )}
 
-                {!isRenewalStatus && !hasRestrictedAccess() && user?.status !== 'Declined' && (
+                {/* Add Events Section */}
+                {user?.status !== 'Declined' && (
                   <div className="user-profile-announcements">
                     <div className="profile-announcements-header">
-                      <h3>Your Announcements</h3>
-                      <p className="profile-announcements-subtitle">Events and updates relevant to you</p>
+                      <h2>Events</h2>
                     </div>
                     <div className="profile-announcements-list">
                       {(() => {
-                        // Helper to parse income value
                         const parseIncome = (income) => {
-                          if (!income) return 0;
-                          if (!isNaN(income)) return parseFloat(income);
                           if (income === 'Below ₱10,000') return 10000;
                           if (income === '₱11,000-₱20,000') return 20000;
                           if (income === '₱21,000-₱43,000') return 43000;
@@ -1476,7 +1500,7 @@ const Profile = () => {
                                 <h4>{event.title}</h4>
                                 <p>{event.description}</p>
                                 <div className="profile-announcement-meta">
-                                  <span>{formatDateTime(event.startDate, event.startTime)}</span>
+                                  <span>{formatDate(event.startDate)} {formatTime(event.startTime)}</span>
                                   <span>{event.location}</span>
                                   <span className="profile-announcement-badge">{event.status}</span>
                                 </div>
@@ -1484,7 +1508,7 @@ const Profile = () => {
                             </div>
                           ))
                         ) : (
-                          <p className="no-events-message">No upcoming events</p>
+                          <p className="no-events-message">No events available</p>
                         );
                       })()}
                     </div>
@@ -1667,7 +1691,7 @@ function ResendApplicationModal({ onClose }) {
     if (editValues.emergency_contact && !/^\d{11}$/.test(editValues.emergency_contact.replace(/\s/g, ''))) {
       errors.push("Emergency contact number must be 11 digits");
     }
-    
+
     // Classification Validation
     if (!editValues.classification?.trim()) errors.push("Classification is required");
     if ((editValues.classification === "013" || editValues.classification === "Others") && 
@@ -1998,7 +2022,7 @@ function ResendApplicationModal({ onClose }) {
                       {showOthersInput && (
                         <input
                           placeholder="Please specify other classification"
-                          value={editValues.others_details || ''}
+                          value={editValues.classification_others || ''}
                           onChange={e => {
                             setEditValues(v => ({
                               ...v, 
