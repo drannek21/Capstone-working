@@ -317,28 +317,164 @@ router.post('/submitAllSteps', async (req, res) => {
     // First, check if an entry with this email already exists
     const timestamp = Date.now();
     console.log(`[${timestamp}] Checking for existing email: ${step1.email}`);
-    
-    const emailCheckQuery = `SELECT code_id FROM step1_identifying_information WHERE email = ? LIMIT 1`;
-    const existingEmail = await new Promise((resolve, reject) => {
-      connection.query(emailCheckQuery, [step1.email], (err, result) => {
+
+    // Check user by email in users table
+    const userCheckQuery = `SELECT * FROM users WHERE email = ? LIMIT 1`;
+    const existingUser = await new Promise((resolve, reject) => {
+      connection.query(userCheckQuery, [step1.email], (err, result) => {
         if (err) reject(err);
         else resolve(result);
       });
     });
-    
-    // If entry already exists with this email, reject the submission
-    if (existingEmail && existingEmail.length > 0) {
-      console.log(`[${timestamp}] Found existing entry with email ${step1.email}, code_id: ${existingEmail[0].code_id}`);
-      await new Promise((resolve) => connection.rollback(() => resolve()));
-      connection.release();
-      
-      return res.status(400).json({
-        success: false,
-        error: 'Email already registered',
-        details: `A form with email ${step1.email} has already been submitted.`,
-        existing_code_id: existingEmail[0].code_id
-      });
+
+    if (existingUser && existingUser.length > 0) {
+      const user = existingUser[0];
+      if (user.status === 'Declined') {
+        // Allow update of all steps and user info, set status to 'Pending'
+        const code_id = user.code_id;
+        console.log(`[${timestamp}] Resubmitting for Declined user, code_id: ${code_id}`);
+        try {
+          // Step 1: Update identifying information
+          const updateStep1Query = `UPDATE step1_identifying_information SET
+            first_name=?, middle_name=?, last_name=?, age=?, gender=?,
+            date_of_birth=?, place_of_birth=?, barangay=?, education=?,
+            civil_status=?, occupation=?, religion=?, company=?, income=?,
+            employment_status=?, contact_number=?, pantawid_beneficiary=?, indigenous=?
+            WHERE code_id=?`;
+          await new Promise((resolve, reject) => {
+            connection.query(updateStep1Query, [
+              step1.first_name,
+              step1.middle_name,
+              step1.last_name,
+              step1.age,
+              step1.gender,
+              step1.date_of_birth,
+              step1.place_of_birth,
+              step1.barangay,
+              step1.education,
+              step1.civil_status,
+              step1.occupation,
+              step1.religion,
+              step1.company,
+              step1.income,
+              step1.employment_status,
+              step1.contact_number,
+              step1.pantawid_beneficiary,
+              step1.indigenous,
+              code_id
+            ], (err, result) => {
+              if (err) reject(err);
+              else resolve(result);
+            });
+          });
+
+          // Step 2: Remove old children and insert new
+          await new Promise((resolve, reject) => {
+            connection.query('DELETE FROM step2_family_occupation WHERE code_id=?', [code_id], (err) => {
+              if (err) reject(err); else resolve();
+            });
+          });
+          if (step2.children && step2.children.length > 0) {
+            const childrenQuery = `INSERT INTO step2_family_occupation (code_id, family_member_name, age, educational_attainment, birthdate) VALUES ?`;
+            const childrenValues = step2.children.map(child => [
+              code_id,
+              `${child.first_name} ${child.middle_name} ${child.last_name}`.trim(),
+              child.age,
+              child.educational_attainment,
+              child.birthdate
+            ]);
+            await new Promise((resolve, reject) => {
+              connection.query(childrenQuery, [childrenValues], (err, result) => {
+                if (err) reject(err); else resolve(result);
+              });
+            });
+          }
+
+          // Step 3: Update classification
+          await new Promise((resolve, reject) => {
+            connection.query('UPDATE step3_classification SET classification=? WHERE code_id=?', [step3.classification, code_id], (err, result) => {
+              if (err) reject(err); else resolve(result);
+            });
+          });
+
+          // Step 4: Update needs/problems
+          await new Promise((resolve, reject) => {
+            connection.query('UPDATE step4_needs_problems SET needs_problems=? WHERE code_id=?', [step4.needs_problems, code_id], (err, result) => {
+              if (err) reject(err); else resolve(result);
+            });
+          });
+
+          // Step 5: Update emergency contact
+          await new Promise((resolve, reject) => {
+            connection.query('UPDATE step5_in_case_of_emergency SET emergency_name=?, emergency_relationship=?, emergency_address=?, emergency_contact=? WHERE code_id=?', [
+              step5.emergency_name,
+              step5.emergency_relationship,
+              step5.emergency_address,
+              step5.emergency_contact,
+              code_id
+            ], (err, result) => {
+              if (err) reject(err); else resolve(result);
+            });
+          });
+
+          // Step 6: Update faceRecognitionPhoto and set status to 'Pending'
+          await new Promise((resolve, reject) => {
+            connection.query('UPDATE users SET status=?, faceRecognitionPhoto=?, name=?, password=? WHERE id=?', [
+              'Pending',
+              step6?.faceRecognitionPhoto || null,
+              `${step1.first_name} ${step1.middle_name || ''} ${step1.last_name}`.trim().replace(/\s+/g, ' '),
+              step1.date_of_birth,
+              user.id
+            ], (err, result) => {
+              if (err) reject(err); else resolve(result);
+            });
+          });
+
+          // Commit transaction
+          await new Promise((resolve, reject) => {
+            connection.commit(err => {
+              if (err) return connection.rollback(() => reject(err));
+              resolve();
+            });
+          });
+
+          // Insert notification for superadmin
+          try {
+            await new Promise((resolve, reject) => {
+              connection.query(
+                `INSERT INTO superadminnotifications (user_id, notif_type, message, is_read, created_at) VALUES (?, ?, ?, 0, NOW())`,
+                [user.id, 'new_app', 'New application was re-submitted'],
+                (err, result) => { if (err) reject(err); else resolve(result); }
+              );
+            });
+          } catch (notifError) { console.error('Error inserting superadmin notification:', notifError); }
+
+          res.json({
+            success: true,
+            message: 'Resubmission successful. Application updated.',
+            code_id: code_id,
+            resubmitted: true
+          });
+          return;
+        } catch (innerError) {
+          console.error(`[${timestamp}] Error during resubmission:`, innerError);
+          await new Promise((resolve) => connection.rollback(() => resolve()));
+          throw innerError;
+        }
+      } else {
+        // Email exists and not declined, block submission
+        await new Promise((resolve) => connection.rollback(() => resolve()));
+        connection.release();
+        return res.status(400).json({
+          success: false,
+          error: 'Email already registered',
+          details: `A form with email ${step1.email} has already been submitted and is not declined.`,
+          existing_code_id: user.code_id
+        });
+      }
     }
+    // If user does not exist, proceed with normal insert below
+
 
     // Generate a code_id with the format XXXX_XX_XXXXXX
     const date = new Date();

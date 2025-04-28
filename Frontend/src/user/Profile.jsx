@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import './Profile.css';
+import './ResendApplicationModal.css';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faCheckCircle,
@@ -17,6 +19,31 @@ import { QRCodeSVG } from 'qrcode.react';
 import dswdLogo from '../assets/dswd-logo.png';
 
 const Profile = () => {
+  const [showResendModal, setShowResendModal] = useState(false);
+  const [declinedInfo, setDeclinedInfo] = useState(null);
+  const [isDeclinedLoading, setIsDeclinedLoading] = useState(false);
+
+  // Fetch declined info when resend modal opens
+  useEffect(() => {
+    if (showResendModal) {
+      setIsDeclinedLoading(true);
+      axios.get(`http://localhost:8081/declineInfo?userId=${loggedInUserId}`, { withCredentials: true })
+        .then(res => {
+          setDeclinedInfo(res.data);
+        })
+        .catch(err => {
+          setDeclinedInfo(null);
+        })
+        .finally(() => setIsDeclinedLoading(false));
+    }
+  }, [showResendModal]);
+
+  // ...rest of the Profile component code
+
+
+  // ...rest of Profile
+
+
   const [activeTab, setActiveTab] = useState('personal');
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const [uploadProgress, setUploadProgress] = useState({});
@@ -801,7 +828,7 @@ const Profile = () => {
                 <p className="user-email">{user?.email || 'Loading...'}</p>
                 <div className="profile-tags">
                   <span className={`tag ${user?.status?.toLowerCase()}-tag`}>
-                    {!['Pending Remarks', 'Terminated', 'Incomplete'].includes(user?.status) && (
+                    {!['Pending Remarks', 'Terminated', 'Incomplete', 'Declined'].includes(user?.status) && (
                       <FontAwesomeIcon icon={faCheckCircle} />
                     )}
                     {user?.status || 'Loading...'}
@@ -811,6 +838,28 @@ const Profile = () => {
             </div>
           </div>
         </div>
+
+        {user?.status === 'Declined' && (
+          <>
+            <div className="declined-message">
+              <div className="declined-content">
+                <FontAwesomeIcon icon={faTimesCircle} className="warning-icon" size="3x" />
+                <h2>Application Declined</h2>
+                <p>Your application has been declined. You may resend your application for reconsideration.</p>
+                <button
+                  className="btn resend-btn"
+                  onClick={() => setShowResendModal(true)}
+                  style={{ marginTop: '20px', background: '#2e7d32', color: 'white', fontWeight: 'bold', fontSize: '1.1rem', padding: '12px 28px', borderRadius: '8px' }}
+                >
+                  Resend Application
+                </button>
+              </div>
+            </div>
+            {showResendModal && (
+  <ResendApplicationModal onClose={() => setShowResendModal(false)} />
+)}
+          </>
+        )}
 
         {user?.status === 'Incomplete' ? (
           <div className="incomplete-message">
@@ -901,7 +950,7 @@ const Profile = () => {
             </div>
           ) : (
             <>
-              {!isRenewalStatus && (
+              {!isRenewalStatus && user?.status !== 'Declined' && (
                 <div className="profile-tabsuser">
                   {user?.status !== 'Terminated' && user?.status !== 'Pending Remarks' && (
                     <button 
@@ -1049,7 +1098,7 @@ const Profile = () => {
                   </div>
                 ) : (
                   <>
-                    {activeTab === 'personal' && user?.status !== 'Terminated' && user?.status !== 'Pending Remarks' && (
+                    {activeTab === 'personal' && user?.status !== 'Terminated' && user?.status !== 'Pending Remarks' && user?.status !== 'Declined' && (
                       <>
                         <div className="details-section">
                           <div className="section-header">
@@ -1164,7 +1213,7 @@ const Profile = () => {
                         </div>
                       </>
                     )}
-                    {activeTab === 'documents' ? (
+                    {activeTab === 'documents' && user?.status !== 'Declined' ? (
                       <div className="documents-section-user">
                         <div className="section-header">
                           <h2>Documents</h2>
@@ -1371,7 +1420,7 @@ const Profile = () => {
                   </>
                 )}
 
-                {!isRenewalStatus && !hasRestrictedAccess() && (
+                {!isRenewalStatus && !hasRestrictedAccess() && user?.status !== 'Declined' && (
                   <div className="user-profile-announcements">
                     <div className="profile-announcements-header">
                       <h3>Your Announcements</h3>
@@ -1457,5 +1506,364 @@ const Profile = () => {
     </div>
   );
 };
+
+// Modal for showing declined info and resend confirmation
+function ResendApplicationModal({ onClose }) {
+  const [info, setInfo] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValues, setEditValues] = useState({});
+
+  useEffect(() => {
+    setLoading(true);
+    const userId = localStorage.getItem('UserId');
+    axios.get(`http://localhost:8081/declineInfo?userId=${userId}`, { withCredentials: true })
+      .then(res => {
+        setInfo(res.data);
+        setEditValues({
+          ...res.data,
+          faceRecognitionPhoto: res.data.faceRecognitionPhoto || '', // always keep in state
+          familyMembers: res.data.familyMembers ? res.data.familyMembers.map(fm => ({...fm})) : [],
+        });
+      })
+      .catch(err => setError('Failed to load info'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  // Handler for starting edit mode
+  const startEditAll = () => {
+    setIsEditing(true);
+  };
+  // Handler for canceling edit mode
+  const cancelEditAll = () => {
+    setIsEditing(false);
+    setEditValues({
+      ...info,
+      familyMembers: info.familyMembers ? info.familyMembers.map(fm => ({...fm})) : [],
+    });
+  };
+  // Handler for saving all edits and submitting to backend
+  const saveEditAll = async () => {
+    if (loading) return;
+    setLoading(true);
+    try {
+      // Prepare the steps data based on editValues
+      const step1 = {
+        first_name: editValues.first_name,
+        middle_name: editValues.middle_name,
+        last_name: editValues.last_name,
+        age: editValues.age,
+        gender: editValues.gender,
+        date_of_birth: editValues.date_of_birth,
+        place_of_birth: editValues.place_of_birth,
+        barangay: editValues.barangay,
+        education: editValues.education,
+        civil_status: editValues.civil_status,
+        occupation: editValues.occupation,
+        religion: editValues.religion,
+        company: editValues.company,
+        income: editValues.income,
+        employment_status: editValues.employment_status,
+        contact_number: editValues.contact_number,
+        pantawid_beneficiary: editValues.pantawid_beneficiary,
+        indigenous: editValues.indigenous,
+        email: editValues.email
+      };
+      const step2 = {
+        children: (editValues.familyMembers || []).map(fm => {
+          // Try to split name if possible, fallback to full string
+          let [first_name, ...rest] = (fm.family_member_name || '').split(' ');
+          let last_name = rest.pop() || '';
+          let middle_name = rest.join(' ');
+          return {
+            first_name: first_name || '',
+            middle_name: middle_name || '',
+            last_name: last_name || '',
+            age: fm.age,
+            educational_attainment: fm.educational_attainment,
+            birthdate: fm.birthdate || '',
+          };
+        })
+      };
+      const step3 = { classification: editValues.classification };
+      const step4 = { needs_problems: editValues.needs_problems };
+      const step5 = {
+        emergency_name: editValues.emergency_name,
+        emergency_relationship: editValues.emergency_relationship,
+        emergency_address: editValues.emergency_address,
+        emergency_contact: editValues.emergency_contact
+      };
+      const step6 = {
+        faceRecognitionPhoto: editValues.faceRecognitionPhoto || null
+      };
+      const payload = { step1, step2, step3, step4, step5, step6 };
+      const toastId = toast.loading('Saving and resubmitting application...');
+      const response = await axios.post(`${process.env.REACT_APP_API_URL || 'http://localhost:8081'}/api/documents/submitAllSteps`, payload, { withCredentials: true });
+      toast.dismiss(toastId);
+      if (response.data.success) {
+        toast.success('Application resubmitted successfully!');
+        setIsEditing(false);
+        setInfo({ ...editValues, familyMembers: editValues.familyMembers ? editValues.familyMembers.map(fm => ({...fm})) : [] });
+        if (typeof onClose === 'function') onClose();
+      } else {
+        toast.error(response.data.message || 'Failed to resubmit application.');
+      }
+    } catch (err) {
+      toast.dismiss();
+      toast.error(err?.response?.data?.error || err.message || 'Error resubmitting application.');
+    } finally {
+      setLoading(false);
+    }
+  };
+  // Handler for updating family member fields
+  const updateFamilyMember = (idx, key, value) => {
+    setEditValues(prev => {
+      const updated = prev.familyMembers.map((fm, i) => i === idx ? { ...fm, [key]: value } : fm);
+      return { ...prev, familyMembers: updated };
+    });
+  };
+
+  return (
+    <>
+      <div className="resend-modal">
+        <div className="resend-modal-content">
+          <div className="resend-modal-header">
+            <h2>Resend Application</h2>
+            <button className="resend-modal-close" onClick={onClose} title="Close">&times;</button>
+          </div>
+          <div className="resend-modal-body">
+            {loading && <p>Loading...</p>}
+            {error && <p style={{color:'red'}}>{error}</p>}
+            {info && (
+              <>
+                <div style={{textAlign: 'right', marginBottom: '10px'}}>
+                  {!isEditing ? (
+                    <button className="resend-btn" onClick={startEditAll} disabled={loading || isEditing}>Edit</button>
+                  ) : (
+                    <button className="resend-btn cancel" onClick={cancelEditAll}>Cancel</button>
+                  )}
+                </div>
+                <div className="info-row">
+                  <label>Email:</label>
+                  <span>{isEditing ? (
+                    <input value={editValues.email} onChange={e => setEditValues(v => ({...v, email: e.target.value}))} style={{width: '180px'}} />
+                  ) : (
+                    info.email
+                  )}</span>
+                </div>
+                <div className="info-row">
+                  <label>Status:</label>
+                  <span>{info.status}</span>
+                </div>
+                <div className="info-row">
+                  <label>Classification:</label>
+                  <span>{isEditing ? (
+                    <input value={editValues.classification} onChange={e => setEditValues(v => ({...v, classification: e.target.value}))} style={{width: '120px'}} />
+                  ) : (
+                    info.classification || 'N/A'
+                  )}</span>
+                </div>
+                <div className="info-row">
+                  <label>Gender:</label>
+                  <span>{isEditing ? (
+                    <input value={editValues.gender} onChange={e => setEditValues(v => ({...v, gender: e.target.value}))} style={{width: '80px'}} />
+                  ) : (
+                    info.gender
+                  )}</span>
+                </div>
+                <div className="info-row">
+                  <label>Date of Birth:</label>
+                  <span>{isEditing ? (
+                    <input type="date" value={editValues.date_of_birth} onChange={e => setEditValues(v => ({...v, date_of_birth: e.target.value}))} />
+                  ) : (
+                    info.date_of_birth
+                  )}</span>
+                </div>
+                <div className="info-row">
+                  <label>Place of Birth:</label>
+                  <span>{isEditing ? (
+                    <input value={editValues.place_of_birth} onChange={e => setEditValues(v => ({...v, place_of_birth: e.target.value}))} style={{width: '120px'}} />
+                  ) : (
+                    info.place_of_birth
+                  )}</span>
+                </div>
+                <div className="info-row">
+                  <label>Barangay:</label>
+                  <span>{isEditing ? (
+                    <input value={editValues.barangay} onChange={e => setEditValues(v => ({...v, barangay: e.target.value}))} style={{width: '120px'}} />
+                  ) : (
+                    info.barangay
+                  )}</span>
+                </div>
+                <div className="info-row">
+                  <label>Education:</label>
+                  <span>{isEditing ? (
+                    <input value={editValues.education} onChange={e => setEditValues(v => ({...v, education: e.target.value}))} style={{width: '120px'}} />
+                  ) : (
+                    info.education
+                  )}</span>
+                </div>
+                <div className="info-row">
+                  <label>Civil Status:</label>
+                  <span>{isEditing ? (
+                    <input value={editValues.civil_status} onChange={e => setEditValues(v => ({...v, civil_status: e.target.value}))} style={{width: '120px'}} />
+                  ) : (
+                    info.civil_status
+                  )}</span>
+                </div>
+                <div className="info-row">
+                  <label>Occupation:</label>
+                  <span>{isEditing ? (
+                    <input value={editValues.occupation} onChange={e => setEditValues(v => ({...v, occupation: e.target.value}))} style={{width: '120px'}} />
+                  ) : (
+                    info.occupation
+                  )}</span>
+                </div>
+                <div className="info-row">
+                  <label>Religion:</label>
+                  <span>{isEditing ? (
+                    <input value={editValues.religion} onChange={e => setEditValues(v => ({...v, religion: e.target.value}))} style={{width: '120px'}} />
+                  ) : (
+                    info.religion
+                  )}</span>
+                </div>
+                <div className="info-row">
+                  <label>Company:</label>
+                  <span>{isEditing ? (
+                    <input value={editValues.company} onChange={e => setEditValues(v => ({...v, company: e.target.value}))} style={{width: '120px'}} />
+                  ) : (
+                    info.company
+                  )}</span>
+                </div>
+                <div className="info-row">
+                  <label>Income:</label>
+                  <span>{isEditing ? (
+                    <input value={editValues.income} onChange={e => setEditValues(v => ({...v, income: e.target.value}))} style={{width: '120px'}} />
+                  ) : (
+                    info.income
+                  )}</span>
+                </div>
+                <div className="info-row">
+                  <label>Employment Status:</label>
+                  <span>{isEditing ? (
+                    <input value={editValues.employment_status} onChange={e => setEditValues(v => ({...v, employment_status: e.target.value}))} style={{width: '120px'}} />
+                  ) : (
+                    info.employment_status
+                  )}</span>
+                </div>
+                <div className="info-row">
+                  <label>Contact Number:</label>
+                  <span>{isEditing ? (
+                    <input value={editValues.contact_number} onChange={e => setEditValues(v => ({...v, contact_number: e.target.value}))} style={{width: '120px'}} />
+                  ) : (
+                    info.contact_number
+                  )}</span>
+                </div>
+                <div className="info-row">
+                  <label>Pantawid Beneficiary:</label>
+                  <span>{isEditing ? (
+                    <select value={editValues.pantawid_beneficiary} onChange={e => setEditValues(v => ({...v, pantawid_beneficiary: e.target.value}))}>
+                      <option value="">Select</option>
+                      <option value="Yes">Yes</option>
+                      <option value="No">No</option>
+                    </select>
+                  ) : (
+                    info.pantawid_beneficiary ? 'Yes' : 'No'
+                  )}</span>
+                </div>
+                <div className="info-row">
+                  <label>Indigenous:</label>
+                  <span>{isEditing ? (
+                    <select value={editValues.indigenous} onChange={e => setEditValues(v => ({...v, indigenous: e.target.value}))}>
+                      <option value="">Select</option>
+                      <option value="Yes">Yes</option>
+                      <option value="No">No</option>
+                    </select>
+                  ) : (
+                    info.indigenous ? 'Yes' : 'No'
+                  )}</span>
+                </div>
+                <div className="info-row">
+                  <label>Needs/Problems:</label>
+                  <span>{isEditing ? (
+                    <input value={editValues.needs_problems} onChange={e => setEditValues(v => ({...v, needs_problems: e.target.value}))} style={{width: '120px'}} />
+                  ) : (
+                    info.needs_problems
+                  )}</span>
+                </div>
+                <div className="info-row">
+                  <label>Emergency Contact:</label>
+                  <span>{isEditing ? (
+                    <>
+                      <input value={editValues.emergency_name} onChange={e => setEditValues(v => ({...v, emergency_name: e.target.value}))} style={{width: '100px'}} placeholder="Name" />
+                      <input value={editValues.emergency_relationship} onChange={e => setEditValues(v => ({...v, emergency_relationship: e.target.value}))} style={{width: '80px'}} placeholder="Relationship" />
+                      <input value={editValues.emergency_address} onChange={e => setEditValues(v => ({...v, emergency_address: e.target.value}))} style={{width: '120px'}} placeholder="Address" />
+                      <input value={editValues.emergency_contact} onChange={e => setEditValues(v => ({...v, emergency_contact: e.target.value}))} style={{width: '100px'}} placeholder="Contact" />
+                    </>
+                  ) : (
+                    <>
+                      {info.emergency_name} ({info.emergency_relationship})<br/>
+                      Address: {info.emergency_address}<br/>
+                      Contact: {info.emergency_contact}
+                    </>
+                  )}</span>
+                </div>
+                <div className="info-row">
+                  <label>Family Members:</label>
+                  <span>
+                    {(editValues.familyMembers || []).length === 0 ? <span>None</span> : editValues.familyMembers.map((fm, i) => (
+                      <div key={i} className="family-row">
+                        {isEditing ? (
+                          <>
+                            <input value={fm.family_member_name} onChange={e => updateFamilyMember(i, 'family_member_name', e.target.value)} style={{width: '120px'}} placeholder="Name" />
+                            <input value={fm.age} onChange={e => updateFamilyMember(i, 'age', e.target.value)} style={{width: '60px'}} placeholder="Age" />
+                            <input value={fm.educational_attainment} onChange={e => updateFamilyMember(i, 'educational_attainment', e.target.value)} style={{width: '120px'}} placeholder="Education" />
+                          </>
+                        ) : (
+                          <>
+                            {fm.family_member_name} ({fm.age} yrs, {fm.educational_attainment})
+                          </>
+                        )}
+                      </div>
+                    ))}
+                  </span>
+                </div>
+                <input type="hidden" name="faceRecognitionPhoto" value={editValues.faceRecognitionPhoto || ''} />
+                <div className="info-row">
+                  <label>Documents:</label>
+                  <span>
+                    {(info.documents || []).length === 0 ? <span>None</span> : info.documents.map((doc, i) => (
+                      <div key={i} className="document-row">
+                        {doc.display_name} - <a href={doc.file_url} target="_blank" rel="noopener noreferrer">View</a> ({doc.status})
+                      </div>
+                    ))}
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
+          <div className="resend-modal-footer">
+            <button
+              className="resend-btn save"
+              style={{ marginTop: '10px', fontWeight: 'bold', fontSize: '1.05rem', padding: '10px 26px', borderRadius: '7px' }}
+              onClick={saveEditAll}
+              disabled={loading || (isEditing && loading)}
+            >
+              {isEditing ? (loading ? 'Saving...' : 'Confirm') : 'Confirm'}
+            </button>
+            <button
+              className="resend-btn cancel"
+              onClick={onClose}
+              style={{ marginLeft: '8px' }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
 
 export default Profile;

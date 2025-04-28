@@ -7,7 +7,10 @@ const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 
 // Enable CORS for all routes
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:3000',
+  credentials: true
+}));
 app.use(express.json({ limit: '50mb' }));
 app.use(bodyParser.json({ limit: '50mb' }));
 
@@ -430,6 +433,129 @@ app.get('/pendingUsers', async (req, res) => {
   } catch (err) {
     console.error('Error fetching pending users:', err);
     res.status(500).json({ error: 'Error fetching pending users' });
+  }
+});
+
+// New endpoint for declined users
+app.get('/declineInfo', async (req, res) => {
+  try {
+    // Use userId from session, user, or query
+    const userId = req.user?.id || req.session?.userId || req.query.userId;
+    if (!userId) {
+      return res.status(400).json({ error: 'No user id found' });
+    }
+
+    // Fetch code_id and email for this user
+    const userResult = await queryDatabase('SELECT code_id, email FROM users WHERE id = ?', [userId]);
+    if (!userResult || userResult.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const currentCodeId = userResult[0].code_id;
+    const currentEmail = userResult[0].email;
+
+    // Fetch only the declined user matching the logged-in user
+    const users = await queryDatabase(`
+      SELECT u.id AS userId, u.email, u.name, u.status, u.code_id,
+             s1.first_name, s1.middle_name, s1.last_name, s1.age, s1.gender, u.faceRecognitionPhoto,
+             s1.date_of_birth, s1.place_of_birth, s1.barangay, s1.education, 
+             s1.civil_status, s1.occupation, s1.religion, s1.company, 
+             s1.income, s1.employment_status, s1.contact_number, s1.email, 
+             s1.pantawid_beneficiary, s1.indigenous,
+             s3.classification,
+             s4.needs_problems,
+             s5.emergency_name, s5.emergency_relationship, 
+             s5.emergency_address, s5.emergency_contact
+      FROM users u
+      JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
+      LEFT JOIN step3_classification s3 ON u.code_id = s3.code_id
+      LEFT JOIN step4_needs_problems s4 ON u.code_id = s4.code_id
+      LEFT JOIN step5_in_case_of_emergency s5 ON u.code_id = s5.code_id
+      WHERE u.status = 'Declined' AND (u.code_id = ? OR u.email = ?)
+    `, [currentCodeId, currentEmail]);
+
+    if (users.length === 0) {
+      return res.status(200).json([]);
+    }
+
+    const codeIds = users.map(user => user.code_id);
+
+    const familyQuery = `
+      SELECT code_id, 
+             family_member_name,
+             birthdate,
+             educational_attainment,
+             age
+      FROM step2_family_occupation
+      WHERE code_id IN (?)
+    `;
+
+    const familyMembers = await queryDatabase(familyQuery, [codeIds]);
+
+    const familyByUser = {};
+    familyMembers.forEach(member => {
+      if (!familyByUser[member.code_id]) {
+        familyByUser[member.code_id] = [];
+      }
+      familyByUser[member.code_id].push(member);
+    });
+
+    // Fetch documents for each user from all document tables
+    const documentTables = [
+      'psa_documents',
+      'itr_documents', 
+      'med_cert_documents', 
+      'marriage_documents', 
+      'cenomar_documents', 
+      'death_cert_documents'
+    ];
+    
+    let allDocuments = [];
+    
+    // Query each document table and combine results
+    for (const table of documentTables) {
+      const documentsQuery = `
+        SELECT code_id,
+               file_name,
+               uploaded_at,
+               display_name,
+               status,
+               '${table}' as document_type,
+               CASE 
+                 WHEN file_name LIKE 'http%' THEN file_name 
+                 ELSE CONCAT('http://localhost:8081/uploads/', file_name) 
+               END as file_url
+        FROM ${table}
+        WHERE code_id IN (?) AND category = 'application'
+      `;
+
+      try {
+        const docs = await queryDatabase(documentsQuery, [codeIds]);
+        allDocuments = [...allDocuments, ...docs];
+      } catch (err) {
+        console.error(`Error fetching from ${table}:`, err);
+        // Continue with other tables even if one fails
+      }
+    }
+
+    const documentsByUser = {};
+    allDocuments.forEach(doc => {
+      if (!documentsByUser[doc.code_id]) {
+        documentsByUser[doc.code_id] = [];
+      }
+      documentsByUser[doc.code_id].push(doc);
+    });
+
+    const usersWithFamily = users.map(user => ({
+      ...user,
+      familyMembers: familyByUser[user.code_id] || [],
+      documents: documentsByUser[user.code_id] || []
+    }));
+
+    // Only return the first (should only be one)
+    res.status(200).json(usersWithFamily[0]);
+  } catch (err) {
+    console.error('Error fetching declined user:', err);
+    res.status(500).json({ error: 'Error fetching declined user' });
   }
 });
 
