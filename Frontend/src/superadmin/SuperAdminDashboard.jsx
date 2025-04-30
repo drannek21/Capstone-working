@@ -7,6 +7,7 @@ import './SuperAdminDashboard.css';
 import AdminManagement from './AdminManagement';
 import SoloParentManagement from './SoloParentManagement';
 import Events from './Events';
+import ForumManagement from './ForumManagement';
 
 const SuperAdminDashboard = () => {
   return (
@@ -20,6 +21,7 @@ const SuperAdminDashboard = () => {
           <Route path="admin-management" element={<AdminManagement />} />
           <Route path="solo-parent-management" element={<SoloParentManagement />} />
           <Route path="events" element={<Events />} />
+          <Route path="forum-management" element={<ForumManagement />} />
         </Routes>
 
         </div>

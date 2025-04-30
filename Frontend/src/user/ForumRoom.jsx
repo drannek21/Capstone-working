@@ -14,6 +14,7 @@ const ForumRoom = () => {
   const [error, setError] = useState(null);
   const [showCreatePost, setShowCreatePost] = useState(false);
   const [expandedComments, setExpandedComments] = useState({});
+  const [showPendingModal, setShowPendingModal] = useState(false);
 
   const loggedInUserId = localStorage.getItem("UserId");
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
@@ -60,55 +61,35 @@ const ForumRoom = () => {
   }, [loggedInUserId, API_BASE_URL]);
 
   // Fetch posts
-  useEffect(() => {
+  const fetchPosts = async () => {
     setLoading(true);
-    fetch(`${API_BASE_URL}/api/forum/posts`)
-      .then(response => {
-        if (!response.ok) {
-          throw new Error('Failed to fetch posts');
-        }
-        return response.json();
-      })
-      .then(data => {
-        console.log('Posts data:', data);
-        setPosts(data);
-        setLoading(false);
-      })
-      .catch(error => {
-        console.error('Error fetching posts:', error);
-        // Use mock data as fallback
-        const mockPosts = [
-          {
-            id: 1,
-            title: 'Welcome to our Forum!',
-            content: 'This is a place to discuss topics related to our platform.',
-            author: 'Admin',
-            profilePic: defaultAvatar,
-            created_at: '2025-04-25',
-            likes: 15
-          },
-          {
-            id: 2,
-            title: 'Tips for New Users',
-            content: 'Here are some helpful tips to get started with our platform...',
-            author: 'Moderator',
-            profilePic: defaultAvatar,
-            created_at: '2025-04-24',
-            likes: 8
-          },
-          {
-            id: 3,
-            title: 'Introducing New Features',
-            content: 'We have added several new features to enhance your experience.',
-            author: 'Developer',
-            profilePic: defaultAvatar,
-            created_at: '2025-04-23',
-            likes: 12
-          }
-        ];
-        setPosts(mockPosts);
-        setLoading(false);
-      });
+    setError(null);
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/forum/posts`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch posts');
+      }
+      
+      const data = await response.json();
+      
+      // Only show verified posts
+      const verifiedPosts = data.filter(post => 
+        post.status === 'Verified' || !post.status // Include posts without status for backward compatibility
+      );
+      
+      setPosts(verifiedPosts);
+    } catch (error) {
+      console.error('Error fetching posts:', error);
+      setError('Failed to load posts. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPosts();
   }, [API_BASE_URL]);
 
   // Fetch comments for each post
@@ -118,28 +99,25 @@ const ForumRoom = () => {
         const commentsObj = {};
         
         for (const post of posts) {
+          // Skip temporary posts (those with temp- prefix in ID)
+          if (post.id && post.id.toString().startsWith('temp-')) {
+            console.log(`Skipping comment fetch for temporary post ${post.id}`);
+            commentsObj[post.id] = [];
+            continue;
+          }
+          
           try {
             const response = await fetch(`${API_BASE_URL}/api/forum/posts/${post.id}/comments`);
             if (!response.ok) {
-              throw new Error(`Failed to fetch comments for post ${post.id}`);
+              console.log(`Failed to fetch comments for post ${post.id}: ${response.status}`);
+              commentsObj[post.id] = [];
+              continue;
             }
             const data = await response.json();
             commentsObj[post.id] = data.map(comment => ({ ...comment, profilePic: comment.authorProfilePic }));
           } catch (error) {
             console.error(`Error fetching comments for post ${post.id}:`, error);
-            // Use mock comments as fallback
-            if (post.id === 1) {
-              commentsObj[post.id] = [
-                { id: 1, author: 'User1', authorProfilePic: defaultAvatar, content: 'Great to be here!', created_at: '2025-04-25' },
-                { id: 2, author: 'User2', authorProfilePic: defaultAvatar, content: 'Looking forward to the discussions.', created_at: '2025-04-26' }
-              ];
-            } else if (post.id === 2) {
-              commentsObj[post.id] = [
-                { id: 1, author: 'User3', authorProfilePic: defaultAvatar, content: 'These tips are really helpful!', created_at: '2025-04-24' }
-              ];
-            } else {
-              commentsObj[post.id] = [];
-            }
+            commentsObj[post.id] = [];
           }
         }
         
@@ -194,9 +172,8 @@ const ForumRoom = () => {
         body: JSON.stringify({
           title: newPost.title,
           content: newPost.content,
-          userId: currentUser.id,
-          author: currentUser.name,
-          authorProfilePic: currentUser.profilePic || defaultAvatar
+          user_id: currentUser.id,
+          author: currentUser.name
         }),
       });
       
@@ -210,9 +187,10 @@ const ForumRoom = () => {
       // Replace the temporary post with the real one from the server
       setPosts(prevPosts => 
         prevPosts.map(post => 
-          post.id === tempPost.id ? createdPost : post
+          post.id === tempPost.id ? createdPost.post || createdPost : post
         )
       );
+      setShowPendingModal(true);
     } catch (error) {
       console.error('Error creating post:', error);
       // The temporary post is already in the UI, so no need to add a mock post
@@ -341,6 +319,35 @@ const ForumRoom = () => {
 
   return (
     <div className="forum-room-container">
+      {/* Pending Post Notification Modal */}
+      {showPendingModal && (
+        <div className="forum-room-modal-overlay" onClick={() => setShowPendingModal(false)}>
+          <div className="forum-room-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="forum-room-modal-header">
+              <h3>Post Submitted Successfully</h3>
+              <button 
+                className="forum-room-modal-close" 
+                onClick={() => setShowPendingModal(false)}
+              >
+                <FontAwesomeIcon icon={faTimes} />
+              </button>
+            </div>
+            <div className="forum-room-pending-notification">
+              <p>Thank you for your submission!</p>
+              <p>Your post has been received and is now <strong>pending approval</strong> from an administrator.</p>
+              <p>Once approved, your post will be visible to all users in the forum.</p>
+            </div>
+            <div className="forum-room-modal-footer">
+              <button 
+                className="forum-room-ok-btn"
+                onClick={() => setShowPendingModal(false)}
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <h1 className="forum-room-title">Community Forum</h1>
       
       <div className="forum-room-posts-section">
@@ -448,9 +455,9 @@ const ForumRoom = () => {
       
       {showCreatePost && (
         <div className="forum-room-modal-overlay" onClick={handleOverlayClick}>
-          <div className="forum-room-modal">
+          <div className="forum-room-modal" onClick={(e) => e.stopPropagation()}>
             <div className="forum-room-modal-header">
-              <h2>Create a New Post</h2>
+              <h3>Create a New Post</h3>
               <button 
                 className="forum-room-modal-close" 
                 onClick={closeModal}
@@ -458,49 +465,52 @@ const ForumRoom = () => {
                 <FontAwesomeIcon icon={faTimes} />
               </button>
             </div>
-            <div className="forum-room-post-author-info">
-              <img 
-                src={currentUser.profilePic || defaultAvatar} 
-                alt="Your Profile" 
-                className="forum-room-author-image"
-                onError={(e) => e.target.src = defaultAvatar}
-              />
-              <span>Posting as <strong>{currentUser.name}</strong></span>
-            </div>
-            <form onSubmit={submitPost} className="forum-room-post-form">
-              <input
-                type="text"
-                name="title"
-                placeholder="Post Title"
-                value={newPost.title}
-                onChange={handlePostChange}
-                className="forum-room-post-input"
-                required
-              />
-              <textarea
-                name="content"
-                placeholder="Write your post here..."
-                value={newPost.content}
-                onChange={handlePostChange}
-                className="forum-room-post-textarea"
-                required
-              />
-              <div className="forum-room-modal-footer">
-                <button 
-                  type="button" 
-                  className="forum-room-cancel-btn"
-                  onClick={closeModal}
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit" 
-                  className="forum-room-post-submit-btn"
-                >
-                  Submit Post
-                </button>
+            <div className="forum-room-modal-content">
+              <div className="forum-room-post-author-info">
+                <img 
+                  src={currentUser.profilePic || defaultAvatar} 
+                  alt="Your Profile" 
+                  className="forum-room-author-image"
+                  onError={(e) => e.target.src = defaultAvatar}
+                />
+                <span>Posting as <strong>{currentUser.name}</strong></span>
               </div>
-            </form>
+              <form onSubmit={submitPost} className="forum-room-post-form">
+                <input
+                  type="text"
+                  name="title"
+                  placeholder="Post Title"
+                  value={newPost.title}
+                  onChange={handlePostChange}
+                  className="forum-room-post-input"
+                  required
+                />
+                <textarea
+                  name="content"
+                  placeholder="Write your post here..."
+                  value={newPost.content}
+                  onChange={handlePostChange}
+                  className="forum-room-post-textarea"
+                  required
+                />
+                <div className="forum-room-modal-footer">
+                  <button 
+                    type="button" 
+                    className="forum-room-cancel-btn"
+                    onClick={closeModal}
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit" 
+                    className="forum-room-submit-btn"
+                    disabled={!newPost.title || !newPost.content}
+                  >
+                    Submit Post
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}

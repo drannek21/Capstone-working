@@ -5,7 +5,7 @@ const { pool, queryDatabase } = require('../database');
 // Get all posts
 router.get('/posts', async (req, res) => {
   try {
-    console.log('Fetching all forum posts');
+    // Get posts with status Verified or if no status, treat as Verified (for backward compatibility)
     const posts = await queryDatabase(`
       SELECT p.*, 
              COUNT(DISTINCT l.id) as likes,
@@ -14,6 +14,7 @@ router.get('/posts', async (req, res) => {
       FROM forum_posts p
       LEFT JOIN forum_likes l ON p.id = l.post_id
       LEFT JOIN users u ON p.user_id = u.id
+      WHERE p.status = 'Verified' OR p.status IS NULL
       GROUP BY p.id
       ORDER BY p.created_at DESC
     `);
@@ -49,7 +50,7 @@ router.get('/posts/:id', async (req, res) => {
       FROM forum_posts p
       LEFT JOIN forum_likes l ON p.id = l.post_id
       LEFT JOIN users u ON p.user_id = u.id
-      WHERE p.id = ?
+      WHERE p.id = ? AND (p.status = 'Verified' OR p.status IS NULL)
       GROUP BY p.id
     `, [req.params.id]);
     
@@ -70,33 +71,26 @@ router.get('/posts/:id', async (req, res) => {
 // Create a new post
 router.post('/posts', async (req, res) => {
   try {
-    const { title, content, userId, author } = req.body;
+    const { title, content, author, user_id } = req.body;
     
-    if (!title || !content || !userId) {
-      return res.status(400).json({ message: 'Missing required fields' });
-    }
+    const result = await queryDatabase(
+      'INSERT INTO forum_posts (title, content, author, user_id, status) VALUES (?, ?, ?, ?, ?)',
+      [title, content, author, user_id, 'Pending']
+    );
     
-    const result = await queryDatabase(`
-      INSERT INTO forum_posts (title, content, author, user_id, created_at, updated_at)
-      VALUES (?, ?, ?, ?, NOW(), NOW())
-    `, [title, content, author, userId]);
+    const newPost = await queryDatabase(
+      'SELECT * FROM forum_posts WHERE id = ?',
+      [result.insertId]
+    );
     
-    // Get the new post with user profile image
-    const [newPost] = await queryDatabase(`
-      SELECT p.*, u.profilePic
-      FROM forum_posts p
-      LEFT JOIN users u ON p.user_id = u.id
-      WHERE p.id = ?
-    `, [result.insertId]);
-    
-    // Add likes count
-    newPost.likes = 0;
-    newPost.liked_by_users = [];
-    
-    res.status(201).json(newPost);
+    res.status(201).json({
+      success: true,
+      message: 'Post created successfully. Waiting for admin approval.',
+      post: newPost[0]
+    });
   } catch (error) {
     console.error('Error creating post:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ success: false, error: 'Failed to create post' });
   }
 });
 
@@ -112,7 +106,7 @@ router.post('/posts/:id/like', async (req, res) => {
     
     // Check if the post exists
     const [post] = await queryDatabase(`
-      SELECT * FROM forum_posts WHERE id = ?
+      SELECT * FROM forum_posts WHERE id = ? AND (status = 'Verified' OR status IS NULL)
     `, [postId]);
     
     if (!post) {
@@ -146,7 +140,7 @@ router.post('/posts/:id/like', async (req, res) => {
       FROM forum_posts p
       LEFT JOIN forum_likes l ON p.id = l.post_id
       LEFT JOIN users u ON p.user_id = u.id
-      WHERE p.id = ?
+      WHERE p.id = ? AND (p.status = 'Verified' OR p.status IS NULL)
       GROUP BY p.id
     `, [postId]);
     
@@ -163,25 +157,47 @@ router.post('/posts/:id/like', async (req, res) => {
 // Get comments for a post
 router.get('/posts/:id/comments', async (req, res) => {
   try {
-    console.log(`Fetching comments for post ${req.params.id}`);
+    const postId = req.params.id;
+    console.log(`Fetching comments for post ${postId}`);
+    
+    // Check if the post ID is a temporary ID (client-side generated)
+    if (postId.toString().startsWith('temp-')) {
+      console.log(`Temporary post ID detected: ${postId}`);
+      return res.status(404).json({ 
+        message: 'Cannot fetch comments for temporary posts' 
+      });
+    }
+    
+    // First check if the post exists and is accessible
+    const [post] = await queryDatabase(`
+      SELECT * FROM forum_posts WHERE id = ?
+    `, [postId]);
+    
+    if (!post) {
+      console.log(`Post not found: ${postId}`);
+      return res.status(404).json({ message: 'Post not found' });
+    }
+    
+    // For admin endpoints, we'll allow viewing comments on any post regardless of status
+    // For regular users, only show comments on verified posts
+    const isAdminRequest = req.path.includes('/admin/');
+    if (!isAdminRequest && post.status !== 'Verified' && post.status !== null) {
+      console.log(`Post ${postId} has status ${post.status}, not accessible to regular users`);
+      return res.status(403).json({ message: 'Post is not accessible' });
+    }
+    
     const comments = await queryDatabase(`
       SELECT c.*, u.profilePic as authorProfilePic
       FROM forum_comments c
       LEFT JOIN users u ON c.user_id = u.id
       WHERE c.post_id = ?
       ORDER BY c.created_at ASC
-    `, [req.params.id]);
+    `, [postId]);
     
     // Log comment data for debugging
-    comments.forEach(comment => {
-      if (!comment.authorProfilePic) {
-        console.log(`No profile pic for comment ${comment.id}, author: ${comment.author}`);
-      } else {
-        console.log(`Profile pic found for comment ${comment.id}: ${comment.authorProfilePic}`);
-      }
-    });
+    console.log(`Returning ${comments.length} comments for post ${postId}`);
     
-    console.log(`Returning ${comments.length} comments for post ${req.params.id}`);
+    // Always return the comments array, even if empty
     res.json(comments);
   } catch (error) {
     console.error('Error fetching comments:', error);
@@ -197,6 +213,14 @@ router.post('/posts/:id/comments', async (req, res) => {
     
     if (!content || !userId || !postId) {
       return res.status(400).json({ message: 'Missing required fields' });
+    }
+    
+    const [post] = await queryDatabase(`
+      SELECT * FROM forum_posts WHERE id = ? AND (status = 'Verified' OR status IS NULL)
+    `, [postId]);
+    
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found' });
     }
     
     const result = await queryDatabase(`
@@ -268,6 +292,106 @@ router.delete('/posts/:id', async (req, res) => {
     }
   } catch (error) {
     console.error('Error deleting post:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Update post status
+router.put('/posts/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    
+    // Validate status input
+    const validStatuses = ['Pending', 'Verified', 'Declined', 'Deleted'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ message: 'Invalid status value' });
+    }
+    
+    // Update post status
+    await queryDatabase(
+      `UPDATE forum_posts SET status = ? WHERE id = ?`,
+      [status, id]
+    );
+    
+    // Return updated post
+    const [updatedPost] = await queryDatabase(
+      `SELECT * FROM forum_posts WHERE id = ?`,
+      [id]
+    );
+    
+    res.json(updatedPost);
+  } catch (error) {
+    console.error('Error updating post status:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Admin endpoint to get all posts including pending ones
+router.get('/admin/posts', async (req, res) => {
+  try {
+    const posts = await queryDatabase(`
+      SELECT p.*, 
+             COUNT(DISTINCT l.id) as likes,
+             GROUP_CONCAT(DISTINCT l.user_id) as liked_by_users,
+             u.profilePic
+      FROM forum_posts p
+      LEFT JOIN forum_likes l ON p.id = l.post_id
+      LEFT JOIN users u ON p.user_id = u.id
+      GROUP BY p.id
+      ORDER BY p.created_at DESC
+    `);
+    
+    // Format the liked_by_users field for each post
+    posts.forEach(post => {
+      post.liked_by_users = post.liked_by_users ? post.liked_by_users.split(',') : [];
+    });
+    
+    res.json(posts);
+  } catch (error) {
+    console.error('Error fetching admin posts:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Admin endpoint to get comments for a post (regardless of post status)
+router.get('/admin/posts/:id/comments', async (req, res) => {
+  try {
+    const postId = req.params.id;
+    console.log(`Admin fetching comments for post ${postId}`);
+    
+    // Check if the post ID is a temporary ID
+    if (postId.toString().startsWith('temp-')) {
+      console.log(`Temporary post ID detected: ${postId}`);
+      return res.status(404).json({ 
+        message: 'Cannot fetch comments for temporary posts' 
+      });
+    }
+    
+    // First check if the post exists
+    const [post] = await queryDatabase(`
+      SELECT * FROM forum_posts WHERE id = ?
+    `, [postId]);
+    
+    if (!post) {
+      console.log(`Post not found: ${postId}`);
+      return res.status(404).json({ message: 'Post not found' });
+    }
+    
+    const comments = await queryDatabase(`
+      SELECT c.*, u.profilePic as authorProfilePic
+      FROM forum_comments c
+      LEFT JOIN users u ON c.user_id = u.id
+      WHERE c.post_id = ?
+      ORDER BY c.created_at ASC
+    `, [postId]);
+    
+    console.log(`Admin: Returning ${comments.length} comments for post ${postId}`);
+    
+    // Always return the comments array, even if empty
+    res.json(comments);
+  } catch (error) {
+    console.error('Error fetching admin comments:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

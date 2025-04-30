@@ -205,7 +205,7 @@
   justify-content: center;
   position: fixed;
   top: 20px;
-  left: 290px; /* Positioned right next to the sidebar */
+  left: 300px; /* Positioned right next to the sidebar */
   padding: 0.5rem;
   border-radius: 50%;
   background: #27ae60;

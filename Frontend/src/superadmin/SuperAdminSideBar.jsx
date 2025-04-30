@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { FaTrash } from 'react-icons/fa';
-import { FaTachometerAlt, FaDatabase, FaUsers, FaClipboardList, FaSync, FaBars, FaSignOutAlt, FaUserFriends, FaBell, FaTimes, FaBullhorn, FaLink, FaImage } from 'react-icons/fa';
+import { FaTachometerAlt, FaDatabase, FaUsers, FaClipboardList,FaComments, FaSync, FaBars, FaSignOutAlt, FaUserFriends, FaBell, FaTimes, FaBullhorn, FaLink, FaImage } from 'react-icons/fa';
 import './SuperAdminSideBar.css';
 import logo from '../assets/logo.jpg'; // Import the logo
 
@@ -445,6 +445,15 @@ const SuperAdminSideBar = () => {
           >
             <FaClipboardList className="nav-icon" />
             <span>Events</span>
+          </NavLink>
+
+          <NavLink 
+            to="/superadmin/forum-management" 
+            className={({isActive}) => `nav-link ${isActive ? 'active' : ''}`}
+            onClick={isMobile ? toggleSidebar : undefined}
+          >
+            <FaComments className="nav-icon" />
+            <span>Forum Management</span>
           </NavLink>
 
           <div className="nav-spacer"></div>
