@@ -299,6 +299,10 @@ body {
   box-sizing: border-box;
 }
 
+.bad-word-modal-overlay {
+  z-index: 1100; /* Higher z-index to appear on top */
+}
+
 .forum-room-modal {
   background-color: white;
   border-radius: 12px;
@@ -309,6 +313,11 @@ body {
   position: relative;
   display: flex;
   flex-direction: column;
+  z-index: 1001;
+}
+
+.bad-word-modal {
+  z-index: 1101; /* Higher z-index to appear on top */
 }
 
 .forum-room-modal-header {
@@ -524,6 +533,54 @@ body {
 
 .forum-room-ok-btn:hover {
   background-color: #4cae4c;
+}
+
+/* Bad Word Modal Styling */
+.bad-word-warning {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 20px;
+}
+
+.warning-icon {
+  color: #ff4d4d;
+  font-size: 48px;
+  margin-bottom: 15px;
+}
+
+.bad-word-detail {
+  margin-top: 10px;
+  font-size: 14px;
+  color: #666;
+}
+
+.bad-word-highlight {
+  color: #ff4d4d;
+  font-weight: bold;
+}
+
+.forum-room-modal-footer {
+  display: flex;
+  justify-content: center;
+  padding: 15px;
+  border-top: 1px solid #eee;
+}
+
+.forum-room-button {
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s;
+}
+
+.forum-room-button:hover {
+  background-color: #45a049;
 }
 
 /* Media Queries for Responsiveness */

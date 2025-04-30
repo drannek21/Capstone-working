@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import './ForumRoom.css';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faThumbsUp, faComment, faTimes } from '@fortawesome/free-solid-svg-icons';
+import { faThumbsUp, faComment, faTimes, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
 import defaultAvatar from '../assets/avatar.jpg';
+import bannedWords from '../config/bannedWords.json';
 
 const ForumRoom = () => {
   const [posts, setPosts] = useState([]);
@@ -15,6 +16,8 @@ const ForumRoom = () => {
   const [showCreatePost, setShowCreatePost] = useState(false);
   const [expandedComments, setExpandedComments] = useState({});
   const [showPendingModal, setShowPendingModal] = useState(false);
+  const [showBadWordModal, setShowBadWordModal] = useState(false);
+  const [badWordFound, setBadWordFound] = useState('');
 
   const loggedInUserId = localStorage.getItem("UserId");
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
@@ -107,7 +110,13 @@ const ForumRoom = () => {
           }
           
           try {
-            const response = await fetch(`${API_BASE_URL}/api/forum/posts/${post.id}/comments`);
+            const response = await fetch(`${API_BASE_URL}/api/forum/posts/${post.id}/comments`, {
+              headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'Content-Type': 'application/json'
+              }
+            });
+            
             if (!response.ok) {
               console.log(`Failed to fetch comments for post ${post.id}: ${response.status}`);
               commentsObj[post.id] = [];
@@ -128,6 +137,29 @@ const ForumRoom = () => {
     }
   }, [posts, API_BASE_URL]);
 
+  const containsBadWords = (text) => {
+    if (!text) return false;
+    
+    const lowerText = text.toLowerCase();
+    const allBannedWords = [
+      ...bannedWords.english, 
+      ...bannedWords.tagalog,
+      ...bannedWords.sexual,
+      ...bannedWords.sexual_tagalog
+    ];
+    
+    for (const word of allBannedWords) {
+      // Use word boundary regex to match only whole words
+      const regex = new RegExp(`\\b${word.toLowerCase()}\\b`, 'i');
+      if (regex.test(lowerText)) {
+        setBadWordFound(word);
+        return true;
+      }
+    }
+    
+    return false;
+  };
+
   const handlePostChange = (e) => {
     const { name, value } = e.target;
     setNewPost(prev => ({ ...prev, [name]: value }));
@@ -140,6 +172,12 @@ const ForumRoom = () => {
   const submitPost = async (e) => {
     e.preventDefault();
     
+    // Check for bad words in title or content
+    if (containsBadWords(newPost.title) || containsBadWords(newPost.content)) {
+      setShowBadWordModal(true);
+      return;
+    }
+
     if (!newPost.title || !newPost.content) {
       return;
     }
@@ -319,6 +357,37 @@ const ForumRoom = () => {
 
   return (
     <div className="forum-room-container">
+      {/* Bad Word Modal */}
+      {showBadWordModal && (
+        <div className="forum-room-modal-overlay bad-word-modal-overlay" onClick={() => setShowBadWordModal(false)}>
+          <div className="forum-room-modal bad-word-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="forum-room-modal-header">
+              <h3>Inappropriate Content Detected</h3>
+              <button 
+                className="forum-room-modal-close" 
+                onClick={() => setShowBadWordModal(false)}
+              >
+                <FontAwesomeIcon icon={faTimes} />
+              </button>
+            </div>
+            <div className="forum-room-modal-content">
+              <div className="bad-word-warning">
+                <FontAwesomeIcon icon={faExclamationTriangle} className="warning-icon" />
+                <p>Your post contains inappropriate language. Please revise your content.</p>
+                <p className="bad-word-detail">Detected word: <span className="bad-word-highlight">"{badWordFound}"</span></p>
+              </div>
+            </div>
+            <div className="forum-room-modal-footer">
+              <button 
+                className="forum-room-button" 
+                onClick={() => setShowBadWordModal(false)}
+              >
+                Edit My Post
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Pending Post Notification Modal */}
       {showPendingModal && (
         <div className="forum-room-modal-overlay" onClick={() => setShowPendingModal(false)}>
