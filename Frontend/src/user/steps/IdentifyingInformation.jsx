@@ -126,6 +126,7 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
       name === 'first_name' || 
       name === 'middle_name' || 
       name === 'last_name' || 
+      name === 'suffix' || 
       name === 'occupation' || 
       name === 'religion'
     ) {
@@ -346,6 +347,20 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
           />
           {errors.last_name && <span className="error">{errors.last_name}</span>}
         </div>
+        <div className="form-group">
+          <label className="identifying-label">Suffix</label>
+          <input
+            type="text"
+            name="suffix"
+            value={formData.suffix || ''}
+            onChange={handleChange}
+            onInput={handleTextInput}
+            className="identifying-input"
+            placeholder="Enter suffix (if any)"
+            maxLength={10}
+          />
+          {errors.suffix && <span className="error">{errors.suffix}</span>}
+        </div>
       </div>
 
       {/* Date of Birth & Age */}
@@ -503,15 +518,20 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
       <div className="identifying-row">
         <div className="form-group">
           <label className="identifying-label">Educational Attainment</label>
-          <input
-            type="text"
+          <select
             name="education"
             value={formData.education || ''}
             onChange={handleChange}
             className="identifying-input"
-            placeholder="Enter your educational attainment"
-            maxLength={20}
-          />
+          >
+            <option value="" disabled>Educational Attainment</option>
+            <option value="College Graduate">College Graduate</option>
+            <option value="College Undergraduate">College Undergraduate</option>
+            <option value="High School Graduate">High School Graduate</option>
+            <option value="High School Undergraduate">High School Undergraduate</option>
+            <option value="Elementary Graduate">Elementary Graduate</option>
+            <option value="Elementary Undergraduate">Elementary Undergraduate</option>
+          </select>
           {errors.education && <span className="error">{errors.education}</span>}
         </div>
         <div className="form-group">

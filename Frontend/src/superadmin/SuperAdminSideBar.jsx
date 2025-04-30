@@ -14,36 +14,50 @@ const SuperAdminSideBar = () => {
   const [notifLoading, setNotifLoading] = useState(false);
   const [notifError, setNotifError] = useState("");
 
-  // Fetch notifications from backend (patterned after UserTopNavbar)
+  // Function to fetch notifications
+  const fetchNotifications = async () => {
+    setNotifLoading(true);
+    setNotifError("");
+    try {
+      const response = await fetch("http://localhost:8081/api/notifications");
+      if (!response.ok) throw new Error("Failed to fetch notifications");
+      const data = await response.json();
+      // Expect { success, notifications: [...] }
+      const notificationsArr = Array.isArray(data.notifications) ? data.notifications : [];
+      const normalized = notificationsArr.map(n => ({
+        id: n.id,
+        user_id: n.user_id,
+        notif_type: n.notif_type,
+        message: n.message,
+        is_read: n.is_read === 1 || n.is_read === true, // handle 0/1 or boolean
+        created_at: n.created_at
+      }));
+      // Sort by created_at desc
+      normalized.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      setNotifications(normalized);
+    } catch (err) {
+      setNotifError("Failed to load notifications");
+      setNotifications([]);
+    } finally {
+      setNotifLoading(false);
+    }
+  };
+
+  // Fetch notifications when component mounts and every 30 seconds
   useEffect(() => {
-    const fetchNotifications = async () => {
-      setNotifLoading(true);
-      setNotifError("");
-      try {
-        const response = await fetch("http://localhost:8081/api/notifications");
-        if (!response.ok) throw new Error("Failed to fetch notifications");
-        const data = await response.json();
-        // Expect { success, notifications: [...] }
-        const notificationsArr = Array.isArray(data.notifications) ? data.notifications : [];
-        const normalized = notificationsArr.map(n => ({
-          id: n.id,
-          user_id: n.user_id,
-          notif_type: n.notif_type,
-          message: n.message,
-          is_read: n.is_read === 1 || n.is_read === true, // handle 0/1 or boolean
-          created_at: n.created_at
-        }));
-        // Sort by created_at desc
-        normalized.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-        setNotifications(normalized);
-      } catch (err) {
-        setNotifError("Failed to load notifications");
-        setNotifications([]);
-      } finally {
-        setNotifLoading(false);
-      }
-    };
-    // Fetch notifications when modal opens for real-time refresh
+    fetchNotifications(); // Initial fetch on mount
+    
+    // Set up periodic fetching every 30 seconds
+    const intervalId = setInterval(() => {
+      fetchNotifications();
+    }, 30000);
+    
+    // Clean up interval on component unmount
+    return () => clearInterval(intervalId);
+  }, []);
+  
+  // Refetch notifications when modal opens for real-time refresh
+  useEffect(() => {
     if (showNotifModal) {
       fetchNotifications();
     }
@@ -241,6 +255,13 @@ const SuperAdminSideBar = () => {
       {isMobile && isOpen && (
         <div className="sidebar-overlay" onClick={toggleSidebar}></div>
       )}
+      
+      {/* Left-side notification icon */}
+      <div className="notifications-left-side" onClick={() => setShowNotifModal(true)}>
+        <FaBell />
+        {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
+      </div>
+      
       <aside className={`super-admin-sidebar ${isOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
           <h1>Super Admin</h1>
@@ -248,10 +269,7 @@ const SuperAdminSideBar = () => {
             <img src={logo} alt="Logo" className="sidebar-logo" />
           </div>
         </div>
-        <div className="notifications" onClick={() => setShowNotifModal(true)}>
-          <FaBell />
-          {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
-        </div>
+        
         {/* Notification Modal */}
         {showNotifModal && (
   <div className="notif-modal-root">
@@ -345,17 +363,40 @@ const SuperAdminSideBar = () => {
                     {announcementImagePreview && (
                       <img src={announcementImagePreview} alt="Preview" style={{maxWidth: 120, margin: '8px 0'}} />
                     )}
-                    <button type="submit" disabled={isAnnLoading}>
+                    <button
+                      type="submit"
+                      className="ann-btn"
+                      disabled={isAnnLoading}
+                      style={{
+                        background: isAnnLoading ? '#ccc' : '#ffb300',
+                        color: isAnnLoading ? '#888' : '#222',
+                        border: 'none',
+                        borderRadius: 6,
+                        padding: '10px 0',
+                        fontWeight: 700,
+                        fontSize: 16,
+                        cursor: isAnnLoading ? 'not-allowed' : 'pointer',
+                        transition: 'background 0.2s, color 0.2s',
+                        boxShadow: isAnnLoading ? 'none' : '0 2px 8px #ffb30044',
+                        marginTop: 8
+                      }}
+                      onMouseOver={e => {
+                        if (!isAnnLoading) e.currentTarget.style.background = '#ff9800';
+                      }}
+                      onMouseOut={e => {
+                        if (!isAnnLoading) e.currentTarget.style.background = '#ffb300';
+                      }}
+                    >
                       {isAnnLoading ? "Posting..." : "Add Announcement"}
                     </button>
-                  </form>
-                  {annError && <p style={{fontSize: 15, color: 'red'}}>{annError}</p>}
-                  {annSuccess && <p style={{fontSize: 15, color: 'green'}}>{annSuccess}</p>}
-                </div>
+                    {annError && <p style={{fontSize: 15, color: 'red', marginTop: 6}}>{annError}</p>}
+                    {annSuccess && <p style={{fontSize: 15, color: 'green', marginTop: 6}}>{annSuccess}</p>}
+                </form>
               </div>
             </div>
           </div>
-        )}
+        </div>
+      )}
         <nav className="sidebar-nav">
           <div className="nav-link" onClick={() => setShowAnnouncementModal(true)} style={{cursor: 'pointer'}}>
             <FaBullhorn className="nav-icon" />
@@ -414,83 +455,6 @@ const SuperAdminSideBar = () => {
           </div>
         </nav>
       </aside>
-
-      {/* Announcement Modal */}
-      {showAnnouncementModal && (
-        <div className="notif-modal-root">
-          <div className="notif-modal-overlay" onClick={() => setShowAnnouncementModal(false)}>
-            <div className="notif-modal" onClick={e => e.stopPropagation()} style={{width: '420px', maxWidth: '95vw'}}>
-              <div className="notif-modal-header">
-                <h3><FaBullhorn style={{marginRight: 6}}/>Announcements</h3>
-                <button className="close-modal" onClick={() => setShowAnnouncementModal(false)}><FaTimes /></button>
-              </div>
-              <div className="notif-modal-content announcement-modal-content">
-                <form onSubmit={handleAddAnnouncement} style={{marginBottom: 18, display: 'flex', flexDirection: 'column', gap: 8}}>
-                  <input
-                    type="text"
-                    placeholder="Title"
-                    value={announcementTitle}
-                    onChange={e => setAnnouncementTitle(e.target.value)}
-                  />
-                  <textarea
-                    placeholder="Description"
-                    value={announcementDescription}
-                    onChange={e => setAnnouncementDescription(e.target.value)}
-                  />
-                  <input
-                    type="text"
-                    placeholder="Link (optional)"
-                    value={announcementLink}
-                    onChange={e => setAnnouncementLink(e.target.value)}
-                  />
-                  <input
-                    type="date"
-                    placeholder="End Date (optional)"
-                    value={announcementEndDate}
-                    onChange={e => setAnnouncementEndDate(e.target.value)}
-                  />
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleAnnouncementImageChange}
-                  />
-                  {announcementImagePreview && (
-                    <img src={announcementImagePreview} alt="Preview" style={{maxWidth: 120, margin: '8px 0'}} />
-                  )}
-                  <button
-                      type="submit"
-                      className="ann-btn"
-                      disabled={isAnnLoading}
-                      style={{
-                        background: isAnnLoading ? '#ccc' : '#ffb300',
-                        color: isAnnLoading ? '#888' : '#222',
-                        border: 'none',
-                        borderRadius: 6,
-                        padding: '10px 0',
-                        fontWeight: 700,
-                        fontSize: 16,
-                        cursor: isAnnLoading ? 'not-allowed' : 'pointer',
-                        transition: 'background 0.2s, color 0.2s',
-                        boxShadow: isAnnLoading ? 'none' : '0 2px 8px #ffb30044',
-                        marginTop: 8
-                      }}
-                      onMouseOver={e => {
-                        if (!isAnnLoading) e.currentTarget.style.background = '#ff9800';
-                      }}
-                      onMouseOut={e => {
-                        if (!isAnnLoading) e.currentTarget.style.background = '#ffb300';
-                      }}
-                    >
-                      {isAnnLoading ? "Posting..." : "Add Announcement"}
-                    </button>
-                    {annError && <p style={{fontSize: 15, color: 'red', marginTop: 6}}>{annError}</p>}
-                    {annSuccess && <p style={{fontSize: 15, color: 'green', marginTop: 6}}>{annSuccess}</p>}
-                </form>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
     </>
   );

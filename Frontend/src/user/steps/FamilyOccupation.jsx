@@ -15,6 +15,21 @@ export default function FamilyOccupation({ prevStep, nextStep, formData, updateF
     ? parseInt(rawNumberOfChildren) 
     : 0;
 
+  // Get the minimum date for child's birthdate based on parent's birthdate + 11 years
+  const getMinValidChildDate = () => {
+    if (!formData.date_of_birth) return "";
+    
+    const parentBirthdate = new Date(formData.date_of_birth);
+    // A parent should be at least 11 years older than their child
+    const minParentAgeForChild = 11;
+    const minDate = new Date(
+      parentBirthdate.getFullYear() + minParentAgeForChild,
+      parentBirthdate.getMonth(),
+      parentBirthdate.getDate()
+    );
+    return minDate.toISOString().split('T')[0];
+  };
+
   // Clear children data when number of children changes
   useEffect(() => {
     // Clear existing children data when number changes
@@ -228,6 +243,7 @@ export default function FamilyOccupation({ prevStep, nextStep, formData, updateF
                   className="form-input step-input"
                   type="date"
                   max={getTodayDate()}
+                  min={getMinValidChildDate()}
                   {...register(`children[${index}].birthdate`, {
                     required: "Birthdate is required",
                     validate: value => {
@@ -236,8 +252,28 @@ export default function FamilyOccupation({ prevStep, nextStep, formData, updateF
                       if (birthDate > today) {
                         return "Birthdate cannot be in the future";
                       }
+                      
+                      // Check that the child is not older than the parent
+                      if (formData.date_of_birth) {
+                        const parentBirthDate = new Date(formData.date_of_birth);
+                        
+                        // Child cannot be born before parent
+                        if (birthDate < parentBirthDate) {
+                          return "Child cannot be born before parent";
+                        }
+                        
+                        // Parent should be at least 11 years older than child
+                        const parentBirthYear = parentBirthDate.getFullYear();
+                        const childBirthYear = birthDate.getFullYear();
+                        const yearDifference = childBirthYear - parentBirthYear;
+                        
+                        if (yearDifference < 11) {
+                          return "Parent must be at least 11 years older than child";
+                        }
+                      }
+                      
                       const age = calculateAge(value);
-                      return age <= 21 || "Child must be 21 years old or younger";
+                      return age <= 22 || "Child must be 22 years old or younger";
                     }
                   })}
                   onChange={(e) => {
@@ -268,16 +304,24 @@ export default function FamilyOccupation({ prevStep, nextStep, formData, updateF
 
           <div className="child-section">
             <h5>Educational Background</h5>
-            <input
+            <select
               className="form-input step-input"
-              type="text"
-              placeholder="Educational Attainment (N/A if none)"
-              maxLength={40}
+              defaultValue=""
               {...register(`children[${index}].educational_attainment`, {
-                required: "Educational Attainment is required",
-                maxLength: { value: 40, message: "Educational Attainment cannot exceed 40 characters" }
+                required: "Educational Attainment is required"
               })}
-            />
+            >
+              <option value="" disabled>Select Educational Attainment</option>
+              <option value="Not Applicable">Not Applicable</option>
+              <option value="College Graduate">College Graduate</option>
+              <option value="College Undergraduate">College Undergraduate</option>
+              <option value="High School Graduate">High School Graduate</option>
+              <option value="High School Undergraduate">High School Undergraduate</option>
+              <option value="Elementary Graduate">Elementary Graduate</option>
+              <option value="Elementary Undergraduate">Elementary Undergraduate</option>
+              <option value="Kindergarten">Kindergarten</option>
+              <option value="Daycare">Daycare</option>
+            </select>
             {errors.children?.[index]?.["educational_attainment"] &&
               <span className="error-message step-error">
                 {errors.children[index]["educational_attainment"].message}

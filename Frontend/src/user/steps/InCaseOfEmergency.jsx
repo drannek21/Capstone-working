@@ -14,13 +14,14 @@ export default function InCaseOfEmergency({ prevStep, nextStep, updateFormData, 
   const prevAddressRef = useRef('');
   const updateFormDataRef = useRef(updateFormData);
 
-  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm({
+  const { register, handleSubmit, setValue, watch, formState: { errors, touchedFields }, trigger } = useForm({
     defaultValues: {
       emergency_name: formData.emergency_name || "",
       emergency_relationship: formData.emergency_relationship || "",
       emergency_address: formData.emergency_address || "",
       emergency_contact: formData.emergency_contact || ""
-    }
+    },
+    mode: "onBlur" // Only validate on blur or submit
   });
 
   // Keep the reference to updateFormData function up to date
@@ -196,20 +197,15 @@ export default function InCaseOfEmergency({ prevStep, nextStep, updateFormData, 
     
     // Limit to 11 digits
     if (value.length <= 11) {
-      // Update the form value
-      setValue("emergency_contact", value, { shouldValidate: true });
+      // Update the form value without validating
+      setValue("emergency_contact", value, { shouldValidate: false });
       
-      // Update the validation message
-      const validationResult = validateEmergencyContact(value);
-      if (validationResult !== true) {
-        setErrorMessages(prev => ({ ...prev, emergency_contact: validationResult }));
-      } else {
-        setErrorMessages(prev => {
-          const newErrors = { ...prev };
-          delete newErrors.emergency_contact;
-          return newErrors;
-        });
-      }
+      // Clear any previous custom error messages for this field
+      setErrorMessages(prev => {
+        const newErrors = { ...prev };
+        delete newErrors.emergency_contact;
+        return newErrors;
+      });
     }
   };
 
@@ -377,14 +373,18 @@ export default function InCaseOfEmergency({ prevStep, nextStep, updateFormData, 
             className={`ice-form-input step-input ${errors.emergency_contact || errorMessages.emergency_contact ? 'error' : ''}`}
             placeholder="09XXXXXXXXX"
             maxLength={11}
+            value={watch("emergency_contact") || ""}
             {...register("emergency_contact", { 
               required: "Contact number is required",
               validate: validateEmergencyContact,
-              onChange: handleContactChange
+              onChange: handleContactChange,
+              onBlur: () => trigger("emergency_contact") // Validate on blur
             })}
           />
-          {(errors.emergency_contact || errorMessages.emergency_contact) && 
-            <p className="ice-error-message step-error">{errors.emergency_contact?.message || errorMessages.emergency_contact}</p>}
+          {touchedFields.emergency_contact && (errors.emergency_contact || errorMessages.emergency_contact) && 
+            <span className="error-message step-error">
+              {errors.emergency_contact?.message || errorMessages.emergency_contact}
+            </span>}
         </div>
 
         <div className="ice-form-buttons">
