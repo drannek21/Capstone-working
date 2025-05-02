@@ -3,10 +3,10 @@ import axios from 'axios';
 import './SoloParentManagement.css';
 import html2canvas from 'html2canvas';
 import dswdLogo from '../assets/dswd-logo.png';
+import mswdoLogo from '../assets/MSWDO LOGO.png';
 import avatar from '../assets/avatar.jpg';
+import bagongPilipinasLogo from '../assets/Bagong-pilipinas.png';
 import { QRCodeSVG } from 'qrcode.react';
-
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
 
 const SoloParentManagement = () => {
   const [verifiedUsers, setVerifiedUsers] = useState([]);
@@ -24,6 +24,8 @@ const SoloParentManagement = () => {
   const tableContainerRef = useRef(null);
   const [showIDModal, setShowIDModal] = useState(false);
   const [selectedIDUser, setSelectedIDUser] = useState(null);
+  const [selectedUsers, setSelectedUsers] = useState([]);
+  const [bulkPrintBackToBack, setBulkPrintBackToBack] = useState(true);
 
   const barangays = [
     'All',
@@ -117,26 +119,6 @@ const SoloParentManagement = () => {
     } catch (err) {
       console.error('Error re-verifying user:', err);
       alert('Failed to re-verify user');
-    }
-  };
-
-  const handleTerminate = async (userId) => {
-    try {
-      const response = await axios.post('http://localhost:8081/terminateUser', { userId });
-      if (response.data.success) {
-        setSuccessMessage('Account Terminated');
-        setShowSuccessModal(true);
-        setTimeout(() => {
-          setShowSuccessModal(false);
-          closeModal();
-          fetchVerifiedUsers(); // Refresh the list
-        }, 2000);
-      } else {
-        throw new Error(response.data.message || 'Failed to terminate user');
-      }
-    } catch (err) {
-      console.error('Error terminating user:', err);
-      alert('Failed to terminate user');
     }
   };
 
@@ -244,38 +226,6 @@ const SoloParentManagement = () => {
     } catch (err) {
       console.error('Error updating user status:', err);
       alert('Failed to update user status');
-    }
-  };
-
-  const captureID = async (element) => {
-    // Create a clone of the element
-    const clone = element.cloneNode(true);
-    clone.classList.add('capturing');
-    document.body.appendChild(clone);
-    
-    try {
-      // Get the full scroll dimensions
-      const width = clone.scrollWidth;
-      const height = clone.scrollHeight;
-      
-      const options = {
-        scale: 2,
-        backgroundColor: '#fff',
-        logging: true,
-        useCORS: true,
-        allowTaint: true,
-        width: width,
-        height: height,
-        scrollX: 0,
-        scrollY: 0,
-        windowWidth: width,
-        windowHeight: height
-      };
-
-      const canvas = await html2canvas(clone, options);
-      return canvas;
-    } finally {
-      document.body.removeChild(clone);
     }
   };
 
@@ -398,18 +348,16 @@ const SoloParentManagement = () => {
                 size: 3.375in 2.125in;
                 margin: 0;
               }
-              @media print {
-                body {
-                  margin: 0;
-                  padding: 0;
-                }
-                img {
-                  width: 3.375in;
-                  height: 2.125in;
-                  object-fit: contain;
-                  page-break-after: always;
-                  display: block;
-                }
+              body {
+                margin: 0;
+                padding: 0;
+              }
+              img {
+                width: 3.375in;
+                height: 2.125in;
+                object-fit: contain;
+                page-break-after: always;
+                display: block;
               }
             </style>
           </head>
@@ -430,6 +378,540 @@ const SoloParentManagement = () => {
     } catch (error) {
       console.error('Error printing ID:', error);
       alert('Failed to print ID. Please try again.');
+    }
+  };
+
+  const handleUserSelection = (user) => {
+    setSelectedUsers(prev => {
+      // Check if user is already selected
+      const isSelected = prev.some(selectedUser => selectedUser.userId === user.userId);
+      
+      if (isSelected) {
+        // Remove user from selection
+        return prev.filter(selectedUser => selectedUser.userId !== user.userId);
+      } else {
+        // Add user to selection
+        return [...prev, user];
+      }
+    });
+  };
+
+  const handleSelectAll = (e) => {
+    if (e.target.checked) {
+      setSelectedUsers(filteredUsers);
+    } else {
+      setSelectedUsers([]);
+    }
+  };
+
+  const downloadBulkIDs = async () => {
+    try {
+      if (selectedUsers.length === 0) {
+        alert('Please select at least one solo parent');
+        return;
+      }
+      
+      setSuccessMessage('Generating IDs...');
+      setShowSuccessModal(true);
+      
+      // Dynamically import JSZip
+      const JSZip = await import('jszip').then(module => module.default);
+      const zip = new JSZip();
+      
+      const { saveAs } = await import('file-saver').then(module => module.default);
+      
+      // Process each selected user
+      for (const [index, user] of selectedUsers.entries()) {
+        // Update progress message
+        setSuccessMessage(`Generating ID ${index + 1} of ${selectedUsers.length}`);
+        
+        // Create temporary elements to render the ID
+        const tempContainer = document.createElement('div');
+        tempContainer.className = 'temp-id-container';
+        tempContainer.style.position = 'absolute';
+        tempContainer.style.left = '-9999px';
+        tempContainer.innerHTML = `
+          <div class="id-card front">
+            <div class="id-card-header">
+              <div class="id-logos">
+                <img src="${dswdLogo}" alt="DSWD Logo" class="id-logo" style="width: 60px; height: 60px;" />
+                <div class="id-title">
+                  <h3>SOLO PARENT IDENTIFICATION CARD</h3>
+                  <h4>Republic of the Philippines</h4>
+                  <h4>DSWD Region III</h4>
+                </div>
+                <img src="${mswdoLogo}" alt="MSWDO Logo" class="id-logo" style="width: 60px; height: 60px;" />
+              </div>
+            </div>
+            <div class="id-card-body">
+              <div class="id-left-section">
+                <div class="id-photo-container">
+                  <img 
+                    src="${user.profile_picture || avatar}" 
+                    alt="User" 
+                    class="id-photo"
+                    onerror="this.onerror=null; this.src='${avatar}';"
+                  />
+                </div>
+                <div class="id-category">
+                  Category: ${user.classification || 'N/A'}
+                </div>
+                <div class="id-validity-container">
+                  <span class="id-validity">
+                    Valid Until: ${user.validUntil ? new Date(user.validUntil).toLocaleDateString(undefined, {dateStyle: 'medium'}) : 'N/A'}
+                  </span>
+                  <img src="${bagongPilipinasLogo}" alt="Bagong Pilipinas Logo" class="bagong-pilipinas-logo" />
+                </div>
+              </div>
+              <div class="id-card-container">
+                <div class="id-card-details">
+                  <div class="id-detail">
+                    <span class="id-label">ID No:</span>
+                    <span class="id-value">${user.code_id || 'N/A'}</span>
+                  </div>
+                  <div class="id-detail">
+                    <span class="id-label">Name:</span>
+                    <span class="id-value">
+                      ${user.first_name || ''} ${user.middle_name || ''} ${user.last_name || ''}
+                    </span>
+                  </div>
+                  <div class="id-detail">
+                    <span class="id-label">Barangay:</span>
+                    <span class="id-value">${user.barangay || 'N/A'}</span>
+                  </div>
+                  <div class="id-detail">
+                    <span class="id-label">Birthdate:</span>
+                    <span class="id-value">
+                      ${user.date_of_birth ? new Date(user.date_of_birth).toLocaleDateString() : 'N/A'}
+                    </span>
+                  </div>
+                  <div class="id-detail">
+                    <span class="id-label">Civil Status:</span>
+                    <span class="id-value">${user.civil_status || 'N/A'}</span>
+                  </div>
+                  <div class="id-detail">
+                    <span class="id-label">Contact:</span>
+                    <span class="id-value">${user.contact_number || 'N/A'}</span>
+                  </div>
+                </div>
+                <div class="id-card-qr-container">
+                  <div class="qr-placeholder" data-userid="${user.userId}"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+        
+        document.body.appendChild(tempContainer);
+        
+        // Get the actual dimensions
+        const rect = tempContainer.querySelector('.id-card.front').getBoundingClientRect();
+
+        // Capture the front ID using the same options as downloadID function
+        const frontCanvas = await html2canvas(tempContainer.querySelector('.id-card.front'), {
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: 'white',
+          scale: 3,
+          width: rect.width,
+          height: rect.height,
+          logging: false,
+          onclone: (clonedDoc) => {
+            const clonedElement = clonedDoc.querySelector('.id-card.front');
+            if (clonedElement) {
+              clonedElement.style.transform = 'none';
+              clonedElement.style.position = 'relative';
+              clonedElement.style.display = 'flex';
+              clonedElement.style.opacity = '1';
+              
+              // Make sure all content is visible
+              const header = clonedElement.querySelector('.id-card-header');
+              const body = clonedElement.querySelector('.id-card-body');
+              
+              if (header) header.style.display = 'flex';
+              if (body) body.style.display = 'flex';
+            }
+          }
+        });
+        
+        // Create back of ID
+        const backContainer = document.createElement('div');
+        backContainer.className = 'temp-id-container';
+        backContainer.style.position = 'absolute';
+        backContainer.style.left = '-9999px';
+        backContainer.innerHTML = `
+          <div class="id-card back">
+            <div class="id-card-header">
+              <img src="${dswdLogo}" alt="DSWD Logo" class="id-logo" />
+              <div class="id-title">
+                <h3>SOLO PARENT IDENTIFICATION CARD</h3>
+                <h4>Republic of the Philippines</h4>
+                <h4>DSWD Region III</h4>
+              </div>
+            </div>
+            <div class="terms-section">
+              <h3>Terms and Conditions</h3>
+              <ol>
+                <li>This ID is non-transferable</li>
+                <li>Report loss/damage to DSWD office</li>
+                <li>Present this ID when availing benefits</li>
+                <li>Tampering invalidates this ID</li>
+              </ol>
+            </div>
+            <div class="signature-section">
+              <div class="signature-block">
+                <div class="signature-line"></div>
+                <span>Card Holder's Signature</span>
+              </div>
+              <div class="signature-block">
+                <div class="signature-line"></div>
+                <span>Authorized DSWD Official</span>
+              </div>
+            </div>
+          </div>
+        `;
+        
+        document.body.appendChild(backContainer);
+        
+        // Get the back dimensions
+        const backRect = backContainer.querySelector('.id-card.back').getBoundingClientRect();
+        
+        // Capture the back ID using the same options as downloadID function
+        const backCanvas = await html2canvas(backContainer.querySelector('.id-card.back'), {
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: 'white',
+          scale: 3,
+          width: backRect.width,
+          height: backRect.height,
+          logging: false,
+          onclone: (clonedDoc) => {
+            const clonedElement = clonedDoc.querySelector('.id-card.back');
+            if (clonedElement) {
+              clonedElement.style.transform = 'none';
+              clonedElement.style.position = 'relative';
+              clonedElement.style.display = 'flex';
+              clonedElement.style.opacity = '1';
+              clonedElement.style.flexDirection = 'column';
+              
+              // Make sure all content is visible
+              const header = clonedElement.querySelector('.id-card-header');
+              const terms = clonedElement.querySelector('.terms-section');
+              const signature = clonedElement.querySelector('.signature-section');
+              
+              if (header) {
+                header.style.display = 'flex';
+                header.style.justifyContent = 'center';
+                header.style.alignItems = 'center';
+                header.style.margin = '0px';
+              }
+              if (terms) {
+                terms.style.display = 'block';
+                terms.style.margin = '0px';
+              }
+              if (signature) {
+                signature.style.display = 'flex';
+                signature.style.justifyContent = 'space-around';
+                signature.style.margin = '0px';
+              }
+            }
+          }
+        });
+        
+        // Add to zip
+        const frontBlob = await new Promise(resolve => frontCanvas.toBlob(resolve, 'image/png', 1.0));
+        const backBlob = await new Promise(resolve => backCanvas.toBlob(resolve, 'image/png', 1.0));
+        
+        const userName = `${user.first_name || 'Unknown'}_${user.last_name || 'User'}`.replace(/[^a-zA-Z0-9_]/g, '_');
+        zip.file(`${userName}_front.png`, frontBlob);
+        zip.file(`${userName}_back.png`, backBlob);
+        
+        // Clean up
+        document.body.removeChild(tempContainer);
+        document.body.removeChild(backContainer);
+      }
+      
+      // Generate and download zip
+      const content = await zip.generateAsync({type: 'blob'});
+      saveAs(content, 'solo_parent_ids.zip');
+      
+      setSuccessMessage('Download complete!');
+      setTimeout(() => setShowSuccessModal(false), 2000);
+      
+    } catch (error) {
+      console.error('Error generating bulk IDs:', error);
+      setSuccessMessage('Failed to generate IDs');
+      setTimeout(() => setShowSuccessModal(false), 2000);
+    }
+  };
+
+  const printBulkIDs = async () => {
+    try {
+      if (selectedUsers.length === 0) {
+        alert('Please select at least one solo parent');
+        return;
+      }
+      
+      setSuccessMessage('Preparing IDs for printing...');
+      setShowSuccessModal(true);
+      
+      // Create a new window for printing
+      const printWindow = window.open('', '_blank');
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Print Solo Parent IDs</title>
+            <style>
+              @page {
+                size: 3.375in 2.125in;
+                margin: 0;
+              }
+              body {
+                margin: 0;
+                padding: 0;
+              }
+              .id-card {
+                width: 3.375in;
+                height: 2.125in;
+                page-break-after: ${bulkPrintBackToBack ? 'avoid' : 'always'};
+                display: block;
+                position: relative;
+                overflow: hidden;
+              }
+              .id-card.back {
+                page-break-after: always;
+              }
+              .id-pair {
+                page-break-after: always;
+              }
+            </style>
+          </head>
+          <body>
+      `);
+      
+      // Process each selected user
+      for (const [index, user] of selectedUsers.entries()) {
+        // Update progress message
+        setSuccessMessage(`Preparing ID ${index + 1} of ${selectedUsers.length} for printing`);
+        
+        // Create temporary elements to render the ID
+        const tempContainer = document.createElement('div');
+        tempContainer.className = 'temp-id-container';
+        tempContainer.style.position = 'absolute';
+        tempContainer.style.left = '-9999px';
+        tempContainer.innerHTML = `
+          <div class="id-card front">
+            <div class="id-card-header">
+              <div class="id-logos">
+                <img src="${dswdLogo}" alt="DSWD Logo" class="id-logo" style="width: 60px; height: 60px;" />
+                <div class="id-title">
+                  <h3>SOLO PARENT IDENTIFICATION CARD</h3>
+                  <h4>Republic of the Philippines</h4>
+                  <h4>DSWD Region III</h4>
+                </div>
+                <img src="${mswdoLogo}" alt="MSWDO Logo" class="id-logo" style="width: 60px; height: 60px;" />
+              </div>
+            </div>
+            <div class="id-card-body">
+              <div class="id-left-section">
+                <div class="id-photo-container">
+                  <img 
+                    src="${user.profile_picture || avatar}" 
+                    alt="User" 
+                    class="id-photo"
+                    onerror="this.onerror=null; this.src='${avatar}';"
+                  />
+                </div>
+                <div class="id-category">
+                  Category: ${user.classification || 'N/A'}
+                </div>
+                <div class="id-validity-container">
+                  <span class="id-validity">
+                    Valid Until: ${user.validUntil ? new Date(user.validUntil).toLocaleDateString(undefined, {dateStyle: 'medium'}) : 'N/A'}
+                  </span>
+                  <img src="${bagongPilipinasLogo}" alt="Bagong Pilipinas Logo" class="bagong-pilipinas-logo" />
+                </div>
+              </div>
+              <div class="id-card-container">
+                <div class="id-card-details">
+                  <div class="id-detail">
+                    <span class="id-label">ID No:</span>
+                    <span class="id-value">${user.code_id || 'N/A'}</span>
+                  </div>
+                  <div class="id-detail">
+                    <span class="id-label">Name:</span>
+                    <span class="id-value">
+                      ${user.first_name || ''} ${user.middle_name || ''} ${user.last_name || ''}
+                    </span>
+                  </div>
+                  <div class="id-detail">
+                    <span class="id-label">Barangay:</span>
+                    <span class="id-value">${user.barangay || 'N/A'}</span>
+                  </div>
+                  <div class="id-detail">
+                    <span class="id-label">Birthdate:</span>
+                    <span class="id-value">
+                      ${user.date_of_birth ? new Date(user.date_of_birth).toLocaleDateString() : 'N/A'}
+                    </span>
+                  </div>
+                  <div class="id-detail">
+                    <span class="id-label">Civil Status:</span>
+                    <span class="id-value">${user.civil_status || 'N/A'}</span>
+                  </div>
+                  <div class="id-detail">
+                    <span class="id-label">Contact:</span>
+                    <span class="id-value">${user.contact_number || 'N/A'}</span>
+                  </div>
+                </div>
+                <div class="id-card-qr-container">
+                  <div class="qr-placeholder" data-userid="${user.userId}"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+        
+        document.body.appendChild(tempContainer);
+        
+        // Create back of ID
+        const backContainer = document.createElement('div');
+        backContainer.className = 'temp-id-container';
+        backContainer.style.position = 'absolute';
+        backContainer.style.left = '-9999px';
+        backContainer.innerHTML = `
+          <div class="id-card back">
+            <div class="id-card-header">
+              <img src="${dswdLogo}" alt="DSWD Logo" class="id-logo" />
+              <div class="id-title">
+                <h3>SOLO PARENT IDENTIFICATION CARD</h3>
+                <h4>Republic of the Philippines</h4>
+                <h4>DSWD Region III</h4>
+              </div>
+            </div>
+            <div class="terms-section">
+              <h3>Terms and Conditions</h3>
+              <ol>
+                <li>This ID is non-transferable</li>
+                <li>Report loss/damage to DSWD office</li>
+                <li>Present this ID when availing benefits</li>
+                <li>Tampering invalidates this ID</li>
+              </ol>
+            </div>
+            <div class="signature-section">
+              <div class="signature-block">
+                <div class="signature-line"></div>
+                <span>Card Holder's Signature</span>
+              </div>
+              <div class="signature-block">
+                <div class="signature-line"></div>
+                <span>Authorized DSWD Official</span>
+              </div>
+            </div>
+          </div>
+        `;
+        
+        document.body.appendChild(backContainer);
+        
+        // Capture front and back
+        const frontCanvas = await html2canvas(tempContainer.querySelector('.id-card.front'), {
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: 'white',
+          scale: 3,
+          logging: false,
+          onclone: (clonedDoc) => {
+            const clonedElement = clonedDoc.querySelector('.id-card.front');
+            if (clonedElement) {
+              clonedElement.style.transform = 'none';
+              clonedElement.style.position = 'relative';
+              clonedElement.style.display = 'flex';
+              clonedElement.style.opacity = '1';
+              
+              // Make sure all content is visible
+              const header = clonedElement.querySelector('.id-card-header');
+              const body = clonedElement.querySelector('.id-card-body');
+              
+              if (header) header.style.display = 'flex';
+              if (body) body.style.display = 'flex';
+            }
+          }
+        });
+        
+        const backCanvas = await html2canvas(backContainer.querySelector('.id-card.back'), {
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: 'white',
+          scale: 3,
+          logging: false,
+          onclone: (clonedDoc) => {
+            const clonedElement = clonedDoc.querySelector('.id-card.back');
+            if (clonedElement) {
+              clonedElement.style.transform = 'none';
+              clonedElement.style.position = 'relative';
+              clonedElement.style.display = 'flex';
+              clonedElement.style.opacity = '1';
+              clonedElement.style.flexDirection = 'column';
+              
+              // Make sure all content is visible
+              const header = clonedElement.querySelector('.id-card-header');
+              const terms = clonedElement.querySelector('.terms-section');
+              const signature = clonedElement.querySelector('.signature-section');
+              
+              if (header) {
+                header.style.display = 'flex';
+                header.style.justifyContent = 'center';
+                header.style.alignItems = 'center';
+                header.style.margin = '0px';
+              }
+              if (terms) {
+                terms.style.display = 'block';
+                terms.style.margin = '0px';
+              }
+              if (signature) {
+                signature.style.display = 'flex';
+                signature.style.justifyContent = 'space-around';
+                signature.style.margin = '0px';
+              }
+            }
+          }
+        });
+        
+        // Add to print window
+        if (bulkPrintBackToBack) {
+          printWindow.document.write(`
+            <div class="id-pair">
+              <img src="${frontCanvas.toDataURL('image/png', 1.0)}" class="id-card front" />
+              <img src="${backCanvas.toDataURL('image/png', 1.0)}" class="id-card back" />
+            </div>
+          `);
+        } else {
+          printWindow.document.write(`
+            <img src="${frontCanvas.toDataURL('image/png', 1.0)}" class="id-card front" />
+            <img src="${backCanvas.toDataURL('image/png', 1.0)}" class="id-card back" />
+          `);
+        }
+        
+        // Clean up
+        document.body.removeChild(tempContainer);
+        document.body.removeChild(backContainer);
+      }
+      
+      // Close document and print
+      printWindow.document.write('</body></html>');
+      printWindow.document.close();
+      
+      // Wait for images to load before printing
+      setTimeout(() => {
+        printWindow.focus();
+        printWindow.print();
+        setSuccessMessage('Print dialog opened');
+        setTimeout(() => setShowSuccessModal(false), 2000);
+      }, 1000);
+      
+    } catch (error) {
+      console.error('Error printing bulk IDs:', error);
+      setSuccessMessage('Failed to print IDs');
+      setTimeout(() => setShowSuccessModal(false), 2000);
     }
   };
 
@@ -604,6 +1086,14 @@ const SoloParentManagement = () => {
         <table>
           <thead>
             <tr>
+              <th>
+                <input 
+                  type="checkbox" 
+                  checked={selectedUsers.length === filteredUsers.length && filteredUsers.length > 0} 
+                  onChange={handleSelectAll} 
+                  className="select-all-checkbox"
+                />
+              </th>
               <th>ID</th>
               <th>Code ID</th>
               <th>Name</th>
@@ -615,6 +1105,14 @@ const SoloParentManagement = () => {
           <tbody>
             {currentUsers.map((user, index) => (
               <tr key={index}>
+                <td>
+                  <input 
+                    type="checkbox" 
+                    checked={selectedUsers.some(selectedUser => selectedUser.userId === user.userId)} 
+                    onChange={() => handleUserSelection(user)} 
+                    className="user-checkbox"
+                  />
+                </td>
                 <td>{indexOfFirstUser + index + 1}</td>
                 <td>{user.code_id}</td>
                 <td>{`${user.first_name} ${user.middle_name || ''} ${user.last_name}`}</td>
@@ -661,6 +1159,33 @@ const SoloParentManagement = () => {
           <i className="fas fa-chevron-right"></i>
         </button>
       </div>
+
+      {selectedUsers.length > 0 && (
+        <div className="bulk-actions">
+          <button 
+            className="bulk-id-btn"
+            onClick={downloadBulkIDs}
+          >
+            Download Selected IDs ({selectedUsers.length})
+          </button>
+          <button 
+            className="bulk-id-btn"
+            onClick={printBulkIDs}
+          >
+            Print Selected IDs ({selectedUsers.length})
+          </button>
+          <div className="bulk-print-options">
+            <label>
+              <input 
+                type="checkbox" 
+                checked={bulkPrintBackToBack} 
+                onChange={(e) => setBulkPrintBackToBack(e.target.checked)}
+              />
+              Print back-to-back
+            </label>
+          </div>
+        </div>
+      )}
 
       {/* VIEW DETAILS MODAL */}
       {selectedUser && (
@@ -1129,11 +1654,14 @@ const SoloParentManagement = () => {
                 {/* Front of ID */}
                 <div className="id-card front">
                   <div className="id-card-header">
-                    <img src={dswdLogo} alt="DSWD Logo" className="id-logo" />
-                    <div className="id-title">
-                      <h3>SOLO PARENT IDENTIFICATION CARD</h3>
-                      <h4>Republic of the Philippines</h4>
-                      <h4>DSWD Region III</h4>
+                    <div className="id-logos">
+                      <img src={dswdLogo} alt="DSWD Logo" className="id-logo" style={{ width: '60px', height: '60px' }} />
+                      <div className="id-title">
+                        <h3>SOLO PARENT IDENTIFICATION CARD</h3>
+                        <h4>Republic of the Philippines</h4>
+                        <h4>DSWD Region III</h4>
+                      </div>
+                      <img src={mswdoLogo} alt="MSWDO Logo" className="id-logo" style={{ width: '60px', height: '60px' }} />
                     </div>
                   </div>
                   <div className="id-card-body">
@@ -1152,8 +1680,11 @@ const SoloParentManagement = () => {
                       <div className="id-category">
                         Category: {selectedIDUser.classification}
                       </div>
-                      <div className="id-validity">
-                        Valid Until: {selectedIDUser.validUntil}
+                      <div className="id-validity-container">
+                        <span className="id-validity">
+                          Valid Until: {selectedIDUser.validUntil ? new Date(selectedIDUser.validUntil).toLocaleDateString(undefined, {dateStyle: 'medium'}) : 'N/A'}
+                        </span>
+                        <img src={bagongPilipinasLogo} alt="Bagong Pilipinas Logo" className="bagong-pilipinas-logo" />
                       </div>
                     </div>
                     <div className="id-card-container">
