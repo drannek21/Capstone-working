@@ -35,7 +35,7 @@
 .subtitle {
   display: block;
   font-size: 0.9rem;
-  color: var(--text-light);
+  color: var(--text-color);
   margin-top: 0.5rem;
   font-weight: 500;
 }
@@ -45,12 +45,12 @@
 }
 
 .child-form {
-  background: var(--primary-bg);
+  background: rgba(216, 243, 220, 0.5);
   border-radius: var(--radius-md);
   padding: 1.5rem;
   margin-bottom: 2rem;
   box-shadow: var(--shadow-sm);
-  border: 1px solid rgba(64, 145, 108, 0.1);
+  border: 1px solid rgba(64, 145, 108, 0.2);
   transition: var(--transition);
 }
 
@@ -60,7 +60,7 @@
 }
 
 .child-form h4 {
-  color: var(--primary-color);
+  color: var(--primary-dark);
   margin-bottom: 1.5rem;
   font-size: 1.2rem;
   font-weight: 600;
@@ -71,11 +71,11 @@
   padding: 1.25rem;
   background: var(--bg-color);
   border-radius: var(--radius-sm);
-  border: 1px solid rgba(64, 145, 108, 0.1);
+  border: 1px solid rgba(64, 145, 108, 0.2);
 }
 
 .child-section h5 {
-  color: var(--text-color);
+  color: var(--primary-dark);
   margin-bottom: 1rem;
   font-size: 1rem;
   font-weight: 600;
@@ -97,14 +97,20 @@
 .form-input.step-input {
   width: 100%;
   padding: 0.875rem 1rem;
-  border: 2px solid var(--primary-bg);
+  border: 2px solid rgba(64, 145, 108, 0.3);
   border-radius: var(--radius-sm);
   font-size: 0.95rem;
   transition: var(--transition);
   background-color: var(--bg-color);
-  color: var(--text-light);
+  color: #1b4332;
+  font-weight: 500;
   box-sizing: border-box;
   margin-bottom: 0.5rem;
+}
+
+.form-input.step-input::placeholder {
+  color: rgba(45, 106, 79, 0.6);
+  opacity: 1;
 }
 
 .form-input.step-input:hover {
@@ -185,6 +191,31 @@
   cursor: not-allowed;
   transform: none !important;
   box-shadow: none !important;
+}
+
+/* Improve select dropdown visibility */
+select.form-input.step-input {
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2340916c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  background-size: 1em;
+  padding-right: 2.5rem;
+  cursor: pointer;
+  color: #1b4332;
+  font-weight: 500;
+}
+
+/* Ensure date inputs have visible text */
+input[type="date"].form-input.step-input {
+  color: #1b4332;
+  font-weight: 500;
+}
+
+/* Ensure number inputs have visible text */
+input[type="number"].form-input.step-input {
+  color: #1b4332;
+  font-weight: 500;
 }
 
 /* Animations */

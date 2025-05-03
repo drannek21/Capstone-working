@@ -47,13 +47,13 @@
 .identifying-label {
   display: block;
   font-size: 0.95rem;
-  color: var(--text-color);
+  color: var(--primary-dark);
   font-weight: 600;
   margin-bottom: 0.25rem;
 }
 
 .optional-label {
-  color: var(--primary-light);
+  color: var(--text-color);
   font-weight: normal;
   font-size: 0.85rem;
   margin-left: 0.25rem;
@@ -67,20 +67,20 @@
   font-size: 0.95rem;
   transition: var(--transition);
   background-color: var(--bg-color);
-  color: var(--text-light);
+  color: var(--text-color);
   box-sizing: border-box;
 }
 
 .identifying-input::placeholder {
-  color: var(--primary-light);
+  color: var(--text-color);
 }
 
 .identifying-input:hover {
-  border-color: var(--primary-light);
+  border-color: var(--primary-dark);
 }
 
 .identifying-input:focus {
-  border-color: var(--primary-color);
+  border-color: var(--primary-dark);
   box-shadow: 0 0 0 3px rgba(64, 145, 108, 0.15);
   outline: none;
 }

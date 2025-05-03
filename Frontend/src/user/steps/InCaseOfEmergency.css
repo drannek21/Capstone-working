@@ -43,13 +43,19 @@
 .ice-form-input {
   width: 100%;
   padding: 0.875rem 1rem;
-  border: 2px solid var(--primary-bg);
+  border: 2px solid rgba(64, 145, 108, 0.3);
   border-radius: var(--radius-sm);
   font-size: 0.95rem;
   transition: var(--transition);
   background-color: var(--bg-color);
-  color: var(--text-light);
+  color: #1b4332;
+  font-weight: 500;
   box-sizing: border-box;
+}
+
+.ice-form-input::placeholder {
+  color: rgba(45, 106, 79, 0.6);
+  opacity: 1;
 }
 
 .ice-form-input:hover {
@@ -83,14 +89,15 @@
 
 .ice-form-sublabel {
   font-size: 0.9rem;
-  font-weight: 500;
-  color: var(--text-dark);
+  font-weight: 600;
+  color: var(--primary-dark);
 }
 
 .ice-error-message {
   color: var(--error-color);
   font-size: 0.85rem;
   margin-top: 0.5rem;
+  font-weight: 500;
 }
 
 .ice-form-buttons {

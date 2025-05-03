@@ -65,7 +65,7 @@
   width: 100%;
   min-height: 120px;
   padding: 1rem;
-  border: 2px solid var(--primary-bg);
+  border: 2px solid rgba(64, 145, 108, 0.3);
   border-radius: var(--radius-sm);
   font-size: 0.95rem;
   box-sizing: border-box;
@@ -73,7 +73,26 @@
   resize: vertical;
   font-family: inherit;
   background-color: var(--bg-color);
-  color: var(--text-light);
+  color: #1b4332;
+  font-weight: 500;
+}
+
+/* Input placeholder styling */
+.classification-input.step-input::placeholder {
+  color: rgba(45, 106, 79, 0.6);
+  opacity: 1;
+}
+
+/* Select element specific styling */
+select.classification-input.step-input {
+  min-height: auto;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2340916c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  background-size: 1em;
+  padding-right: 2.5rem;
+  cursor: pointer;
 }
 
 /* Input Focus Effect */

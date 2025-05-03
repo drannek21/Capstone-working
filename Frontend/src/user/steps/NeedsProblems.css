@@ -65,15 +65,22 @@
   width: 100%;
   min-height: 120px;
   padding: 1rem;
-  resize: vertical;
-  font-family: inherit;
-  border: 2px solid var(--primary-bg);
+  border: 2px solid rgba(64, 145, 108, 0.3);
   border-radius: var(--radius-sm);
   font-size: 0.95rem;
   box-sizing: border-box;
   transition: var(--transition);
+  resize: vertical;
+  font-family: inherit;
   background-color: var(--bg-color);
-  color: var(--text-light);
+  color: #1b4332;
+  font-weight: 500;
+}
+
+/* Input placeholder styling */
+.needs-input.step-input::placeholder {
+  color: rgba(45, 106, 79, 0.6);
+  opacity: 1;
 }
 
 /* Input Focus Effect */
