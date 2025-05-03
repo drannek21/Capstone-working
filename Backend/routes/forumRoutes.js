@@ -5,33 +5,47 @@ const { pool, queryDatabase } = require('../database');
 // Get all posts
 router.get('/posts', async (req, res) => {
   try {
+    const userId = req.query.userId; // Get userId from query params
+    
+    if (!userId) {
+      return res.status(400).json({ message: 'User ID is required' });
+    }
+
+    // Get user's barangay from step1_identifying_information
+    const userResult = await queryDatabase(`
+      SELECT u.code_id, s.barangay 
+      FROM users u
+      LEFT JOIN step1_identifying_information s ON u.code_id = s.code_id
+      WHERE u.id = ?
+    `, [userId]);
+
+    if (!userResult || userResult.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const userBarangay = userResult[0].barangay;
+
     // Get posts with status Verified or if no status, treat as Verified (for backward compatibility)
+    // Only show posts that match user's barangay or have visibility 'everyone'
     const posts = await queryDatabase(`
-      SELECT p.*, 
+      SELECT p.id, p.title, p.content, p.created_at, p.status, p.visibility, p.barangay, p.user_id,
              COUNT(DISTINCT l.id) as likes,
-             GROUP_CONCAT(DISTINCT l.user_id) as liked_by_users,
-             u.profilePic
+             GROUP_CONCAT(DISTINCT l.user_id) as liked_by_users
       FROM forum_posts p
       LEFT JOIN forum_likes l ON p.id = l.post_id
-      LEFT JOIN users u ON p.user_id = u.id
-      WHERE p.status = 'Verified' OR p.status IS NULL
+      WHERE (p.status = 'Verified' OR p.status IS NULL)
+      AND (p.visibility = 'everyone' OR p.barangay = ?)
       GROUP BY p.id
       ORDER BY p.created_at DESC
-    `);
+    `, [userBarangay]);
     
-    // Format the liked_by_users field for each post
+    // Format the liked_by_users field for each post and set author to Anonymous
     posts.forEach(post => {
       post.liked_by_users = post.liked_by_users ? post.liked_by_users.split(',') : [];
-      
-      // Ensure profilePic is properly set
-      if (!post.profilePic) {
-        console.log(`No profile pic for post ${post.id}, author: ${post.author}`);
-      } else {
-        console.log(`Profile pic found for post ${post.id}: ${post.profilePic}`);
-      }
+      post.author = 'Anonymous';
     });
     
-    console.log(`Returning ${posts.length} posts`);
+    console.log(`Returning ${posts.length} posts for user from barangay: ${userBarangay}`);
     res.json(posts);
   } catch (error) {
     console.error('Error fetching posts:', error);
@@ -71,18 +85,52 @@ router.get('/posts/:id', async (req, res) => {
 // Create a new post
 router.post('/posts', async (req, res) => {
   try {
-    const { title, content, author, user_id } = req.body;
-    
+    const { title, content, author, user_id, visibility } = req.body;
+    let postVisibility = visibility || 'everyone';
+    let barangay = null;
+
+    // If visibility is 'barangay', fetch the user's barangay from step1_identifying_information
+    if (postVisibility === 'barangay') {
+      // Get code_id from users table
+      const userResult = await queryDatabase('SELECT code_id FROM users WHERE id = ?', [user_id]);
+      const code_id = userResult[0]?.code_id || null;
+
+      if (code_id) {
+        // Get barangay from step1_identifying_information
+        const step1Result = await queryDatabase('SELECT barangay FROM step1_identifying_information WHERE code_id = ?', [code_id]);
+        barangay = step1Result[0]?.barangay || null;
+      }
+    }
+
     const result = await queryDatabase(
-      'INSERT INTO forum_posts (title, content, author, user_id, status) VALUES (?, ?, ?, ?, ?)',
-      [title, content, author, user_id, 'Pending']
+      'INSERT INTO forum_posts (title, content, author, user_id, status, visibility, barangay) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [title, content, author, user_id, 'Pending', postVisibility, barangay]
     );
-    
+
     const newPost = await queryDatabase(
       'SELECT * FROM forum_posts WHERE id = ?',
       [result.insertId]
     );
-    
+
+    // Get user's full name from step1_identifying_information
+    const userDetailsResult = await queryDatabase(`
+      SELECT s1.first_name, s1.middle_name, s1.last_name, s1.suffix
+      FROM users u
+      LEFT JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
+      WHERE u.id = ?
+    `, [user_id]);
+
+    if (userDetailsResult && userDetailsResult.length > 0) {
+      const userData = userDetailsResult[0];
+      const fullName = `${userData.first_name || ''} ${userData.middle_name || ''} ${userData.last_name || ''}${userData.suffix && userData.suffix !== 'none' ? ` ${userData.suffix}` : ''}`.trim().replace(/\s+/g, ' ');
+      
+      // Insert notification for superadmin
+      await queryDatabase(
+        `INSERT INTO superadminnotifications (user_id, notif_type, message, is_read, created_at) VALUES (?, ?, ?, 0, NOW())`,
+        [user_id, 'forum_post', `${fullName} has created a new forum post`]
+      );
+    }
+
     res.status(201).json({
       success: true,
       message: 'Post created successfully. Waiting for admin approval.',
@@ -307,12 +355,33 @@ router.put('/posts/:id/status', async (req, res) => {
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ message: 'Invalid status value' });
     }
+
+    // Get post details to get user_id
+    const [post] = await queryDatabase(
+      `SELECT user_id FROM forum_posts WHERE id = ?`,
+      [id]
+    );
     
     // Update post status
     await queryDatabase(
       `UPDATE forum_posts SET status = ? WHERE id = ?`,
       [status, id]
     );
+
+    // Insert notification based on status
+    if (status === 'Verified') {
+      await queryDatabase(
+        `INSERT INTO accepted_forums (user_id, accepted_at, message, is_read) 
+         VALUES (?, NOW(), ?, false)`,
+        [post.user_id, 'Your post has been accepted']
+      );
+    } else if (status === 'Declined') {
+      await queryDatabase(
+        `INSERT INTO accepted_forums (user_id, accepted_at, message, is_read) 
+         VALUES (?, NOW(), ?, false)`,
+        [post.user_id, 'Your post has been declined']
+      );
+    }
     
     // Return updated post
     const [updatedPost] = await queryDatabase(
@@ -392,6 +461,42 @@ router.get('/admin/posts/:id/comments', async (req, res) => {
     res.json(comments);
   } catch (error) {
     console.error('Error fetching admin comments:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get forum notifications for a user
+router.get('/notifications/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    const notifications = await queryDatabase(`
+      SELECT * FROM accepted_forums 
+      WHERE user_id = ? 
+      ORDER BY accepted_at DESC
+    `, [userId]);
+    
+    res.json(notifications);
+  } catch (error) {
+    console.error('Error fetching forum notifications:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Mark forum notification as read
+router.put('/notifications/mark-as-read/:notificationId', async (req, res) => {
+  try {
+    const { notificationId } = req.params;
+    
+    await queryDatabase(`
+      UPDATE accepted_forums 
+      SET is_read = true 
+      WHERE id = ?
+    `, [notificationId]);
+    
+    res.json({ message: 'Notification marked as read' });
+  } catch (error) {
+    console.error('Error marking forum notification as read:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

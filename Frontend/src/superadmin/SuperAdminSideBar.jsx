@@ -256,9 +256,9 @@ const SuperAdminSideBar = () => {
         <div className="sidebar-overlay" onClick={toggleSidebar}></div>
       )}
       
-      {/* Left-side notification icon */}
-      <div className="notifications-left-side" onClick={() => setShowNotifModal(true)}>
-        <FaBell />
+      {/* Right-side notification icon */}
+      <div className="notifications-right-side" onClick={() => setShowNotifModal(true)}>
+        <FaBell color="#16C47F" />
         {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
       </div>
       

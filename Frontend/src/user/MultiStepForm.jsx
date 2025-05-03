@@ -46,6 +46,7 @@ export default function MultiStepForm() {
     email: "",
     pantawid_beneficiary: "",
     indigenous: "",
+    suffix: "",
     
     // Step 2: Children
     children: [],
@@ -166,7 +167,8 @@ export default function MultiStepForm() {
           contact_number: formData.contact_number,
           email: formData.email,
           pantawid_beneficiary: formData.pantawid_beneficiary,
-          indigenous: formData.indigenous
+          indigenous: formData.indigenous,
+          suffix: formData.suffix
         },
         step2: {
           children: formData.children || []

@@ -52,6 +52,13 @@
   margin-bottom: 0.25rem;
 }
 
+.optional-label {
+  color: var(--primary-light);
+  font-weight: normal;
+  font-size: 0.85rem;
+  margin-left: 0.25rem;
+}
+
 .identifying-input {
   width: 100%;
   padding: 0.875rem 1rem;

@@ -42,6 +42,7 @@ export default function FamilyOccupation({ prevStep, nextStep, formData, updateF
           first_name: "",
           middle_name: "",
           last_name: "",
+          suffix: "",  // Add this line
           birthdate: "",
           age: "",
           educational_attainment: ""
@@ -123,6 +124,7 @@ export default function FamilyOccupation({ prevStep, nextStep, formData, updateF
           first_name: data.children?.[index]?.["first_name"] || "",
           middle_name: data.children?.[index]?.["middle_name"] || "",
           last_name: data.children?.[index]?.["last_name"] || "",
+          suffix: data.children?.[index]?.["suffix"] || "",  // Add this line
           birthdate: data.children?.[index]?.["birthdate"] || "",
           age: data.children?.[index]?.["age"] || "",
           educational_attainment: data.children?.[index]?.["educational_attainment"] || ""
@@ -232,6 +234,19 @@ export default function FamilyOccupation({ prevStep, nextStep, formData, updateF
                   <span className="error-message step-error">{errors.children[index]["last_name"].message}</span>
                 }
               </div>
+            </div>
+            <div>
+              <select
+                className="form-input step-input"
+                {...register(`children[${index}].suffix`)}
+              >
+                <option value="">No Suffix</option>
+                <option value="Jr">Jr.</option>
+                <option value="II">II</option>
+                <option value="III">III</option>
+                <option value="IV">IV</option>
+                <option value="V">V</option>
+              </select>
             </div>
           </div>
 

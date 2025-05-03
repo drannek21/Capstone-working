@@ -339,7 +339,7 @@ router.post('/submitAllSteps', async (req, res) => {
             first_name=?, middle_name=?, last_name=?, age=?, gender=?,
             date_of_birth=?, place_of_birth=?, barangay=?, education=?,
             civil_status=?, occupation=?, religion=?, company=?, income=?,
-            employment_status=?, contact_number=?, pantawid_beneficiary=?, indigenous=?
+            employment_status=?, contact_number=?, pantawid_beneficiary=?, indigenous=?, suffix=?
             WHERE code_id=?`;
           await new Promise((resolve, reject) => {
             connection.query(updateStep1Query, [
@@ -361,6 +361,7 @@ router.post('/submitAllSteps', async (req, res) => {
               step1.contact_number,
               step1.pantawid_beneficiary,
               step1.indigenous,
+              step1.suffix || 'none',
               code_id
             ], (err, result) => {
               if (err) reject(err);
@@ -378,7 +379,7 @@ router.post('/submitAllSteps', async (req, res) => {
             const childrenQuery = `INSERT INTO step2_family_occupation (code_id, family_member_name, age, educational_attainment, birthdate) VALUES ?`;
             const childrenValues = step2.children.map(child => [
               code_id,
-              `${child.first_name} ${child.middle_name} ${child.last_name}`.trim(),
+              `${child.first_name} ${child.middle_name} ${child.last_name}${child.suffix ? ` ${child.suffix}` : ''}`.trim(),
               child.age,
               child.educational_attainment,
               child.birthdate
@@ -495,8 +496,8 @@ router.post('/submitAllSteps', async (req, res) => {
           date_of_birth, place_of_birth, barangay, education,
           civil_status, occupation, religion, company, income,
           employment_status, contact_number, email,
-          pantawid_beneficiary, indigenous
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          pantawid_beneficiary, indigenous, suffix
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
       await new Promise((resolve, reject) => {
         connection.query(step1Query, [
@@ -519,7 +520,8 @@ router.post('/submitAllSteps', async (req, res) => {
           step1.contact_number,
           step1.email,
           step1.pantawid_beneficiary,
-          step1.indigenous
+          step1.indigenous,
+          step1.suffix || 'none'
         ], (err, result) => {
           if (err) reject(err);
           else resolve(result);
@@ -537,7 +539,7 @@ router.post('/submitAllSteps', async (req, res) => {
         `;
         const childrenValues = step2.children.map(child => [
           code_id,
-          `${child.first_name} ${child.middle_name} ${child.last_name}`.trim(),
+          `${child.first_name} ${child.middle_name} ${child.last_name}${child.suffix ? ` ${child.suffix}` : ''}`.trim(),
           child.age,
           child.educational_attainment,
           child.birthdate
@@ -626,7 +628,7 @@ router.post('/submitAllSteps', async (req, res) => {
       });
       
       // Create name by combining first, middle and last names
-      const fullName = `${step1.first_name} ${step1.middle_name || ''} ${step1.last_name}`.trim().replace(/\s+/g, ' ');
+      const fullName = `${step1.first_name} ${step1.middle_name || ''} ${step1.last_name}${step1.suffix && step1.suffix !== 'none' ? ` ${step1.suffix}` : ''}`.trim().replace(/\s+/g, ' ');
       
       // Use the birthdate as the password
       const password = step1.date_of_birth;
@@ -651,7 +653,7 @@ router.post('/submitAllSteps', async (req, res) => {
           ) VALUES (?, ?, ?, ?, ?, ?)
         `;
         
-        await new Promise((resolve, reject) => {
+        const newUserResult = await new Promise((resolve, reject) => {
           connection.query(userQuery, [
             step1.email, 
             code_id, 
@@ -664,6 +666,20 @@ router.post('/submitAllSteps', async (req, res) => {
             else resolve(result);
           });
         });
+
+        // Add notification for new application
+        try {
+          await new Promise((resolve, reject) => {
+            connection.query(
+              `INSERT INTO superadminnotifications (user_id, notif_type, message, is_read, created_at) VALUES (?, ?, ?, 0, NOW())`,
+              [newUserResult.insertId, 'new_app', 'New application was created'],
+              (err, result) => { if (err) reject(err); else resolve(result); }
+            );
+          });
+        } catch (notifError) { 
+          console.error('Error inserting superadmin notification:', notifError); 
+        }
+
         console.log(`[${timestamp}] User account created with password set to birthdate and faceRecognitionPhoto`);
       }
 
@@ -682,27 +698,60 @@ router.post('/submitAllSteps', async (req, res) => {
 
       // Insert notification for superadmin after successful commit
       try {
-        // Get the user_id from the users table using the code_id
-        const userIdResult = await new Promise((resolve, reject) => {
-          connection.query('SELECT id FROM users WHERE code_id = ? LIMIT 1', [code_id], (err, result) => {
+        // Get user_id and name for notification
+        let userInfoResult = await new Promise((resolve, reject) => {
+          connection.query('SELECT id, first_name, middle_name, last_name, suffix FROM step1_identifying_information WHERE code_id = ? LIMIT 1', [code_id], (err, result) => {
             if (err) reject(err);
             else resolve(result);
           });
         });
-        if (userIdResult && userIdResult.length > 0) {
-          const userIdForNotif = userIdResult[0].id;
-          // Insert into superadminnotifications
+        let userIdForNotif = null;
+        let userFullName = '';
+        if (userInfoResult && userInfoResult.length > 0) {
+          userIdForNotif = userInfoResult[0].id;
+          userFullName = `${userInfoResult[0].first_name || ''} ${userInfoResult[0].middle_name || ''} ${userInfoResult[0].last_name || ''}${userInfoResult[0].suffix && userInfoResult[0].suffix !== 'none' ? ` ${userInfoResult[0].suffix}` : ''}`.trim().replace(/\s+/g, ' ');
+        } else {
+          // Fallback: try to get name from users table
+          userInfoResult = await new Promise((resolve, reject) => {
+            connection.query('SELECT id, name FROM users WHERE code_id = ? LIMIT 1', [code_id], (err, result) => {
+              if (err) reject(err);
+              else resolve(result);
+            });
+          });
+          if (userInfoResult && userInfoResult.length > 0) {
+            userIdForNotif = userInfoResult[0].id;
+            userFullName = userInfoResult[0].name;
+          } else {
+            userFullName = 'Unknown User';
+          }
+        }
+
+        // Get human-readable document label
+        const docLabels = {
+          'psa': 'PSA Birth Certificate',
+          'itr': 'Income Tax Return',
+          'med_cert': 'Medical Certificate',
+          'marriage': 'Marriage Certificate',
+          'cenomar': 'CENOMAR',
+          'death_cert': 'Death Certificate',
+          'barangay_cert': 'Barangay Certificate'
+        };
+        let documentLabel = docLabels[documentType] || documentType;
+
+        if (userIdForNotif) {
+          const notifType = 'follow_up_doc';
+          const notifMessage = `${userFullName} uploaded a follow-up document for his ${documentLabel}`;
           await new Promise((resolve, reject) => {
             connection.query(
               `INSERT INTO superadminnotifications (user_id, notif_type, message, is_read, created_at) VALUES (?, ?, ?, 0, NOW())`,
-              [userIdForNotif, 'new_app', 'New application was created'],
+              [userIdForNotif, notifType, notifMessage],
               (err, result) => {
                 if (err) reject(err);
                 else resolve(result);
               }
             );
           });
-          console.log('Superadmin notification inserted');
+          console.log('Superadmin notification inserted for document upload');
         } else {
           console.warn('User ID not found for notification');
         }
@@ -968,7 +1017,7 @@ router.post('/:documentType', async (req, res) => {
     try {
       // Get user_id and name for notification
       let userInfoResult = await new Promise((resolve, reject) => {
-        connection.query('SELECT id, name FROM users WHERE code_id = ? LIMIT 1', [code_id], (err, result) => {
+        connection.query('SELECT id, first_name, middle_name, last_name, suffix FROM step1_identifying_information WHERE code_id = ? LIMIT 1', [code_id], (err, result) => {
           if (err) reject(err);
           else resolve(result);
         });
@@ -977,19 +1026,23 @@ router.post('/:documentType', async (req, res) => {
       let userFullName = '';
       if (userInfoResult && userInfoResult.length > 0) {
         userIdForNotif = userInfoResult[0].id;
-        userFullName = userInfoResult[0].name; // Use full name directly from users table
+        userFullName = `${userInfoResult[0].first_name || ''} ${userInfoResult[0].middle_name || ''} ${userInfoResult[0].last_name || ''}${userInfoResult[0].suffix && userInfoResult[0].suffix !== 'none' ? ` ${userInfoResult[0].suffix}` : ''}`.trim().replace(/\s+/g, ' ');
       } else {
-        // Fallback: try to get name from step1_identifying_information
+        // Fallback: try to get name from users table
         userInfoResult = await new Promise((resolve, reject) => {
-          connection.query('SELECT first_name, middle_name, last_name FROM step1_identifying_information WHERE code_id = ? LIMIT 1', [code_id], (err, result) => {
+          connection.query('SELECT id, name FROM users WHERE code_id = ? LIMIT 1', [code_id], (err, result) => {
             if (err) reject(err);
             else resolve(result);
           });
         });
-        userFullName = userInfoResult && userInfoResult.length > 0
-          ? `${userInfoResult[0].first_name || ''} ${userInfoResult[0].middle_name || ''} ${userInfoResult[0].last_name || ''}`.trim().replace(/\s+/g, ' ')
-          : 'Unknown User';
+        if (userInfoResult && userInfoResult.length > 0) {
+          userIdForNotif = userInfoResult[0].id;
+          userFullName = userInfoResult[0].name;
+        } else {
+          userFullName = 'Unknown User';
+        }
       }
+
       // Get human-readable document label
       const docLabels = {
         'psa': 'PSA Birth Certificate',
@@ -1001,23 +1054,46 @@ router.post('/:documentType', async (req, res) => {
         'barangay_cert': 'Barangay Certificate'
       };
       let documentLabel = docLabels[documentType] || documentType;
-      // Always use the human-readable document label from docLabels for the notification.
-      // Do not use display_name (which is the file/picture name).
-      // documentLabel is already set above.
+
       if (userIdForNotif) {
         const notifType = 'follow_up_doc';
-        const notifMessage = `${userFullName} uploaded a follow-up document for his ${documentLabel}`;
-        await new Promise((resolve, reject) => {
-          connection.query(
-            `INSERT INTO superadminnotifications (user_id, notif_type, message, is_read, created_at) VALUES (?, ?, ?, 0, NOW())`,
-            [userIdForNotif, notifType, notifMessage],
-            (err, result) => {
+        
+        // Check if it's a follow-up document
+        let isFollowUp = false;
+        if (documentType === 'barangay_cert') {
+          isFollowUp = true;
+        } else if (existingDoc.length > 0) {
+          // For existing document updates
+          const checkCategoryQuery = `SELECT category FROM ${tableName.table} WHERE code_id = ? LIMIT 1`;
+          const categoryResult = await new Promise((resolve, reject) => {
+            connection.query(checkCategoryQuery, [code_id], (err, result) => {
               if (err) reject(err);
               else resolve(result);
-            }
-          );
-        });
-        console.log('Superadmin notification inserted for document upload');
+            });
+          });
+          isFollowUp = categoryResult[0]?.category === 'followup';
+        } else {
+          // For new document inserts
+          isFollowUp = insertValues?.[5] === 'followup';
+        }
+
+        if (isFollowUp) {
+          const notifMessage = documentType === 'barangay_cert' 
+            ? `${userFullName} uploaded a ${documentLabel} for his Renewal`
+            : `${userFullName} uploaded a follow-up document for his ${documentLabel}`;
+          
+          await new Promise((resolve, reject) => {
+            connection.query(
+              `INSERT INTO superadminnotifications (user_id, notif_type, message, is_read, created_at) VALUES (?, ?, ?, 0, NOW())`,
+              [userIdForNotif, notifType, notifMessage],
+              (err, result) => {
+                if (err) reject(err);
+                else resolve(result);
+              }
+            );
+          });
+          console.log('Superadmin notification inserted for document upload');
+        }
       } else {
         console.warn('User ID not found for notification');
       }

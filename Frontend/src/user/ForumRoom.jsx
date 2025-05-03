@@ -7,7 +7,7 @@ import bannedWords from '../config/bannedWords.json';
 
 const ForumRoom = () => {
   const [posts, setPosts] = useState([]);
-  const [newPost, setNewPost] = useState({ title: '', content: '' });
+  const [newPost, setNewPost] = useState({ title: '', content: '', visibility: 'everyone' });
   const [comments, setComments] = useState({});
   const [newComments, setNewComments] = useState({});
   const [currentUser, setCurrentUser] = useState({});
@@ -42,11 +42,12 @@ const ForumRoom = () => {
 
         const data = await response.json();
 
+        // In the fetchUserDetails function
         if (response.ok) {
           setCurrentUser({
             id: loggedInUserId,
             name: data.first_name && data.last_name 
-              ? `${data.first_name} ${data.last_name}` 
+              ? `${data.first_name} ${data.last_name}${data.suffix && data.suffix !== 'none' ? ` ${data.suffix}` : ''}`
               : data.name || 'Anonymous',
             profilePic: data.profilePic || defaultAvatar
           });
@@ -69,7 +70,7 @@ const ForumRoom = () => {
     setError(null);
     
     try {
-      const response = await fetch(`${API_BASE_URL}/api/forum/posts`);
+      const response = await fetch(`${API_BASE_URL}/api/forum/posts?userId=${loggedInUserId}`);
       
       if (!response.ok) {
         throw new Error('Failed to fetch posts');
@@ -198,7 +199,7 @@ const ForumRoom = () => {
       setPosts(prevPosts => [tempPost, ...prevPosts]);
       
       // Clear the form and close the modal
-      setNewPost({ title: '', content: '' });
+      setNewPost({ title: '', content: '', visibility: 'everyone' });
       setShowCreatePost(false);
       
       // Send the post to the server
@@ -211,7 +212,8 @@ const ForumRoom = () => {
           title: newPost.title,
           content: newPost.content,
           user_id: currentUser.id,
-          author: currentUser.name
+          author: currentUser.name,
+          visibility: newPost.visibility
         }),
       });
       
@@ -442,12 +444,15 @@ const ForumRoom = () => {
                   <h3 className="forum-room-post-title">{post.title}</h3>
                   <div className="forum-room-post-meta">
                     <div className="forum-room-post-author">
-                      <span>Posted by {post.author}</span>
+                      <span>
+                        {post.user_id === loggedInUserId 
+                          ? "Your post"
+                          : "Posted by Anonymous from Brgy. " + post.barangay}
+                      </span>
                       <img 
-                        src={post.profilePic || defaultAvatar} 
+                        src={defaultAvatar} 
                         alt="Author" 
                         className="forum-room-author-image"
-                        onError={(e) => e.target.src = defaultAvatar}
                       />
                     </div>
                     <span>{formatDate(post.created_at)}</span>
@@ -501,7 +506,6 @@ const ForumRoom = () => {
                                   src={comment.profilePic || defaultAvatar} 
                                   alt="Author" 
                                   className="forum-room-comment-author-image"
-                                  onError={(e) => e.target.src = defaultAvatar}
                                 />
                                 <span>{comment.author}</span>
                               </div>
@@ -537,12 +541,11 @@ const ForumRoom = () => {
             <div className="forum-room-modal-content">
               <div className="forum-room-post-author-info">
                 <img 
-                  src={currentUser.profilePic || defaultAvatar} 
+                  src={defaultAvatar} 
                   alt="Your Profile" 
                   className="forum-room-author-image"
-                  onError={(e) => e.target.src = defaultAvatar}
                 />
-                <span>Posting as <strong>{currentUser.name}</strong></span>
+                <span>Posting as <strong>Anonymous</strong></span>
               </div>
               <form onSubmit={submitPost} className="forum-room-post-form">
                 <input
@@ -562,6 +565,19 @@ const ForumRoom = () => {
                   className="forum-room-post-textarea"
                   required
                 />
+                <label style={{ marginTop: '10px', marginBottom: '10px' }}>
+                  Visibility:
+                  <select
+                    name="visibility"
+                    value={newPost.visibility}
+                    onChange={handlePostChange}
+                    className="forum-room-post-select"
+                    style={{ marginLeft: '10px' }}
+                  >
+                    <option value="everyone">Show to everyone</option>
+                    <option value="barangay">Show only for my barangay</option>
+                  </select>
+                </label>
                 <div className="forum-room-modal-footer">
                   <button 
                     type="button" 

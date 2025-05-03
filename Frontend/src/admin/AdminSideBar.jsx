@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, NavLink } from "react-router-dom";
-import { FiMenu, FiX, FiHome, FiUsers, FiLogOut, FiBell } from 'react-icons/fi';
+import { FiMenu, FiX, FiHome, FiUsers, FiLogOut } from 'react-icons/fi';
+import { FaBell } from 'react-icons/fa';
 import "./AdminSideBar.css";
 import logo from '../assets/logo.jpg';
 
@@ -80,14 +81,8 @@ const AdminSideBar = () => {
                         <h2 className="admin-sidebar-title">
                             Admin Panel - {localStorage.getItem("barangay") || "Loading..."}
                         </h2>
-                        
                     </div>
-                    
                 </div>
-                <div className="notifications" onClick={() => setShowNotifModal(true)}>
-    <FiBell />
-    {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
-</div>
                 <ul className="admin-sidebar-menu">
                     <li>
                         <NavLink
@@ -116,6 +111,12 @@ const AdminSideBar = () => {
                         <span>Logout</span>
                     </button>
                 </div>
+            </div>
+
+            {/* Right-side notification icon */}
+            <div className="notifications-right-side" onClick={() => setShowNotifModal(true)}>
+                <FaBell color="#16C47F" />
+                {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
             </div>
 
             {isOpen && window.innerWidth < 768 && (

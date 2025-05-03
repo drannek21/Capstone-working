@@ -180,7 +180,9 @@ const SoloParent = () => {
               >
                 <td>{indexOfFirstParent + index + 1}</td>
                 <td>{parent.code_id}</td>
-                <td>{`${parent.first_name} ${parent.middle_name ? parent.middle_name[0] + '.' : ''} ${parent.last_name}`}</td>
+                <td>
+                  {`${parent.first_name} ${parent.middle_name ? parent.middle_name[0] + '.' : ''} ${parent.last_name}${parent.suffix && parent.suffix !== 'none' ? ` ${parent.suffix}` : ''}`}
+                </td>
                 <td>{parent.email}</td>
                 <td>{parent.classification}</td>
                 <td>
@@ -248,7 +250,7 @@ const SoloParent = () => {
                 <div className="detail-item">
                   <span className="label">Name:</span>
                   <span className="value">
-                    {`${selectedParent.first_name} ${selectedParent.middle_name || ''} ${selectedParent.last_name}`}
+                    {`${selectedParent.first_name} ${selectedParent.middle_name || ''} ${selectedParent.last_name}${selectedParent.suffix && selectedParent.suffix !== 'none' ? ` ${selectedParent.suffix}` : ''}`}
                   </span>
                 </div>
                 <div className="detail-item">

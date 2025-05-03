@@ -608,6 +608,8 @@ const Profile = () => {
     if (!user || !user.civil_status) return false;
     
     const requiredDocuments = getDocumentsByCivilStatus(user.civil_status);
+    if (documents.length === 0) return false;
+    
     const submittedDocuments = documents.map(doc => doc.document_type.replace('_documents', ''));
     
     // Check if all required documents are submitted AND approved
@@ -653,7 +655,7 @@ const Profile = () => {
 
   // Add useEffect to check document completion when documents change
   useEffect(() => {
-    if (user && documents.length > 0) {
+    if (user) {
       updateUserStatus();
     }
   }, [documents, user]);
@@ -871,7 +873,7 @@ const Profile = () => {
                 <h1>
                   {user ? (
                     user.first_name && user.last_name 
-                      ? `${user.first_name} ${user.last_name}`
+                      ? `${user.first_name} ${user.middle_name || ''} ${user.last_name}${user.suffix && user.suffix !== 'none' ? ` ${user.suffix}` : ''}`
                       : user.name || 'First Name Last Name'
                   ) : 'Loading...'}
                 </h1>
@@ -1157,7 +1159,7 @@ const Profile = () => {
                           <div className="details-grid">
                             <div className="detail-item">
                               <span className="detail-label">Full Name</span>
-                              <p className="detail-value">{user?.first_name} {user?.last_name}</p>
+                              <p className="detail-value">{user?.first_name} {user?.middle_name || ''} {user?.last_name}{user?.suffix && user?.suffix !== 'none' ? ` ${user.suffix}` : ''}</p>
                             </div>
                             <div className="detail-item">
                               <span className="detail-label">Gender</span>
@@ -1399,7 +1401,7 @@ const Profile = () => {
                                 <div className="id-detail">
                                   <span className="id-label">Name:</span>
                                   <span className="id-value">
-                                    {`${user?.first_name || ''} ${user?.middle_name || ''} ${user?.last_name || ''}`}
+                                    {`${user?.first_name || ''} ${user?.middle_name || ''} ${user?.last_name || ''}${user?.suffix && user?.suffix !== 'none' ? ` ${user.suffix}` : ''}`}
                                   </span>
                                 </div>
                                 <div className="id-detail">

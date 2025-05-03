@@ -333,7 +333,7 @@ app.get('/pendingUsers', async (req, res) => {
   try {
     const users = await queryDatabase(`
       SELECT u.id AS userId, u.email, u.name, u.status, u.code_id,
-             s1.first_name, s1.middle_name, s1.last_name, s1.age, s1.gender, 
+             s1.first_name, s1.middle_name, s1.last_name, s1.suffix, s1.age, s1.gender, 
              s1.date_of_birth, s1.place_of_birth, s1.barangay, s1.education, 
              s1.civil_status, s1.occupation, s1.religion, s1.company, 
              s1.income, s1.employment_status, s1.contact_number, s1.email, 
@@ -459,7 +459,7 @@ app.get('/declineInfo', async (req, res) => {
     // Fetch only the declined user matching the logged-in user
     const users = await queryDatabase(`
       SELECT u.id AS userId, u.email, u.name, u.status, u.code_id,
-             s1.first_name, s1.middle_name, s1.last_name, s1.age, s1.gender, u.faceRecognitionPhoto,
+             s1.first_name, s1.middle_name, s1.last_name, s1.suffix, s1.age, s1.gender, u.faceRecognitionPhoto,
              s1.date_of_birth, s1.place_of_birth, s1.barangay, s1.education, 
              s1.civil_status, s1.occupation, s1.religion, s1.company, 
              s1.income, s1.employment_status, s1.contact_number, s1.email, 
@@ -566,8 +566,8 @@ app.get('/verifiedUsersSA', async (req, res) => {
   try {
     const users = await queryDatabase(`
       SELECT u.id AS userId, u.email, u.name, u.status, u.code_id, u.profilePic,
-             s1.first_name, s1.middle_name, s1.last_name, s1.age, s1.gender, 
-             s1.date_of_birth, s1.place_of_birth, s1.barangay, s1.education, 
+             s1.first_name, s1.middle_name, s1.last_name, s1.suffix, s1.age, s1.gender, 
+             s1.date_of_birth, s1.place_of_birth, s1.suffix, s1.barangay, s1.education, 
              s1.civil_status, s1.occupation, s1.religion, s1.company, 
              s1.income, s1.employment_status, s1.contact_number, s1.email, 
              s1.pantawid_beneficiary, s1.indigenous,
@@ -1092,6 +1092,226 @@ app.post('/updateUserStatus', async (req, res) => {
     }
   }
 });
+app.post('/updateDocumentStatus', async (req, res) => {
+  const { document_type, status, rejection_reason, file_name } = req.body;
+  let connection;
+
+  // Document type display names for messages
+  const DOCUMENT_DISPLAY_NAMES = {
+    'psa': 'PSA Birth Certificate',
+    'itr': 'Income Tax Return',
+    'med_cert': 'Medical Certificate',
+    'marriage': 'Marriage Certificate',
+    'cenomar': 'CENOMAR',
+    'death_cert': 'Death Certificate',
+    'barangay_cert': 'Barangay Certificate'
+  };
+
+  // Define TABLE_NAMES at the top of the function
+  const TABLE_NAMES = {
+    'psa': { table: 'psa_documents' },
+    'itr': { table: 'itr_documents' },
+    'med_cert': { table: 'med_cert_documents' },
+    'marriage': { table: 'marriage_documents' },
+    'cenomar': { table: 'cenomar_documents' },
+    'death_cert': { table: 'death_cert_documents' },
+    'barangay_cert': { table: 'barangay_cert_documents' }
+  };
+
+  // Map full table names to shortened versions for document type checking
+  const DOCUMENT_TYPE_MAP = {
+    'psa_documents': 'psa',
+    'itr_documents': 'itr',
+    'med_cert_documents': 'med_cert',
+    'marriage_documents': 'marriage',
+    'cenomar_documents': 'cenomar',
+    'death_cert_documents': 'death_cert',
+    'barangay_cert_documents': 'barangay_cert'
+  };
+
+  try {
+    // Validate required fields
+    if (!document_type || !status || !file_name) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields (document_type, status, file_name)'
+      });
+    }
+
+    // Convert full table name to shortened version if necessary
+    const mappedDocType = DOCUMENT_TYPE_MAP[document_type] || document_type;
+
+    // Check if document_type is valid
+    const tableInfo = TABLE_NAMES[mappedDocType];
+    if (!tableInfo) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid document type: ${document_type}`
+      });
+    }
+
+    // Get connection and start transaction
+    connection = await new Promise((resolve, reject) => {
+      pool.getConnection((err, conn) => {
+        if (err) reject(err);
+        else resolve(conn);
+      });
+    });
+
+    await new Promise((resolve, reject) => {
+      connection.beginTransaction(err => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+
+    // Get user info for notification
+    const userQuery = `
+      SELECT u.id as user_id
+      FROM ${tableInfo.table} d
+      JOIN users u ON d.code_id = u.code_id
+      WHERE d.file_name = ?
+    `;
+    
+    const userResult = await new Promise((resolve, reject) => {
+      connection.query(userQuery, [file_name], (err, result) => {
+        if (err) reject(err);
+        else resolve(result);
+      });
+    });
+
+    // Update the document status
+    const updateQuery = `
+      UPDATE ${tableInfo.table} 
+      SET status = ?, 
+          rejection_reason = ?
+      WHERE file_name = ?
+    `;
+    
+    const result = await new Promise((resolve, reject) => {
+      connection.query(updateQuery, [status, rejection_reason || null, file_name], (err, result) => {
+        if (err) reject(err);
+        else resolve(result);
+      });
+    });
+
+    // Add notification to follow_up_documents
+    if (userResult && userResult.length > 0) {
+      const userId = userResult[0].user_id;
+      const documentName = DOCUMENT_DISPLAY_NAMES[mappedDocType] || document_type;
+      let message = '';
+
+      if (status === 'Approved') {
+        message = `Your ${documentName} has been accepted.`;
+      } else if (status === 'Rejected') {
+        message = `Your ${documentName} was rejected. ${rejection_reason || ''}`;
+      }
+
+      await new Promise((resolve, reject) => {
+        connection.query(
+          'INSERT INTO follow_up_documents (user_id, accepted_at, message, is_read) VALUES (?, NOW(), ?, 0)',
+          [userId, message],
+          (err, result) => {
+            if (err) reject(err);
+            else resolve(result);
+          }
+        );
+      });
+    }
+
+    // Check if all documents are approved
+    if (status === 'Approved') {
+      const userQuery = `
+        SELECT u.id, s1.civil_status 
+        FROM users u 
+        JOIN step1_identifying_information s1 ON u.code_id = s1.code_id 
+        WHERE u.code_id = (SELECT code_id FROM ${tableInfo.table} WHERE file_name = ?)
+      `;
+      const userResult = await new Promise((resolve, reject) => {
+        connection.query(userQuery, [file_name], (err, result) => {
+          if (err) reject(err);
+          else resolve(result);
+        });
+      });
+
+      if (userResult && userResult.length > 0) {
+        const civilStatus = userResult[0].civil_status;
+        const requiredDocuments = getRequiredDocumentsByCivilStatus(civilStatus);
+        let allDocumentsApproved = true;
+
+        for (const docType of requiredDocuments) {
+          const docTableInfo = TABLE_NAMES[docType];
+          const checkDocQuery = `
+            SELECT status 
+            FROM ${docTableInfo.table} 
+            WHERE file_name = ? 
+            LIMIT 1
+          `;
+          const docResult = await new Promise((resolve, reject) => {
+            connection.query(checkDocQuery, [file_name], (err, result) => {
+              if (err) reject(err);
+              else resolve(result);
+            });
+          });
+
+          if (!docResult || docResult.length === 0 || docResult[0].status !== 'Approved') {
+            allDocumentsApproved = false;
+            break;
+          }
+        }
+
+        if (allDocumentsApproved) {
+          await new Promise((resolve, reject) => {
+            connection.query(
+              'UPDATE users SET status = ? WHERE code_id = (SELECT code_id FROM psa_documents WHERE file_name = ?)',
+              ['Verified', file_name],
+              (err, result) => {
+                if (err) reject(err);
+                else resolve(result);
+              }
+            );
+          });
+        }
+      }
+    }
+
+    // Commit the transaction
+    await new Promise((resolve, reject) => {
+      connection.commit(err => {
+        if (err) {
+          connection.rollback(() => reject(err));
+        } else {
+          resolve();
+        }
+      });
+    });
+
+    res.json({
+      success: true,
+      message: `Document status updated to ${status}`,
+      affectedRows: result.affectedRows
+    });
+  } catch (error) {
+    console.error('Error updating document status:', error);
+
+    if (connection) {
+      await new Promise(resolve => {
+        connection.rollback(() => resolve());
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update document status',
+      details: error.message
+    });
+  } finally {
+    if (connection) {
+      connection.release();
+    }
+  }
+});
+
 
 app.post('/updateUserProfile', async (req, res) => {
   const { userId, profilePic, faceRecognitionPhoto } = req.body;
@@ -1631,7 +1851,7 @@ app.get('/verifiedUsers/:adminId', async (req, res) => {
 
     const users = await queryDatabase(`
       SELECT u.id AS userId, u.email, u.name, u.status, s1.barangay,
-             s1.first_name, s1.middle_name, s1.last_name, s1.age, s1.gender, 
+             s1.first_name, s1.middle_name, s1.last_name, s1.suffix, s1.age, s1.gender, 
              s1.date_of_birth, s1.place_of_birth, s1.education, 
              s1.civil_status, s1.occupation, s1.religion, s1.company, 
              s1.income, s1.employment_status, s1.contact_number, s1.email, 
@@ -2798,6 +3018,88 @@ app.get('/polulations-users', async (req, res) => {
   }
 });
 
+// BENEFICIARY LOGIC: Only users with income BELOW 250001 are beneficiaries.
+// Users with income 250001 or above (e.g., '₱44,000 and above', 300000, etc.) are non-beneficiaries.
+app.get('/beneficiaries-users', async (req, res) => {
+  try {
+    console.log('Fetching beneficiaries data...');
+    const { startDate, endDate } = req.query;
+    
+    let query = `
+      SELECT 
+        u.id,
+        u.code_id,
+        s1.income,
+        au.accepted_at,
+        CASE 
+          WHEN s1.income = 'Below ₱10,000' THEN 10000
+          WHEN s1.income = '₱11,000-₱20,000' THEN 20000
+          WHEN s1.income = '₱21,000-₱43,000' THEN 43000
+          WHEN s1.income = '₱44,000 and above' THEN 250001
+          ELSE s1.income
+        END as income_value
+      FROM users u
+      INNER JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
+      LEFT JOIN (
+        SELECT user_id, MAX(accepted_at) as accepted_at
+        FROM accepted_users
+        GROUP BY user_id
+      ) au ON u.id = au.user_id
+      WHERE u.status = 'Verified'
+    `;
+
+    const params = [];
+
+    // Add date range filter if specified
+    if (startDate && endDate) {
+      query += ` AND DATE(au.accepted_at) BETWEEN ? AND ?`;
+      params.push(startDate, endDate);
+    }
+
+    query += ` ORDER BY au.accepted_at DESC`;
+    
+    console.log('Executing query:', query);
+    console.log('Query params:', params);
+    const results = await queryDatabase(query, params);
+    console.log('Query results:', JSON.stringify(results, null, 2));
+    
+    if (!results || results.length === 0) {
+      console.log('No beneficiaries found');
+      return res.json({
+        beneficiaries: 0,
+        nonBeneficiaries: 0
+      });
+    }
+
+    // Count beneficiaries and non-beneficiaries
+    const counts = results.reduce((acc, user) => {
+      // Ensure numeric conversion and trim spaces
+      const incomeValue = parseInt((user.income_value || '').toString().replace(/[^0-9]/g, '')) || 0;
+      console.log(`User ${user.id} - Income: ${user.income}, Value: ${incomeValue}`);
+      
+      if (incomeValue >= 250001) {
+        console.log(`User ${user.id} is a non-beneficiary (income: ${incomeValue})`);
+        acc.nonBeneficiaries++;
+      } else {
+        console.log(`User ${user.id} is a beneficiary (income: ${incomeValue})`);
+        acc.beneficiaries++;
+      }
+      return acc;
+    }, { beneficiaries: 0, nonBeneficiaries: 0 });
+
+    console.log('Final beneficiary counts:', counts);
+    
+    res.json(counts);
+  } catch (error) {
+    console.error('Error fetching beneficiaries data:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch beneficiaries data', 
+      details: error.message,
+      stack: error.stack 
+    });
+  }
+});
+
 // Add the new application-status endpoint
 app.get('/application-status', async (req, res) => {
   try {
@@ -3176,3 +3478,9 @@ app.get('/events', async (req, res) => {
     res.status(500).json({ error: 'Error fetching events' });
   }
 });
+
+// Add endpoint to fetch beneficiaries data
+
+// Add endpoint for updating document status
+
+

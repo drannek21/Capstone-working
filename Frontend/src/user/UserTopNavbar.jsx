@@ -185,11 +185,32 @@ const UserTopNavbar = ({ onNavigate }) => {
           read: notif.is_read === 1
         })) : [];
 
-        // Combine all notifications
+        // Add this new section to fetch forum notifications
+        let forumNotifications = [];
+        try {
+          const forumResponse = await fetch(`http://localhost:8081/api/forum/notifications/${userId}`);
+          if (forumResponse.ok) {
+            forumNotifications = await forumResponse.json();
+            // Convert to notification format
+            forumNotifications = forumNotifications.map(notif => ({
+              id: `forum_${notif.id}`,
+              type: 'forum',
+              message: notif.message,
+              created_at: notif.accepted_at,
+              read: notif.is_read === 1
+            }));
+          }
+        } catch (err) {
+          console.error("Error fetching forum notifications:", err);
+          forumNotifications = [];
+        }
+
+        // Combine all notifications (add forumNotifications to existing array)
         const allNotifications = [
           ...notificationsData,
           ...eventNotifications,
-          ...followupNotifications
+          ...followupNotifications,
+          ...forumNotifications  // Add this line
         ];
 
         // Sort by creation date (newest first)
@@ -208,6 +229,7 @@ const UserTopNavbar = ({ onNavigate }) => {
     return () => clearInterval(interval);
   }, []);
 
+  // Update the markAsRead function to handle forum notifications
   const markAsRead = async (notificationId, type) => {
     try {
       const userId = localStorage.getItem("UserId");
@@ -219,6 +241,18 @@ const UserTopNavbar = ({ onNavigate }) => {
           notif.id === notificationId ? { ...notif, read: true } : notif
         )
       );
+
+      // Add this new condition for forum notifications
+      if (type === 'forum') {
+        const forumNotifId = notificationId.replace('forum_', '');
+        await fetch(`http://localhost:8081/api/forum/notifications/mark-as-read/${forumNotifId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        return;
+      }
 
       if (type === 'event') {
         const eventId = notificationId.replace('event_', '');
@@ -250,6 +284,24 @@ const UserTopNavbar = ({ onNavigate }) => {
       });
     } catch (error) {
       console.error("Error marking notification as read:", error);
+    }
+  };
+
+  // Update the getNotificationIcon function to include forum icon
+  const getNotificationIcon = (type) => {
+    switch (type) {
+      case "event":
+        return <FontAwesomeIcon icon={faCalendarAlt} className="notification-icon event" />;
+      case "application":
+        return <FontAwesomeIcon icon={faFileAlt} className="notification-icon application" />;
+      case "document":
+        return <FontAwesomeIcon icon={faFileUpload} className="notification-icon document" />;
+      case "status":
+        return <FontAwesomeIcon icon={faInfoCircle} className="notification-icon status" />;
+      case "forum":
+        return <FontAwesomeIcon icon={faComments} className="notification-icon forum" />;
+      default:
+        return <FontAwesomeIcon icon={faBell} className="notification-icon" />;
     }
   };
 
@@ -300,20 +352,7 @@ const UserTopNavbar = ({ onNavigate }) => {
   };
 
   // Update the notification icon function
-  const getNotificationIcon = (type) => {
-    switch (type) {
-      case "event":
-        return <FontAwesomeIcon icon={faCalendarAlt} className="notification-icon event" />;
-      case "application":
-        return <FontAwesomeIcon icon={faFileAlt} className="notification-icon application" />;
-      case "document":
-        return <FontAwesomeIcon icon={faFileUpload} className="notification-icon document" />;
-      case "status":
-        return <FontAwesomeIcon icon={faInfoCircle} className="notification-icon status" />;
-      default:
-        return <FontAwesomeIcon icon={faBell} className="notification-icon" />;
-    }
-  };
+
 
   useEffect(() => {
     const handlePopState = () => {
@@ -499,7 +538,7 @@ const UserTopNavbar = ({ onNavigate }) => {
                   {user ? (
                     user.status === 'Pending Remarks' 
                       ? user.name || 'Guest'
-                      : `${user.first_name || 'First Name'} ${user.last_name || 'Last Name'}`
+                      : `${user.first_name || 'First Name'} ${user.middle_name || ''} ${user.last_name || 'Last Name'}${user.suffix && user.suffix !== 'none' ? ` ${user.suffix}` : ''}`
                   ) : 'Guest'}
                 </span>
                 <FontAwesomeIcon 

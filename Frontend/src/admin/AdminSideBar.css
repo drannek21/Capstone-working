@@ -631,3 +631,42 @@ body {
     padding: 20px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
+
+.notifications-right-side {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  cursor: pointer;
+  z-index: 1000;
+  background-color: #fff;
+  padding: 10px;
+  border-radius: 50%;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  transition: all 0.3s ease;
+}
+
+.notifications-right-side:hover {
+  background-color: #f0f0f0;
+  transform: scale(1.1);
+}
+
+.notifications-right-side .notification-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background-color: #ff4444;
+  color: white;
+  border-radius: 50%;
+  padding: 2px 6px;
+  font-size: 12px;
+  min-width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

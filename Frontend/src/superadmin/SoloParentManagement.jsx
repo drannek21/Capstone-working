@@ -466,32 +466,32 @@ const SoloParentManagement = () => {
               <div class="id-card-container">
                 <div class="id-card-details">
                   <div class="id-detail">
-                    <span class="id-label">ID No:</span>
-                    <span class="id-value">${user.code_id || 'N/A'}</span>
+                    <span className="id-label">ID No:</span>
+                    <span className="id-value">${user.code_id || 'N/A'}</span>
                   </div>
                   <div class="id-detail">
-                    <span class="id-label">Name:</span>
-                    <span class="id-value">
-                      ${user.first_name || ''} ${user.middle_name || ''} ${user.last_name || ''}
+                    <span className="id-label">Name:</span>
+                    <span className="id-value">
+                      ${user.first_name || ''} ${user.middle_name || ''} ${user.last_name || ''}${user.suffix && user.suffix !== 'none' ? ` ${user.suffix}` : ''}
                     </span>
                   </div>
                   <div class="id-detail">
-                    <span class="id-label">Barangay:</span>
-                    <span class="id-value">${user.barangay || 'N/A'}</span>
+                    <span className="id-label">Barangay:</span>
+                    <span className="id-value">${user.barangay || 'N/A'}</span>
                   </div>
                   <div class="id-detail">
-                    <span class="id-label">Birthdate:</span>
-                    <span class="id-value">
+                    <span className="id-label">Birthdate:</span>
+                    <span className="id-value">
                       ${user.date_of_birth ? new Date(user.date_of_birth).toLocaleDateString() : 'N/A'}
                     </span>
                   </div>
                   <div class="id-detail">
-                    <span class="id-label">Civil Status:</span>
-                    <span class="id-value">${user.civil_status || 'N/A'}</span>
+                    <span className="id-label">Civil Status:</span>
+                    <span className="id-value">${user.civil_status || 'N/A'}</span>
                   </div>
                   <div class="id-detail">
-                    <span class="id-label">Contact:</span>
-                    <span class="id-value">${user.contact_number || 'N/A'}</span>
+                    <span className="id-label">Contact:</span>
+                    <span className="id-value">${user.contact_number || 'N/A'}</span>
                   </div>
                 </div>
                 <div class="id-card-qr-container">
@@ -564,7 +564,7 @@ const SoloParentManagement = () => {
                 <span>Card Holder's Signature</span>
               </div>
               <div class="signature-block">
-                <div class="signature-line"></div>
+                <div className="signature-line"></div>
                 <span>Authorized DSWD Official</span>
               </div>
             </div>
@@ -726,7 +726,7 @@ const SoloParentManagement = () => {
                   Category: ${user.classification || 'N/A'}
                 </div>
                 <div class="id-validity-container">
-                  <span class="id-validity">
+                  <span className="id-validity">
                     Valid Until: ${user.validUntil ? new Date(user.validUntil).toLocaleDateString(undefined, {dateStyle: 'medium'}) : 'N/A'}
                   </span>
                   <img src="${bagongPilipinasLogo}" alt="Bagong Pilipinas Logo" class="bagong-pilipinas-logo" />
@@ -734,37 +734,37 @@ const SoloParentManagement = () => {
               </div>
               <div class="id-card-container">
                 <div class="id-card-details">
-                  <div class="id-detail">
-                    <span class="id-label">ID No:</span>
-                    <span class="id-value">${user.code_id || 'N/A'}</span>
+                  <div className="id-detail">
+                    <span className="id-label">ID No:</span>
+                    <span className="id-value">${user.code_id || 'N/A'}</span>
                   </div>
-                  <div class="id-detail">
-                    <span class="id-label">Name:</span>
-                    <span class="id-value">
-                      ${user.first_name || ''} ${user.middle_name || ''} ${user.last_name || ''}
+                  <div className="id-detail">
+                    <span className="id-label">Name:</span>
+                    <span className="id-value">
+                      ${user.first_name || ''} ${user.middle_name || ''} ${user.last_name || ''}${user.suffix && user.suffix !== 'none' ? ` ${user.suffix}` : ''}
                     </span>
                   </div>
-                  <div class="id-detail">
-                    <span class="id-label">Barangay:</span>
-                    <span class="id-value">${user.barangay || 'N/A'}</span>
+                  <div className="id-detail">
+                    <span className="id-label">Barangay:</span>
+                    <span className="id-value">${user.barangay || 'N/A'}</span>
                   </div>
-                  <div class="id-detail">
-                    <span class="id-label">Birthdate:</span>
-                    <span class="id-value">
+                  <div className="id-detail">
+                    <span className="id-label">Birthdate:</span>
+                    <span className="id-value">
                       ${user.date_of_birth ? new Date(user.date_of_birth).toLocaleDateString() : 'N/A'}
                     </span>
                   </div>
-                  <div class="id-detail">
-                    <span class="id-label">Civil Status:</span>
-                    <span class="id-value">${user.civil_status || 'N/A'}</span>
+                  <div className="id-detail">
+                    <span className="id-label">Civil Status:</span>
+                    <span className="id-value">${user.civil_status || 'N/A'}</span>
                   </div>
-                  <div class="id-detail">
-                    <span class="id-label">Contact:</span>
-                    <span class="id-value">${user.contact_number || 'N/A'}</span>
+                  <div className="id-detail">
+                    <span className="id-label">Contact:</span>
+                    <span className="id-value">${user.contact_number || 'N/A'}</span>
                   </div>
                 </div>
-                <div class="id-card-qr-container">
-                  <div class="qr-placeholder" data-userid="${user.userId}"></div>
+                <div className="id-card-qr-container">
+                  <div className="qr-placeholder" data-userid="${user.userId}"></div>
                 </div>
               </div>
             </div>
@@ -782,13 +782,13 @@ const SoloParentManagement = () => {
           <div class="id-card back">
             <div class="id-card-header">
               <img src="${dswdLogo}" alt="DSWD Logo" class="id-logo" />
-              <div class="id-title">
+              <div className="id-title">
                 <h3>SOLO PARENT IDENTIFICATION CARD</h3>
                 <h4>Republic of the Philippines</h4>
                 <h4>DSWD Region III</h4>
               </div>
             </div>
-            <div class="terms-section">
+            <div className="terms-section">
               <h3>Terms and Conditions</h3>
               <ol>
                 <li>This ID is non-transferable</li>
@@ -797,13 +797,13 @@ const SoloParentManagement = () => {
                 <li>Tampering invalidates this ID</li>
               </ol>
             </div>
-            <div class="signature-section">
-              <div class="signature-block">
-                <div class="signature-line"></div>
+            <div className="signature-section">
+              <div className="signature-block">
+                <div className="signature-line"></div>
                 <span>Card Holder's Signature</span>
               </div>
-              <div class="signature-block">
-                <div class="signature-line"></div>
+              <div className="signature-block">
+                <div className="signature-line"></div>
                 <span>Authorized DSWD Official</span>
               </div>
             </div>
@@ -1115,7 +1115,7 @@ const SoloParentManagement = () => {
                 </td>
                 <td>{indexOfFirstUser + index + 1}</td>
                 <td>{user.code_id}</td>
-                <td>{`${user.first_name} ${user.middle_name || ''} ${user.last_name}`}</td>
+                <td>{`${user.first_name || ''} ${user.middle_name || ''} ${user.last_name || ''}${user.suffix && user.suffix !== 'none' ? ` ${user.suffix}` : ''}`}</td>
                 <td>{user.barangay || 'N/A'}</td>
                 <td>{user.status}</td>
                 <td>
@@ -1215,7 +1215,7 @@ const SoloParentManagement = () => {
                     <div className="detail-item">
                       <span className="label">Name</span>
                       <span className="value">
-                        {`${selectedUser.first_name || ''} ${selectedUser.middle_name || ''} ${selectedUser.last_name || ''}`}
+                        {`${selectedUser.first_name || ''} ${selectedUser.middle_name || ''} ${selectedUser.last_name || ''}${selectedUser.suffix && selectedUser.suffix !== 'none' ? ` ${selectedUser.suffix}` : ''}`}
                       </span>
                     </div>
                     <div className="detail-item">
@@ -1257,7 +1257,7 @@ const SoloParentManagement = () => {
                     <div className="detail-item">
                       <span className="label">Name</span>
                       <span className="value">
-                        {`${selectedUser.first_name || ''} ${selectedUser.middle_name || ''} ${selectedUser.last_name || ''}`}
+                        {`${selectedUser.first_name || ''} ${selectedUser.middle_name || ''} ${selectedUser.last_name || ''}${selectedUser.suffix && selectedUser.suffix !== 'none' ? ` ${selectedUser.suffix}` : ''}`}
                       </span>
                     </div>
                     <div className="detail-item">
@@ -1285,7 +1285,7 @@ const SoloParentManagement = () => {
                     <div className="detail-item">
                       <span className="label">Name</span>
                       <span className="value">
-                        {`${selectedUser.first_name || ''} ${selectedUser.middle_name || ''} ${selectedUser.last_name || ''}`}
+                        {`${selectedUser.first_name || ''} ${selectedUser.middle_name || ''} ${selectedUser.last_name || ''}${selectedUser.suffix && selectedUser.suffix !== 'none' ? ` ${selectedUser.suffix}` : ''}`}
                       </span>
                     </div>
                     <div className="detail-item">
@@ -1391,7 +1391,7 @@ const SoloParentManagement = () => {
                         <div className="detail-item">
                           <span className="label">Name</span>
                           <span className="value">
-                            {`${selectedUser.first_name || ''} ${selectedUser.middle_name || ''} ${selectedUser.last_name || ''}`}
+                            {`${selectedUser.first_name || ''} ${selectedUser.middle_name || ''} ${selectedUser.last_name || ''}${selectedUser.suffix && selectedUser.suffix !== 'none' ? ` ${selectedUser.suffix}` : ''}`}
                           </span>
                         </div>
                         <div className="detail-item">
@@ -1696,7 +1696,7 @@ const SoloParentManagement = () => {
                         <div className="id-detail">
                           <span className="id-label">Name:</span>
                           <span className="id-value">
-                            {`${selectedIDUser.first_name || ''} ${selectedIDUser.middle_name || ''} ${selectedIDUser.last_name || ''}`}
+                            {`${selectedIDUser.first_name || ''} ${selectedIDUser.middle_name || ''} ${selectedIDUser.last_name || ''}${selectedIDUser.suffix && selectedIDUser.suffix !== 'none' ? ` ${selectedIDUser.suffix}` : ''}`}
                           </span>
                         </div>
                         <div className="id-detail">

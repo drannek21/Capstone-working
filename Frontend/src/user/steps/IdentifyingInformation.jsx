@@ -348,17 +348,20 @@ export default function IdentifyingInformation({ nextStep, updateFormData, formD
           {errors.last_name && <span className="error">{errors.last_name}</span>}
         </div>
         <div className="form-group">
-          <label className="identifying-label">Suffix</label>
-          <input
-            type="text"
+          <label className="identifying-label">Suffix <span className="optional-label">(Optional)</span></label>
+          <select
             name="suffix"
             value={formData.suffix || ''}
             onChange={handleChange}
-            onInput={handleTextInput}
             className="identifying-input"
-            placeholder="Enter suffix (if any)"
-            maxLength={10}
-          />
+          >
+            <option value="">--Select--</option>
+            <option value="Jr.">Jr.</option>
+            <option value="Sr.">Sr.</option>
+            <option value="II">II</option>
+            <option value="III">III</option>
+            <option value="IV">IV</option>
+          </select>
           {errors.suffix && <span className="error">{errors.suffix}</span>}
         </div>
       </div>

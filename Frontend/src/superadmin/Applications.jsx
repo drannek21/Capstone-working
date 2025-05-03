@@ -447,7 +447,7 @@ const [acceptAllLoading, setAcceptAllLoading] = useState(false);
                 {modalType === "" ? (
                   <>
                     <td>{item.code_id}</td>
-                    <td>{`${item.first_name} ${item.middle_name || ''} ${item.last_name}`}</td>
+                    <td>{`${item.first_name || ''} ${item.middle_name || ''} ${item.last_name || ''}${item.suffix && item.suffix !== 'none' ? ` ${item.suffix}` : ''}`}</td>
                     <td>{item.barangay || 'N/A'}</td>
                   </>
                 ) : (
@@ -541,7 +541,7 @@ const [acceptAllLoading, setAcceptAllLoading] = useState(false);
                     <div className="detail-item">
                       <span className="label">Name</span>
                       <span className="value">
-                        {`${selectedApplication.first_name || ''} ${selectedApplication.middle_name || ''} ${selectedApplication.last_name || ''}`}
+                        {`${selectedApplication.first_name || ''} ${selectedApplication.middle_name || ''} ${selectedApplication.last_name || ''}${selectedApplication.suffix && selectedApplication.suffix !== 'none' ? ` ${selectedApplication.suffix}` : ''}`}
                       </span>
                     </div>
                     <div className="detail-item">
