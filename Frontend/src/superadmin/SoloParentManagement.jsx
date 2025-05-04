@@ -7,6 +7,7 @@ import mswdoLogo from '../assets/MSWDO LOGO.png';
 import avatar from '../assets/avatar.jpg';
 import bagongPilipinasLogo from '../assets/Bagong-pilipinas.png';
 import { QRCodeSVG } from 'qrcode.react';
+import * as ReactDOM from 'react-dom/client';
 
 const SoloParentManagement = () => {
   const [verifiedUsers, setVerifiedUsers] = useState([]);
@@ -426,11 +427,49 @@ const SoloParentManagement = () => {
         // Update progress message
         setSuccessMessage(`Generating ID ${index + 1} of ${selectedUsers.length}`);
         
-        // Create temporary elements to render the ID
+        // Create temporary container for ID card
         const tempContainer = document.createElement('div');
-        tempContainer.className = 'temp-id-container';
-        tempContainer.style.position = 'absolute';
+        tempContainer.style.position = 'absolute'; 
         tempContainer.style.left = '-9999px';
+        
+        // Create a QR code element
+        const qrContainer = document.createElement('div');
+        qrContainer.id = `qr-container-${index}`;
+        qrContainer.style.width = '120px';
+        qrContainer.style.height = '120px';
+        qrContainer.style.backgroundColor = 'white';
+        qrContainer.style.padding = '0';
+        document.body.appendChild(qrContainer);
+        
+        // Render QR code using ReactDOM createRoot API
+        const root = ReactDOM.createRoot(qrContainer);
+        root.render(
+          <QRCodeSVG 
+            value={`user:${user.userId}`}
+            size={120}
+            level="H"
+            includeMargin={false}
+            fgColor="#2E7D32"
+            bgColor="#ffffff"
+          />
+        );
+        
+        // Wait a moment for the QR code to render
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Capture QR code as image
+        const qrCanvas = await html2canvas(qrContainer, {
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: 'white',
+          scale: 3
+        });
+        const qrDataUrl = qrCanvas.toDataURL('image/png', 1.0);
+        
+        // Clean up
+        root.unmount();
+        document.body.removeChild(qrContainer);
+        
         tempContainer.innerHTML = `
           <div class="id-card front">
             <div class="id-card-header">
@@ -467,36 +506,36 @@ const SoloParentManagement = () => {
               <div class="id-card-container">
                 <div class="id-card-details">
                   <div class="id-detail">
-                    <span className="id-label">ID No:</span>
-                    <span className="id-value">${user.code_id || 'N/A'}</span>
+                    <span class="id-label">ID No:</span>
+                    <span class="id-value">${user.code_id || 'N/A'}</span>
                   </div>
                   <div class="id-detail">
-                    <span className="id-label">Name:</span>
-                    <span className="id-value">
+                    <span class="id-label">Name:</span>
+                    <span class="id-value">
                       ${user.first_name || ''} ${user.middle_name || ''} ${user.last_name || ''}${user.suffix && user.suffix !== 'none' ? ` ${user.suffix}` : ''}
                     </span>
                   </div>
                   <div class="id-detail">
-                    <span className="id-label">Barangay:</span>
-                    <span className="id-value">${user.barangay || 'N/A'}</span>
+                    <span class="id-label">Barangay:</span>
+                    <span class="id-value">${user.barangay || 'N/A'}</span>
                   </div>
                   <div class="id-detail">
-                    <span className="id-label">Birthdate:</span>
-                    <span className="id-value">
+                    <span class="id-label">Birthdate:</span>
+                    <span class="id-value">
                       ${user.date_of_birth ? new Date(user.date_of_birth).toLocaleDateString() : 'N/A'}
                     </span>
                   </div>
                   <div class="id-detail">
-                    <span className="id-label">Civil Status:</span>
-                    <span className="id-value">${user.civil_status || 'N/A'}</span>
+                    <span class="id-label">Civil Status:</span>
+                    <span class="id-value">${user.civil_status || 'N/A'}</span>
                   </div>
                   <div class="id-detail">
-                    <span className="id-label">Contact:</span>
-                    <span className="id-value">${user.contact_number || 'N/A'}</span>
+                    <span class="id-label">Contact:</span>
+                    <span class="id-value">${user.contact_number || 'N/A'}</span>
                   </div>
                 </div>
                 <div class="id-card-qr-container">
-                  <div class="qr-placeholder" data-userid="${user.userId}"></div>
+                  <img src="${qrDataUrl}" alt="QR Code" class="qr-code" style="width: 120px; height: 120px;" />
                 </div>
               </div>
             </div>
@@ -534,7 +573,7 @@ const SoloParentManagement = () => {
             }
           }
         });
-        
+
         // Create back of ID
         const backContainer = document.createElement('div');
         backContainer.className = 'temp-id-container';
@@ -565,7 +604,7 @@ const SoloParentManagement = () => {
                 <span>Card Holder's Signature</span>
               </div>
               <div class="signature-block">
-                <div className="signature-line"></div>
+                <div class="signature-line"></div>
                 <span>Authorized DSWD Official</span>
               </div>
             </div>
@@ -700,6 +739,45 @@ const SoloParentManagement = () => {
         tempContainer.className = 'temp-id-container';
         tempContainer.style.position = 'absolute';
         tempContainer.style.left = '-9999px';
+        
+        // Create a QR code element
+        const qrContainer = document.createElement('div');
+        qrContainer.id = `qr-print-container-${index}`;
+        qrContainer.style.width = '120px';
+        qrContainer.style.height = '120px';
+        qrContainer.style.backgroundColor = 'white';
+        qrContainer.style.padding = '0';
+        document.body.appendChild(qrContainer);
+        
+        // Render QR code using ReactDOM createRoot API
+        const root = ReactDOM.createRoot(qrContainer);
+        root.render(
+          <QRCodeSVG 
+            value={`user:${user.userId}`}
+            size={120}
+            level="H"
+            includeMargin={false}
+            fgColor="#2E7D32"
+            bgColor="#ffffff"
+          />
+        );
+        
+        // Wait a moment for the QR code to render
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Capture QR code as image
+        const qrCanvas = await html2canvas(qrContainer, {
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: 'white',
+          scale: 3
+        });
+        const qrDataUrl = qrCanvas.toDataURL('image/png', 1.0);
+        
+        // Clean up
+        root.unmount();
+        document.body.removeChild(qrContainer);
+        
         tempContainer.innerHTML = `
           <div class="id-card front">
             <div class="id-card-header">
@@ -727,7 +805,7 @@ const SoloParentManagement = () => {
                   Category: ${user.classification || 'N/A'}
                 </div>
                 <div class="id-validity-container">
-                  <span className="id-validity">
+                  <span class="id-validity">
                     Valid Until: ${user.validUntil ? new Date(user.validUntil).toLocaleDateString(undefined, {dateStyle: 'medium'}) : 'N/A'}
                   </span>
                   <img src="${bagongPilipinasLogo}" alt="Bagong Pilipinas Logo" class="bagong-pilipinas-logo" />
@@ -735,90 +813,54 @@ const SoloParentManagement = () => {
               </div>
               <div class="id-card-container">
                 <div class="id-card-details">
-                  <div className="id-detail">
-                    <span className="id-label">ID No:</span>
-                    <span className="id-value">${user.code_id || 'N/A'}</span>
+                  <div class="id-detail">
+                    <span class="id-label">ID No:</span>
+                    <span class="id-value">${user.code_id || 'N/A'}</span>
                   </div>
-                  <div className="id-detail">
-                    <span className="id-label">Name:</span>
-                    <span className="id-value">
+                  <div class="id-detail">
+                    <span class="id-label">Name:</span>
+                    <span class="id-value">
                       ${user.first_name || ''} ${user.middle_name || ''} ${user.last_name || ''}${user.suffix && user.suffix !== 'none' ? ` ${user.suffix}` : ''}
                     </span>
                   </div>
-                  <div className="id-detail">
-                    <span className="id-label">Barangay:</span>
-                    <span className="id-value">${user.barangay || 'N/A'}</span>
+                  <div class="id-detail">
+                    <span class="id-label">Barangay:</span>
+                    <span class="id-value">${user.barangay || 'N/A'}</span>
                   </div>
-                  <div className="id-detail">
-                    <span className="id-label">Birthdate:</span>
-                    <span className="id-value">
+                  <div class="id-detail">
+                    <span class="id-label">Birthdate:</span>
+                    <span class="id-value">
                       ${user.date_of_birth ? new Date(user.date_of_birth).toLocaleDateString() : 'N/A'}
                     </span>
                   </div>
-                  <div className="id-detail">
-                    <span className="id-label">Civil Status:</span>
-                    <span className="id-value">${user.civil_status || 'N/A'}</span>
+                  <div class="id-detail">
+                    <span class="id-label">Civil Status:</span>
+                    <span class="id-value">${user.civil_status || 'N/A'}</span>
                   </div>
-                  <div className="id-detail">
-                    <span className="id-label">Contact:</span>
-                    <span className="id-value">${user.contact_number || 'N/A'}</span>
+                  <div class="id-detail">
+                    <span class="id-label">Contact:</span>
+                    <span class="id-value">${user.contact_number || 'N/A'}</span>
                   </div>
                 </div>
-                <div className="id-card-qr-container">
-                  <div className="qr-placeholder" data-userid="${user.userId}"></div>
+                <div class="id-card-qr-container">
+                  <img src="${qrDataUrl}" alt="QR Code" class="qr-code" style="width: 120px; height: 120px;" />
                 </div>
               </div>
             </div>
           </div>
         `;
         
-        document.body.appendChild(tempContainer);
-        
-        // Create back of ID
-        const backContainer = document.createElement('div');
-        backContainer.className = 'temp-id-container';
-        backContainer.style.position = 'absolute';
-        backContainer.style.left = '-9999px';
-        backContainer.innerHTML = `
-          <div class="id-card back">
-            <div class="id-card-header">
-              <img src="${dswdLogo}" alt="DSWD Logo" class="id-logo" />
-              <div className="id-title">
-                <h3>SOLO PARENT IDENTIFICATION CARD</h3>
-                <h4>Republic of the Philippines</h4>
-                <h4>DSWD Region III</h4>
-              </div>
-            </div>
-            <div className="terms-section">
-              <h3>Terms and Conditions</h3>
-              <ol>
-                <li>This ID is non-transferable</li>
-                <li>Report loss/damage to DSWD office</li>
-                <li>Present this ID when availing benefits</li>
-                <li>Tampering invalidates this ID</li>
-              </ol>
-            </div>
-            <div className="signature-section">
-              <div className="signature-block">
-                <div className="signature-line"></div>
-                <span>Card Holder's Signature</span>
-              </div>
-              <div className="signature-block">
-                <div className="signature-line"></div>
-                <span>Authorized DSWD Official</span>
-              </div>
-            </div>
-          </div>
-        `;
-        
-        document.body.appendChild(backContainer);
-        
-        // Capture front and back
+        // Get the actual dimensions
+        const rect = tempContainer.querySelector('.id-card.front').getBoundingClientRect();
+
+        // Capture the front ID using the same options as downloadID function
         const frontCanvas = await html2canvas(tempContainer.querySelector('.id-card.front'), {
           useCORS: true,
           allowTaint: true,
           backgroundColor: 'white',
           scale: 3,
+          width: rect.width,
+          height: rect.height,
           logging: false,
           onclone: (clonedDoc) => {
             const clonedElement = clonedDoc.querySelector('.id-card.front');
@@ -837,12 +879,57 @@ const SoloParentManagement = () => {
             }
           }
         });
+
+        // Create back of ID
+        const backContainer = document.createElement('div');
+        backContainer.className = 'temp-id-container';
+        backContainer.style.position = 'absolute';
+        backContainer.style.left = '-9999px';
+        backContainer.innerHTML = `
+          <div class="id-card back">
+            <div class="id-card-header">
+              <img src="${dswdLogo}" alt="DSWD Logo" class="id-logo" />
+              <div class="id-title">
+                <h3>SOLO PARENT IDENTIFICATION CARD</h3>
+                <h4>Republic of the Philippines</h4>
+                <h4>DSWD Region III</h4>
+              </div>
+            </div>
+            <div class="terms-section">
+              <h3>Terms and Conditions</h3>
+              <ol>
+                <li>This ID is non-transferable</li>
+                <li>Report loss/damage to DSWD office</li>
+                <li>Present this ID when availing benefits</li>
+                <li>Tampering invalidates this ID</li>
+              </ol>
+            </div>
+            <div class="signature-section">
+              <div class="signature-block">
+                <div class="signature-line"></div>
+                <span>Card Holder's Signature</span>
+              </div>
+              <div class="signature-block">
+                <div class="signature-line"></div>
+                <span>Authorized DSWD Official</span>
+              </div>
+            </div>
+          </div>
+        `;
         
+        document.body.appendChild(backContainer);
+        
+        // Get the back dimensions
+        const backRect = backContainer.querySelector('.id-card.back').getBoundingClientRect();
+        
+        // Capture the back ID using the same options as downloadID function
         const backCanvas = await html2canvas(backContainer.querySelector('.id-card.back'), {
           useCORS: true,
           allowTaint: true,
           backgroundColor: 'white',
           scale: 3,
+          width: backRect.width,
+          height: backRect.height,
           logging: false,
           onclone: (clonedDoc) => {
             const clonedElement = clonedDoc.querySelector('.id-card.back');
@@ -878,19 +965,12 @@ const SoloParentManagement = () => {
         });
         
         // Add to print window
-        if (bulkPrintBackToBack) {
-          printWindow.document.write(`
-            <div class="id-pair">
-              <img src="${frontCanvas.toDataURL('image/png', 1.0)}" class="id-card front" />
-              <img src="${backCanvas.toDataURL('image/png', 1.0)}" class="id-card back" />
-            </div>
-          `);
-        } else {
-          printWindow.document.write(`
-            <img src="${frontCanvas.toDataURL('image/png', 1.0)}" class="id-card front" />
-            <img src="${backCanvas.toDataURL('image/png', 1.0)}" class="id-card back" />
-          `);
-        }
+        printWindow.document.write(`
+          <div class="id-card-container">
+            <img src="${frontCanvas.toDataURL('image/png', 1.0)}" />
+            <img src="${backCanvas.toDataURL('image/png', 1.0)}" />
+          </div>
+        `);
         
         // Clean up
         document.body.removeChild(tempContainer);
@@ -1294,24 +1374,12 @@ const SoloParentManagement = () => {
       {barangayCerts.map((doc, index) => (
         <div key={index} className="document-item">
           <div className="document-header">
-            <div className="document-title-row">
-              <h5>Barangay Certificate</h5>
-            </div>
-            <div className="document-meta">
-              <span className="document-date">
-                {doc.upload_date ? new Date(doc.upload_date).toLocaleDateString() : 'Recently Uploaded'}
-              </span>
-              {doc.expiry_date && (
-                <span className="document-expiry">
-                  Expires: {new Date(doc.expiry_date).toLocaleDateString()}
-                </span>
-              )}
-            </div>
+            <h5>Barangay Certificate</h5>
           </div>
           <div className="document-preview">
-            <img
-              src={doc.file_url}
-              alt="Barangay Certificate"
+            <img 
+              src={doc.file_url} 
+              alt={doc.display_name || 'Barangay Certificate'}
               className="document-thumbnail"
               onClick={() => window.open(doc.file_url, '_blank')}
               onError={(e) => {
@@ -1321,7 +1389,7 @@ const SoloParentManagement = () => {
             />
           </div>
           <div className="document-actions">
-            <button
+            <button 
               className="btn view-btn full-width"
               onClick={() => window.open(doc.file_url, '_blank')}
             >
@@ -1630,98 +1698,97 @@ const SoloParentManagement = () => {
             <div className="soloparent-id-modal-content">
               <div className="soloparent-id-cards-container">
                 {/* Front of ID */}
-                <div className="id-card front">
-                  <div className="id-card-header">
-                    <div className="id-logos">
-                      <img src={dswdLogo} alt="DSWD Logo" className="id-logo" style={{ width: '60px', height: '60px' }} />
-                      <div className="id-title">
+                <div class="id-card front">
+                  <div class="id-card-header">
+                    <div class="id-logos">
+                      <img src={dswdLogo} alt="DSWD Logo" class="id-logo" style={{ width: '60px', height: '60px' }} />
+                      <div class="id-title">
                         <h3>SOLO PARENT IDENTIFICATION CARD</h3>
                         <h4>Republic of the Philippines</h4>
                         <h4>DSWD Region III</h4>
                       </div>
-                      <img src={mswdoLogo} alt="MSWDO Logo" className="id-logo" style={{ width: '60px', height: '60px' }} />
+                      <img src={mswdoLogo} alt="MSWDO Logo" class="id-logo" style={{ width: '60px', height: '60px' }} />
                     </div>
                   </div>
-                  <div className="id-card-body">
-                    <div className="id-left-section">
-                      <div className="id-photo-container">
+                  <div class="id-card-body">
+                    <div class="id-left-section">
+                      <div class="id-photo-container">
                         <img 
                           src={selectedIDUser.profilePic || selectedIDUser.profile_picture || avatar} 
                           alt="User" 
-                          className="id-photo"
+                          class="id-photo"
                           onError={(e) => {
                             e.target.onerror = null;
                             e.target.src = avatar;
                           }}
                         />
                       </div>
-                      <div className="id-category">
+                      <div class="id-category">
                         Category: {selectedIDUser.classification}
                       </div>
-                      <div className="id-validity-container">
-                        <span className="id-validity">
+                      <div class="id-validity-container">
+                        <span class="id-validity">
                           Valid Until: {selectedIDUser.validUntil ? new Date(selectedIDUser.validUntil).toLocaleDateString(undefined, {dateStyle: 'medium'}) : 'N/A'}
                         </span>
-                        <img src={bagongPilipinasLogo} alt="Bagong Pilipinas Logo" className="bagong-pilipinas-logo" />
+                        <img src={bagongPilipinasLogo} alt="Bagong Pilipinas Logo" class="bagong-pilipinas-logo" />
                       </div>
                     </div>
-                    <div className="id-card-container">
-                      <div className="id-card-details">
-                        <div className="id-detail">
-                          <span className="id-label">ID No:</span>
-                          <span className="id-value">{selectedIDUser.code_id || 'N/A'}</span>
+                    <div class="id-card-container">
+                      <div class="id-card-details">
+                        <div class="id-detail">
+                          <span class="id-label">ID No:</span>
+                          <span class="id-value">{selectedIDUser.code_id || 'N/A'}</span>
                         </div>
-                        <div className="id-detail">
-                          <span className="id-label">Name:</span>
-                          <span className="id-value">
+                        <div class="id-detail">
+                          <span class="id-label">Name:</span>
+                          <span class="id-value">
                             {`${selectedIDUser.first_name || ''} ${selectedIDUser.middle_name || ''} ${selectedIDUser.last_name || ''}${selectedIDUser.suffix && selectedIDUser.suffix !== 'none' ? ` ${selectedIDUser.suffix}` : ''}`}
                           </span>
                         </div>
-                        <div className="id-detail">
-                          <span className="id-label">Barangay:</span>
-                          <span className="id-value">{selectedIDUser.barangay || 'N/A'}</span>
+                        <div class="id-detail">
+                          <span class="id-label">Barangay:</span>
+                          <span class="id-value">{selectedIDUser.barangay || 'N/A'}</span>
                         </div>
-                        <div className="id-detail">
-                          <span className="id-label">Birthdate:</span>
-                          <span className="id-value">
+                        <div class="id-detail">
+                          <span class="id-label">Birthdate:</span>
+                          <span class="id-value">
                             {selectedIDUser.date_of_birth ? new Date(selectedIDUser.date_of_birth).toLocaleDateString() : 'N/A'}
                           </span>
                         </div>
-                        <div className="id-detail">
-                          <span className="id-label">Civil Status:</span>
-                          <span className="id-value">{selectedIDUser.civil_status || 'N/A'}</span>
+                        <div class="id-detail">
+                          <span class="id-label">Civil Status:</span>
+                          <span class="id-value">{selectedIDUser.civil_status || 'N/A'}</span>
                         </div>
-                        <div className="id-detail">
-                          <span className="id-label">Contact:</span>
-                          <span className="id-value">{selectedIDUser.contact_number || 'N/A'}</span>
+                        <div class="id-detail">
+                          <span class="id-label">Contact:</span>
+                          <span class="id-value">{selectedIDUser.contact_number || 'N/A'}</span>
                         </div>
                       </div>
-                      <div className="id-card-qr-container">
+                      <div class="id-card-qr-container">
                         <QRCodeSVG 
                           value={`user:${selectedIDUser?.userId}`}
                           size={120}
                           level="H"
-                          includeMargin={true}
+                          includeMargin={false}
                           fgColor="#2E7D32"
                           bgColor="#ffffff"
                         />
-                      
                       </div>
                     </div>
                   </div>
                 </div>
 
                 {/* Back of ID */}
-                <div className="id-card back">
-                  <div className="id-card-header">
-                    <img src={dswdLogo} alt="DSWD Logo" className="id-logo" />
-                    <div className="id-title">
+                <div class="id-card back">
+                  <div class="id-card-header">
+                    <img src={dswdLogo} alt="DSWD Logo" class="id-logo" />
+                    <div class="id-title">
                       <h3>SOLO PARENT IDENTIFICATION CARD</h3>
                       <h4>Republic of the Philippines</h4>
                       <h4>DSWD Region III</h4>
                     </div>
                   </div>
-                  <div className="terms-section">
+                  <div class="terms-section">
                     <h3>Terms and Conditions</h3>
                     <ol>
                       <li>This ID is non-transferable</li>
@@ -1730,34 +1797,34 @@ const SoloParentManagement = () => {
                       <li>Tampering invalidates this ID</li>
                     </ol>
                   </div>
-                  <div className="signature-section">
-                    <div className="signature-block">
-                      <div className="signature-line"></div>
+                  <div class="signature-section">
+                    <div class="signature-block">
+                      <div class="signature-line"></div>
                       <span>Card Holder's Signature</span>
                     </div>
-                    <div className="signature-block">
-                      <div className="signature-line"></div>
+                    <div class="signature-block">
+                      <div class="signature-line"></div>
                       <span>Authorized DSWD Official</span>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-            <div className="soloparent-id-modal-actions">
+            <div class="soloparent-id-modal-actions">
               <button 
-                className="soloparent-download-btn"
+                class="soloparent-download-btn"
                 onClick={() => downloadID('front')}
               >
                 Download Front
               </button>
               <button 
-                className="soloparent-download-btn"
+                class="soloparent-download-btn"
                 onClick={() => downloadID('back')}
               >
                 Download Back
               </button>
               <button 
-                className="soloparent-print-btn"
+                class="soloparent-print-btn"
                 onClick={printID}
               >
                 Print ID
