@@ -579,6 +579,8 @@ const SoloParentManagement = () => {
         backContainer.className = 'temp-id-container';
         backContainer.style.position = 'absolute';
         backContainer.style.left = '-9999px';
+        document.body.appendChild(backContainer);
+        
         backContainer.innerHTML = `
           <div class="id-card back">
             <div class="id-card-header">
@@ -709,20 +711,21 @@ const SoloParentManagement = () => {
               body {
                 margin: 0;
                 padding: 0;
+                font-family: Arial, sans-serif;
               }
-              .id-card {
+              .id-card-wrapper {
                 width: 3.375in;
                 height: 2.125in;
-                page-break-after: ${bulkPrintBackToBack ? 'avoid' : 'always'};
-                display: block;
+                margin: 0;
+                padding: 0;
+                page-break-after: always;
                 position: relative;
                 overflow: hidden;
               }
-              .id-card.back {
-                page-break-after: always;
-              }
-              .id-pair {
-                page-break-after: always;
+              img {
+                width: 100%;
+                height: auto;
+                display: block;
               }
             </style>
           </head>
@@ -733,12 +736,6 @@ const SoloParentManagement = () => {
       for (const [index, user] of selectedUsers.entries()) {
         // Update progress message
         setSuccessMessage(`Preparing ID ${index + 1} of ${selectedUsers.length} for printing`);
-        
-        // Create temporary elements to render the ID
-        const tempContainer = document.createElement('div');
-        tempContainer.className = 'temp-id-container';
-        tempContainer.style.position = 'absolute';
-        tempContainer.style.left = '-9999px';
         
         // Create a QR code element
         const qrContainer = document.createElement('div');
@@ -774,9 +771,16 @@ const SoloParentManagement = () => {
         });
         const qrDataUrl = qrCanvas.toDataURL('image/png', 1.0);
         
-        // Clean up
+        // Clean up QR code container
         root.unmount();
         document.body.removeChild(qrContainer);
+        
+        // Create temporary elements to render the front ID
+        const tempContainer = document.createElement('div');
+        tempContainer.className = 'temp-id-container';
+        tempContainer.style.position = 'absolute';
+        tempContainer.style.left = '-9999px';
+        document.body.appendChild(tempContainer);
         
         tempContainer.innerHTML = `
           <div class="id-card front">
@@ -850,17 +854,12 @@ const SoloParentManagement = () => {
           </div>
         `;
         
-        // Get the actual dimensions
-        const rect = tempContainer.querySelector('.id-card.front').getBoundingClientRect();
-
-        // Capture the front ID using the same options as downloadID function
+        // Capture the front ID
         const frontCanvas = await html2canvas(tempContainer.querySelector('.id-card.front'), {
           useCORS: true,
           allowTaint: true,
           backgroundColor: 'white',
           scale: 3,
-          width: rect.width,
-          height: rect.height,
           logging: false,
           onclone: (clonedDoc) => {
             const clonedElement = clonedDoc.querySelector('.id-card.front');
@@ -885,6 +884,8 @@ const SoloParentManagement = () => {
         backContainer.className = 'temp-id-container';
         backContainer.style.position = 'absolute';
         backContainer.style.left = '-9999px';
+        document.body.appendChild(backContainer);
+        
         backContainer.innerHTML = `
           <div class="id-card back">
             <div class="id-card-header">
@@ -917,19 +918,12 @@ const SoloParentManagement = () => {
           </div>
         `;
         
-        document.body.appendChild(backContainer);
-        
-        // Get the back dimensions
-        const backRect = backContainer.querySelector('.id-card.back').getBoundingClientRect();
-        
-        // Capture the back ID using the same options as downloadID function
+        // Capture the back ID
         const backCanvas = await html2canvas(backContainer.querySelector('.id-card.back'), {
           useCORS: true,
           allowTaint: true,
           backgroundColor: 'white',
           scale: 3,
-          width: backRect.width,
-          height: backRect.height,
           logging: false,
           onclone: (clonedDoc) => {
             const clonedElement = clonedDoc.querySelector('.id-card.back');
@@ -964,11 +958,17 @@ const SoloParentManagement = () => {
           }
         });
         
-        // Add to print window
+        // Add to print window - front of ID
         printWindow.document.write(`
-          <div class="id-card-container">
-            <img src="${frontCanvas.toDataURL('image/png', 1.0)}" />
-            <img src="${backCanvas.toDataURL('image/png', 1.0)}" />
+          <div class="id-card-wrapper">
+            <img src="${frontCanvas.toDataURL('image/png', 1.0)}" alt="ID Card Front" />
+          </div>
+        `);
+        
+        // Add to print window - back of ID (on a new page)
+        printWindow.document.write(`
+          <div class="id-card-wrapper">
+            <img src="${backCanvas.toDataURL('image/png', 1.0)}" alt="ID Card Back" />
           </div>
         `);
         
@@ -1698,73 +1698,73 @@ const SoloParentManagement = () => {
             <div className="soloparent-id-modal-content">
               <div className="soloparent-id-cards-container">
                 {/* Front of ID */}
-                <div class="id-card front">
-                  <div class="id-card-header">
-                    <div class="id-logos">
-                      <img src={dswdLogo} alt="DSWD Logo" class="id-logo" style={{ width: '60px', height: '60px' }} />
-                      <div class="id-title">
+                <div className="id-card front">
+                  <div className="id-card-header">
+                    <div className="id-logos">
+                      <img src={dswdLogo} alt="DSWD Logo" className="id-logo" style={{ width: '60px', height: '60px' }} />
+                      <div className="id-title">
                         <h3>SOLO PARENT IDENTIFICATION CARD</h3>
                         <h4>Republic of the Philippines</h4>
                         <h4>DSWD Region III</h4>
                       </div>
-                      <img src={mswdoLogo} alt="MSWDO Logo" class="id-logo" style={{ width: '60px', height: '60px' }} />
+                      <img src={mswdoLogo} alt="MSWDO Logo" className="id-logo" style={{ width: '60px', height: '60px' }} />
                     </div>
                   </div>
-                  <div class="id-card-body">
-                    <div class="id-left-section">
-                      <div class="id-photo-container">
+                  <div className="id-card-body">
+                    <div className="id-left-section">
+                      <div className="id-photo-container">
                         <img 
                           src={selectedIDUser.profilePic || selectedIDUser.profile_picture || avatar} 
                           alt="User" 
-                          class="id-photo"
+                          className="id-photo"
                           onError={(e) => {
                             e.target.onerror = null;
                             e.target.src = avatar;
                           }}
                         />
                       </div>
-                      <div class="id-category">
+                      <div className="id-category">
                         Category: {selectedIDUser.classification}
                       </div>
-                      <div class="id-validity-container">
-                        <span class="id-validity">
+                      <div className="id-validity-container">
+                        <span className="id-validity">
                           Valid Until: {selectedIDUser.validUntil ? new Date(selectedIDUser.validUntil).toLocaleDateString(undefined, {dateStyle: 'medium'}) : 'N/A'}
                         </span>
-                        <img src={bagongPilipinasLogo} alt="Bagong Pilipinas Logo" class="bagong-pilipinas-logo" />
+                        <img src={bagongPilipinasLogo} alt="Bagong Pilipinas Logo" className="bagong-pilipinas-logo" />
                       </div>
                     </div>
-                    <div class="id-card-container">
-                      <div class="id-card-details">
-                        <div class="id-detail">
-                          <span class="id-label">ID No:</span>
-                          <span class="id-value">{selectedIDUser.code_id || 'N/A'}</span>
+                    <div className="id-card-container">
+                      <div className="id-card-details">
+                        <div className="id-detail">
+                          <span className="id-label">ID No:</span>
+                          <span className="id-value">{selectedIDUser.code_id || 'N/A'}</span>
                         </div>
-                        <div class="id-detail">
-                          <span class="id-label">Name:</span>
-                          <span class="id-value">
+                        <div className="id-detail">
+                          <span className="id-label">Name:</span>
+                          <span className="id-value">
                             {`${selectedIDUser.first_name || ''} ${selectedIDUser.middle_name || ''} ${selectedIDUser.last_name || ''}${selectedIDUser.suffix && selectedIDUser.suffix !== 'none' ? ` ${selectedIDUser.suffix}` : ''}`}
                           </span>
                         </div>
-                        <div class="id-detail">
-                          <span class="id-label">Barangay:</span>
-                          <span class="id-value">{selectedIDUser.barangay || 'N/A'}</span>
+                        <div className="id-detail">
+                          <span className="id-label">Barangay:</span>
+                          <span className="id-value">{selectedIDUser.barangay || 'N/A'}</span>
                         </div>
-                        <div class="id-detail">
-                          <span class="id-label">Birthdate:</span>
-                          <span class="id-value">
+                        <div className="id-detail">
+                          <span className="id-label">Birthdate:</span>
+                          <span className="id-value">
                             {selectedIDUser.date_of_birth ? new Date(selectedIDUser.date_of_birth).toLocaleDateString() : 'N/A'}
                           </span>
                         </div>
-                        <div class="id-detail">
-                          <span class="id-label">Civil Status:</span>
-                          <span class="id-value">{selectedIDUser.civil_status || 'N/A'}</span>
+                        <div className="id-detail">
+                          <span className="id-label">Civil Status:</span>
+                          <span className="id-value">{selectedIDUser.civil_status || 'N/A'}</span>
                         </div>
-                        <div class="id-detail">
-                          <span class="id-label">Contact:</span>
-                          <span class="id-value">{selectedIDUser.contact_number || 'N/A'}</span>
+                        <div className="id-detail">
+                          <span className="id-label">Contact:</span>
+                          <span className="id-value">{selectedIDUser.contact_number || 'N/A'}</span>
                         </div>
                       </div>
-                      <div class="id-card-qr-container">
+                      <div className="id-card-qr-container">
                         <QRCodeSVG 
                           value={`user:${selectedIDUser?.userId}`}
                           size={120}
@@ -1779,16 +1779,16 @@ const SoloParentManagement = () => {
                 </div>
 
                 {/* Back of ID */}
-                <div class="id-card back">
-                  <div class="id-card-header">
-                    <img src={dswdLogo} alt="DSWD Logo" class="id-logo" />
-                    <div class="id-title">
+                <div className="id-card back">
+                  <div className="id-card-header">
+                    <img src={dswdLogo} alt="DSWD Logo" className="id-logo" />
+                    <div className="id-title">
                       <h3>SOLO PARENT IDENTIFICATION CARD</h3>
                       <h4>Republic of the Philippines</h4>
                       <h4>DSWD Region III</h4>
                     </div>
                   </div>
-                  <div class="terms-section">
+                  <div className="terms-section">
                     <h3>Terms and Conditions</h3>
                     <ol>
                       <li>This ID is non-transferable</li>
@@ -1797,34 +1797,34 @@ const SoloParentManagement = () => {
                       <li>Tampering invalidates this ID</li>
                     </ol>
                   </div>
-                  <div class="signature-section">
-                    <div class="signature-block">
-                      <div class="signature-line"></div>
+                  <div className="signature-section">
+                    <div className="signature-block">
+                      <div className="signature-line"></div>
                       <span>Card Holder's Signature</span>
                     </div>
-                    <div class="signature-block">
-                      <div class="signature-line"></div>
+                    <div className="signature-block">
+                      <div className="signature-line"></div>
                       <span>Authorized DSWD Official</span>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-            <div class="soloparent-id-modal-actions">
+            <div className="soloparent-id-modal-actions">
               <button 
-                class="soloparent-download-btn"
+                className="soloparent-download-btn"
                 onClick={() => downloadID('front')}
               >
                 Download Front
               </button>
               <button 
-                class="soloparent-download-btn"
+                className="soloparent-download-btn"
                 onClick={() => downloadID('back')}
               >
                 Download Back
               </button>
               <button 
-                class="soloparent-print-btn"
+                className="soloparent-print-btn"
                 onClick={printID}
               >
                 Print ID
