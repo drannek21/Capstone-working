@@ -61,7 +61,8 @@ const SoloParentManagement = () => {
     { value: 'pending_remarks', label: 'Pending Remarks' },
     { value: 'terminated', label: 'Terminated Users' },
     { value: 'renewal', label: 'Renewal' },
-    { value: 'beneficiaries', label: 'Verified Beneficiaries' }
+    { value: 'beneficiaries', label: 'Verified Beneficiaries' },
+    { value: 'not_beneficiaries', label: 'Verified Not Beneficiaries' }
   ];
 
   useEffect(() => {
@@ -945,36 +946,13 @@ const SoloParentManagement = () => {
           // Only show if user is Renewal AND their barangay_cert_documents status is Pending
           matchesStatus = user.status === 'Renewal' && user.documents && user.documents.some(doc => doc.document_type === 'barangay_cert_documents' && doc.status === 'Pending');
           break;
-        case 'beneficiaries':
-          // Only show verified users as beneficiaries
-          if (user.status !== 'Verified') {
-            matchesStatus = false;
+          case 'beneficiaries':
+            // Only show verified users who are marked as beneficiaries
+            matchesStatus = user.status === 'Verified' && user.beneficiary_status === 'beneficiary';
             break;
-          }
-          
-          // Convert income string to number for comparison
-          const income = user.income;
-          let incomeValue = 0;
-          
-          // If income is a direct number from database, use it directly
-          if (!isNaN(income)) {
-            incomeValue = parseFloat(income);
-          } else {
-            // Handle text-based income ranges
-            if (income === 'Below ₱10,000') {
-              incomeValue = 10000;
-            } else if (income === '₱11,000-₱20,000') {
-              incomeValue = 20000;
-            } else if (income === '₱21,000-₱43,000') {
-              incomeValue = 43000;
-            } else if (income === '₱44,000 and above') {
-              incomeValue = 250001; // Set high value to ensure no benefits
-            }
-          }
-          
-          // Only show benefits badge if income is strictly less than 250000
-          matchesStatus = incomeValue < 250001;
-          break;
+          case 'not_beneficiaries':
+              matchesStatus = user.status === 'Verified' && user.beneficiary_status === 'non-beneficiary';
+              break;  
         default:
           matchesStatus = true;
       }

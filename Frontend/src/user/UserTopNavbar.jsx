@@ -137,16 +137,52 @@ const UserTopNavbar = ({ onNavigate }) => {
         const userId = localStorage.getItem("UserId");
         if (!userId) return;
 
+        // Fetch user details to get beneficiary status
+        const userResponse = await fetch(`${API_BASE_URL}/getUserDetails`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId }),
+        });
+        const userData = await userResponse.json();
+        const isBeneficiary = userData.beneficiary_status === 'beneficiary';
+
         // Fetch regular notifications
         const notificationsResponse = await fetch(`http://localhost:8081/notifications/${userId}`);
         const notificationsData = await notificationsResponse.json();
 
         // Fetch events
+        // Inside the fetchNotifications function, modify the events filtering
         const eventsResponse = await fetch(`http://localhost:8081/api/events?userId=${userId}`);
         if (!eventsResponse.ok) {
           throw new Error('Failed to fetch events');
         }
         const eventsData = await eventsResponse.json();
+        
+        // Filter events based on visibility, beneficiary status, and user status
+        const filteredEvents = Array.isArray(eventsData) ? eventsData.filter(event => {
+        // Hide events for users with Incomplete status
+        if (userData.status === 'Incomplete') return false;
+        
+        if (!event.visibility || event.visibility === 'everyone') return true;
+        if (event.visibility === 'beneficiaries') return isBeneficiary;
+        if (event.visibility === 'not_beneficiaries') return !isBeneficiary;
+        return false;
+        }) : [];
+        
+        // Convert filtered events to notification format
+        const eventNotifications = filteredEvents.map(event => ({
+        id: `event_${event.id}`,
+        type: 'event',
+        message: `New Event: ${event.title}`,
+        details: {
+          date: `${formatDate(event.startDate)} - ${formatDate(event.endDate)}`,
+          time: `${formatTime(event.startTime)} - ${formatTime(event.endTime)}`,
+          location: event.location,
+          status: event.status
+        },
+        created_at: event.created_at || new Date().toISOString(),
+        read: event.is_read === 1
+        }));
 
         // Fetch follow-up notifications
         let followupData = [];
@@ -162,19 +198,7 @@ const UserTopNavbar = ({ onNavigate }) => {
         }
 
         // Convert events to notification format (only if eventsData is an array)
-        const eventNotifications = Array.isArray(eventsData) ? eventsData.map(event => ({
-          id: `event_${event.id}`,
-          type: 'event',
-          message: `New Event: ${event.title}`,
-          details: {
-            date: `${formatDate(event.startDate)} - ${formatDate(event.endDate)}`,
-            time: `${formatTime(event.startTime)} - ${formatTime(event.endTime)}`,
-            location: event.location,
-            status: event.status
-          },
-          created_at: event.created_at || new Date().toISOString(),
-          read: event.is_read === 1 // Convert MySQL TINYINT(1) to boolean
-        })) : [];
+      
 
         // Normalize follow-up notifications
         const followupNotifications = Array.isArray(followupData) ? followupData.map(notif => ({
@@ -256,11 +280,15 @@ const UserTopNavbar = ({ onNavigate }) => {
 
       if (type === 'event') {
         const eventId = notificationId.replace('event_', '');
-        await fetch(`http://localhost:8081/events/mark-as-read/${eventId}`, {
+        await fetch(`http://localhost:8081/api/events/mark-as-read/${eventId}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
           },
+          body: JSON.stringify({ 
+            userId,
+            eventId
+          }),
         });
         return;
       }

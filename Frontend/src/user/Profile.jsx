@@ -820,6 +820,15 @@ const Profile = () => {
     }
   };
 
+  const deletePreviousBarangayCert = async () => {
+      try {
+        await axios.delete(`${API_BASE_URL}/api/documents/barangay_cert/${user.code_id}`);
+        // Update local documents state to remove the barangay certificate
+        setDocuments(prev => prev.filter(doc => doc.document_type !== 'barangay_cert_documents'));
+      } catch (error) {
+        console.error('Error deleting previous barangay certificate:', error);
+      }
+    };
   // Enhanced logging to diagnose the issue
   useEffect(() => {
     console.log('Checking if ID is expired...');
@@ -828,7 +837,10 @@ const Profile = () => {
     console.log('Is ID expired:', isIDExpired());
     if (user && isIDExpired() && user.status !== "Renewal") {
       console.log('ID is expired, updating status to Renewal...');
-      updateUserStatusToRenewal();
+      // Delete barangay certificate first, then update status
+      deletePreviousBarangayCert().then(() => {
+        updateUserStatusToRenewal();
+      });
     }
   }, [user, isIDExpired, updateUserStatusToRenewal]);
 
@@ -884,6 +896,11 @@ const Profile = () => {
                       <FontAwesomeIcon icon={faCheckCircle} />
                     )}
                     {user?.status || 'Loading...'}
+                    {user?.status === 'Verified' && (
+                      <span className={`beneficiary-status ${user?.beneficiary_status === 'beneficiary' ? 'eligible' : 'not-eligible'}`}>
+                        ({user?.beneficiary_status === 'beneficiary' ? 'Beneficiary' : 'Not Beneficiary'})
+                      </span>
+                    )}
                   </span>
                 </div>
               </div>
@@ -1189,48 +1206,7 @@ const Profile = () => {
                             </div>
                             <div className="detail-item">
                               <span className="detail-label">Monthly Income</span>
-                              <p className="detail-value">
-                                {user?.income}
-                                {user?.status === 'Verified' && user?.income && (
-                                  <span className={`benefit-badge ${
-                                    (() => {
-                                      let incomeValue = 0;
-                                      if (!isNaN(user.income)) {
-                                        incomeValue = parseFloat(user.income);
-                                      } else {
-                                        if (user.income === 'Below ₱10,000') {
-                                          incomeValue = 10000;
-                                        } else if (user.income === '₱11,000-₱20,000') {
-                                          incomeValue = 20000;
-                                        } else if (user.income === '₱21,000-₱43,000') {
-                                          incomeValue = 43000;
-                                        } else if (user.income === '₱44,000 and above') {
-                                          incomeValue = 250001;
-                                        }
-                                      }
-                                      return incomeValue < 250001 ? 'eligible' : 'not-eligible';
-                                    })()
-                                  }`}>
-                                    {(() => {
-                                      let incomeValue = 0;
-                                      if (!isNaN(user.income)) {
-                                        incomeValue = parseFloat(user.income);
-                                      } else {
-                                        if (user.income === 'Below ₱10,000') {
-                                          incomeValue = 10000;
-                                        } else if (user.income === '₱11,000-₱20,000') {
-                                          incomeValue = 20000;
-                                        } else if (user.income === '₱21,000-₱43,000') {
-                                          incomeValue = 43000;
-                                        } else if (user.income === '₱44,000 and above') {
-                                          incomeValue = 250001;
-                                        }
-                                      }
-                                      return incomeValue < 250001 ? 'Eligible for Benefits' : 'Not Eligible';
-                                    })()}
-                                  </span>
-                                )}
-                              </p>
+                              <p className="detail-value">₱{user?.income}</p>
                             </div>
                             <div className="detail-item">
                               <span className="detail-label">Contact Number</span>
@@ -1473,26 +1449,18 @@ const Profile = () => {
                 )}
 
                 {/* Add Events Section */}
-                {user?.status !== 'Declined' && (
+                {user?.status !== 'Declined' && user?.status !== 'Pending Remarks' && user?.status !== 'Terminated' && user?.status !== 'Renewal' && (
                   <div className="user-profile-announcements">
                     <div className="profile-announcements-header">
                       <h2>Events</h2>
                     </div>
                     <div className="profile-announcements-list">
-                      {(() => {
-                        const parseIncome = (income) => {
-                          if (income === 'Below ₱10,000') return 10000;
-                          if (income === '₱11,000-₱20,000') return 20000;
-                          if (income === '₱21,000-₱43,000') return 43000;
-                          if (income === '₱44,000 and above') return 250001;
-                          return 0;
-                        };
-                        const incomeValue = parseIncome(user?.income);
-                        const isEligible = incomeValue < 250001;
+                    {(() => {
+                        const isBeneficiary = user?.beneficiary_status === 'beneficiary';
                         const filteredEvents = events.filter(event => {
                           if (!event.visibility || event.visibility === 'everyone') return true;
-                          if (event.visibility === 'beneficiaries') return isEligible;
-                          if (event.visibility === 'not_beneficiaries') return !isEligible;
+                          if (event.visibility === 'beneficiaries') return isBeneficiary;
+                          if (event.visibility === 'not_beneficiaries') return !isBeneficiary;
                           return false;
                         });
                         return filteredEvents.length > 0 ? (

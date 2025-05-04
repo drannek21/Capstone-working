@@ -62,39 +62,38 @@ router.get('/', async (req, res) => {
     const [isSuperadmin] = await queryDatabase(superadminQuery, [userId]);
 
     if (isSuperadmin) {
-      // For superadmin, show all events
-      const query = 'SELECT * FROM events ORDER BY created_at DESC';
-      const events = await queryDatabase(query);
+      const query = `
+        SELECT e.*, CASE WHEN er.id IS NOT NULL THEN 1 ELSE 0 END as is_read
+        FROM events e
+        LEFT JOIN event_reads er ON e.id = er.event_id AND er.user_id = ?
+        ORDER BY e.created_at DESC`;
+      const events = await queryDatabase(query, [userId]);
       return res.json(events);
     }
 
     // For regular users, check status
-    const userStatusQuery = `
-      SELECT status 
-      FROM users 
-      WHERE id = ?`;
+    const userStatusQuery = `SELECT status FROM users WHERE id = ?`;
     const [userStatus] = await queryDatabase(userStatusQuery, [userId]);
 
     if (!userStatus) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // For declined users, only show past events
     let query = `
-      SELECT * 
-      FROM events 
+      SELECT e.*, CASE WHEN er.id IS NOT NULL THEN 1 ELSE 0 END as is_read
+      FROM events e
+      LEFT JOIN event_reads er ON e.id = er.event_id AND er.user_id = ?
       WHERE 1=1`;
 
-    const params = [];
+    const params = [userId];
     
     if (userStatus.status === 'Declined') {
       const currentDate = new Date().toISOString().split('T')[0];
-      query += ` AND (startDate < ? OR status = 'Completed')`;
+      query += ` AND (e.startDate < ? OR e.status = 'Completed')`;
       params.push(currentDate);
     }
 
-    // Always order by created_at DESC for consistent ordering
-    query += ` ORDER BY created_at DESC`;
+    query += ` ORDER BY e.created_at DESC`;
     
     const events = await queryDatabase(query, params);
     res.json(events);
@@ -104,17 +103,43 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Update mark as read endpoint
+router.put('/mark-as-read/:id', async (req, res) => {
+  const { id } = req.params;
+  const userId = req.body.userId;
+  
+  try {
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
+
+    await queryDatabase(
+      'INSERT INTO event_reads (event_id, user_id) VALUES (?, ?) ON DUPLICATE KEY UPDATE read_at = CURRENT_TIMESTAMP',
+      [id, userId]
+    );
+    
+    res.json({ success: true, message: 'Event marked as read' });
+  } catch (error) {
+    console.error('Error marking event as read:', error);
+    res.status(500).json({ error: 'Error marking event as read' });
+  }
+});
+
 // Get all events
 router.get('/all', async (req, res) => {
   try {
-    const query = 'SELECT * FROM events ORDER BY created_at DESC';
-    const results = await queryDatabase(query);
+    const query = `
+      SELECT e.*, 
+        CASE WHEN er.id IS NOT NULL THEN 1 ELSE 0 END as is_read
+      FROM events e
+      LEFT JOIN event_reads er ON e.id = er.event_id AND er.user_id = ?
+      ORDER BY e.created_at DESC`;
+    const results = await queryDatabase(query, [req.query.userId || 0]);
     
     res.json(results.map(event => ({
       ...event,
-      is_read: event.is_read || 0,
       created_at: event.created_at || new Date().toISOString(),
-      barangay: event.barangay || 'All'  // Ensure barangay has a default value
+      barangay: event.barangay || 'All'
     })));
   } catch (err) {
     console.error('Error fetching events:', err);

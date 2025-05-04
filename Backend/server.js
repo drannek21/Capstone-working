@@ -565,7 +565,7 @@ app.get('/declineInfo', async (req, res) => {
 app.get('/verifiedUsersSA', async (req, res) => {
   try {
     const users = await queryDatabase(`
-      SELECT u.id AS userId, u.email, u.name, u.status, u.code_id, u.profilePic,
+      SELECT u.id AS userId, u.email, u.name, u.status, u.code_id, u.profilePic,  u.beneficiary_status,
              s1.first_name, s1.middle_name, s1.last_name, s1.suffix, s1.age, s1.gender, 
              s1.date_of_birth, s1.place_of_birth, s1.suffix, s1.barangay, s1.education, 
              s1.civil_status, s1.occupation, s1.religion, s1.company, 
@@ -3018,8 +3018,48 @@ app.get('/polulations-users', async (req, res) => {
   }
 });
 
-// BENEFICIARY LOGIC: Only users with income BELOW 250001 are beneficiaries.
-// Users with income 250001 or above (e.g., '₱44,000 and above', 300000, etc.) are non-beneficiaries.
+app.post('/update-beneficiary-status', async (req, res) => {
+  try {
+    const { code_id, status } = req.body;
+    
+    if (!code_id || !status) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Code ID and status are required' 
+      });
+    }
+
+    // Validate status value
+    if (!['beneficiary', 'non-beneficiary'].includes(status)) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid status value. Must be either "beneficiary" or "non-beneficiary"' 
+      });
+    }
+
+    const query = 'UPDATE users SET beneficiary_status = ? WHERE code_id = ?';
+    const result = await queryDatabase(query, [status, code_id]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    res.json({ 
+      success: true, 
+      message: `User beneficiary status updated to ${status}` 
+    });
+  } catch (error) {
+    console.error('Error updating beneficiary status:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to update beneficiary status',
+      details: error.message 
+    });
+  }
+});
 app.get('/beneficiaries-users', async (req, res) => {
   try {
     console.log('Fetching beneficiaries data...');
@@ -3029,17 +3069,9 @@ app.get('/beneficiaries-users', async (req, res) => {
       SELECT 
         u.id,
         u.code_id,
-        s1.income,
-        au.accepted_at,
-        CASE 
-          WHEN s1.income = 'Below ₱10,000' THEN 10000
-          WHEN s1.income = '₱11,000-₱20,000' THEN 20000
-          WHEN s1.income = '₱21,000-₱43,000' THEN 43000
-          WHEN s1.income = '₱44,000 and above' THEN 250001
-          ELSE s1.income
-        END as income_value
+        u.beneficiary_status,
+        au.accepted_at
       FROM users u
-      INNER JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
       LEFT JOIN (
         SELECT user_id, MAX(accepted_at) as accepted_at
         FROM accepted_users
@@ -3061,7 +3093,6 @@ app.get('/beneficiaries-users', async (req, res) => {
     console.log('Executing query:', query);
     console.log('Query params:', params);
     const results = await queryDatabase(query, params);
-    console.log('Query results:', JSON.stringify(results, null, 2));
     
     if (!results || results.length === 0) {
       console.log('No beneficiaries found');
@@ -3071,24 +3102,17 @@ app.get('/beneficiaries-users', async (req, res) => {
       });
     }
 
-    // Count beneficiaries and non-beneficiaries
+    // Count based on beneficiary_status
     const counts = results.reduce((acc, user) => {
-      // Ensure numeric conversion and trim spaces
-      const incomeValue = parseInt((user.income_value || '').toString().replace(/[^0-9]/g, '')) || 0;
-      console.log(`User ${user.id} - Income: ${user.income}, Value: ${incomeValue}`);
-      
-      if (incomeValue >= 250001) {
-        console.log(`User ${user.id} is a non-beneficiary (income: ${incomeValue})`);
-        acc.nonBeneficiaries++;
-      } else {
-        console.log(`User ${user.id} is a beneficiary (income: ${incomeValue})`);
+      if (user.beneficiary_status === 'beneficiary') {
         acc.beneficiaries++;
+      } else if (user.beneficiary_status === 'non-beneficiary') {
+        acc.nonBeneficiaries++;
       }
       return acc;
     }, { beneficiaries: 0, nonBeneficiaries: 0 });
 
     console.log('Final beneficiary counts:', counts);
-    
     res.json(counts);
   } catch (error) {
     console.error('Error fetching beneficiaries data:', error);

@@ -1299,4 +1299,15 @@ router.get('/follow_up_documents', async (req, res) => {
   }
 });
 
+router.delete('/barangay_cert/:code_id', async (req, res) => {
+  try {
+    const { code_id } = req.params;
+    await queryDatabase('DELETE FROM barangay_cert_documents WHERE code_id = ?', [code_id]);
+    res.json({ message: 'Barangay certificate deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting barangay certificate:', error);
+    res.status(500).json({ error: 'Failed to delete barangay certificate' });
+  }
+});
+
 module.exports = router;

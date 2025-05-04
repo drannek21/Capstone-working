@@ -25,6 +25,7 @@ const [acceptAllLoading, setAcceptAllLoading] = useState(false);
   const [isTableScrollable, setIsTableScrollable] = useState(false);
   const [touchStart, setTouchStart] = useState(null);
   const tableContainerRef = useRef(null);
+  const [showBeneficiaryModal, setShowBeneficiaryModal] = useState(false);
 
   // New state for classification dropdown
   const [classificationOptions] = useState([
@@ -173,13 +174,11 @@ const [acceptAllLoading, setAcceptAllLoading] = useState(false);
     if (!selectedApplication) return;
     
     try {
-      // For decline action, check if remarks are provided
       if (action === "Decline" && !remarks.trim()) {
         alert("Please provide remarks for declining.");
         return;
       }
   
-      // Log to verify the correct email is being sent
       console.log('User email:', selectedApplication.email);
   
       const response = await axios.post('http://localhost:8081/updateUserStatus', {
@@ -189,27 +188,30 @@ const [acceptAllLoading, setAcceptAllLoading] = useState(false);
         email: selectedApplication.email,
         firstName: selectedApplication.first_name,
         action: action,
-        // Add document status update for acceptance
         updateDocumentStatus: action === "Accept" ? true : false,
-        // Add document type for follow-up documents
         documentType: selectedApplication.document_type,
-        // Add new status for documents
         documentStatus: action === "Accept" ? "Approved" : "Declined"
       });
   
       if (response.status === 200) {
-        // Show success message
         const message = action === "Accept" 
           ? "Application accepted and email notification sent! Documents status updated to Approved." 
           : "Application declined and email notification sent!";
-        alert(message);
         
-        // Refresh the applications list
-        await fetchApplications();
-        
-        // Close modal and reset state
-        closeModal();
-        setRemarks("");
+        if (action === "Accept") {
+          const tempApplication = { ...selectedApplication }; // Store application data
+          alert(message);
+          await fetchApplications();
+          setRemarks("");
+          closeModal();
+          setSelectedApplication(tempApplication); // Restore application data
+          setShowBeneficiaryModal(true);
+        } else {
+          alert(message);
+          await fetchApplications();
+          setRemarks("");
+          closeModal();
+        }
       }
     } catch (error) {
       console.error('Error updating status:', error);
@@ -217,7 +219,30 @@ const [acceptAllLoading, setAcceptAllLoading] = useState(false);
       alert(`Error updating application status: ${errorMessage}. Please try again.`);
     }
   };
-
+  const handleBeneficiaryStatus = async (status) => {
+    try {
+      if (!selectedApplication || !selectedApplication.code_id) {
+        alert('Error: Application data is missing');
+        return;
+      }
+  
+      const response = await axios.post('http://localhost:8081/update-beneficiary-status', {
+        code_id: selectedApplication.code_id,
+        status: status
+      });
+  
+      if (response.data.success) {
+        setShowBeneficiaryModal(false);
+        alert('Application accepted and beneficiary status updated successfully!');
+        await fetchApplications(); // Refresh the applications list
+      } else {
+        throw new Error(response.data.error || 'Failed to update beneficiary status');
+      }
+    } catch (error) {
+      console.error('Error updating beneficiary status:', error);
+      alert(`Error updating beneficiary status: ${error.response?.data?.error || error.message}`);
+    }
+  };
   // Accept All Follow-up Documents
   const handleAcceptAllFollowups = async () => {
     if (!selectedApplication || !selectedApplication.documents) return;
@@ -1036,6 +1061,30 @@ const [acceptAllLoading, setAcceptAllLoading] = useState(false);
           </div>
         </div>
       )}
+       {showBeneficiaryModal && selectedApplication && (
+      <div className="modal-overlay">
+        <div className="modal-content">
+          <h3>Subsidy Status</h3>
+          <p>Is this solo parent qualified to receive subsidy??</p>
+          <p>Solo Parent: {selectedApplication.first_name} {selectedApplication.last_name}</p>
+          <p>Monthly Income: {selectedApplication.income}</p>
+          <div className="modal-buttons">
+            <button 
+              className="btn-accept-btnsadmin"
+              onClick={() => handleBeneficiaryStatus('beneficiary')}
+            >
+              <i className="fas fa-check"></i> Yes, Qualified as Subsidy
+            </button>
+            <button 
+              className="btn decline-btnsadmin"
+              onClick={() => handleBeneficiaryStatus('non-beneficiary')}
+            >
+              <i className="fas fa-times"></i> No, Not Qualified
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     </div>
   );
 };
