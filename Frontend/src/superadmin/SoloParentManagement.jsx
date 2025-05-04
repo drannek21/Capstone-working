@@ -27,6 +27,10 @@ const SoloParentManagement = () => {
   const [selectedIDUser, setSelectedIDUser] = useState(null);
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [bulkPrintBackToBack, setBulkPrintBackToBack] = useState(true);
+  const [showRevokeModal, setShowRevokeModal] = useState(false);
+  const [revokeUser, setRevokeUser] = useState(null);
+  const [remarks, setRemarks] = useState("");
+  const [adminId, setAdminId] = useState("");
 
   const barangays = [
     'All',
@@ -67,6 +71,9 @@ const SoloParentManagement = () => {
   ];
 
   useEffect(() => {
+    const storedAdminId = localStorage.getItem('adminId');
+    const storedSuperadminId = localStorage.getItem('superadminId');
+    setAdminId(storedAdminId || storedSuperadminId);
     fetchVerifiedUsers();
     checkTableScroll();
     window.addEventListener('resize', checkTableScroll);
@@ -1094,6 +1101,68 @@ const SoloParentManagement = () => {
     document.body.style.overflow = 'auto';
   };
 
+  const openRevokeModal = (user) => {
+    setRevokeUser(user);
+    setRemarks("");
+    setShowRevokeModal(true);
+  };
+
+  const closeRevokeModal = () => {
+    setRevokeUser(null);
+    setRemarks("");
+    setShowRevokeModal(false);
+  };
+
+  const handleRevoke = async () => {
+    if (!revokeUser || !remarks.trim()) return;
+    
+    try {
+      setSuccessMessage('Processing...');
+      setShowSuccessModal(true);
+      
+      // Get the user ID
+      const userId = revokeUser.id || revokeUser.user_id || revokeUser.userId;
+      
+      // Get the logged in user info
+      const loggedInUser = JSON.parse(localStorage.getItem('loggedInUser') || '{}');
+      const loggedInUserId = localStorage.getItem('UserId') || localStorage.getItem('id');
+      
+      // Create the payload
+      const payload = {
+        code_id: revokeUser.code_id,
+        remarks: remarks,
+        user_id: userId
+      };
+      
+      // Check if the logged in user is a superadmin or admin
+      if (loggedInUser.role === 'superadmin') {
+        payload.superadmin_id = loggedInUserId;
+      } else {
+        payload.admin_id = loggedInUserId;
+      }
+      
+      console.log('Sending payload:', payload);
+      
+      // Use the saveRemarks endpoint
+      const response = await axios.post('http://localhost:8081/saveRemarks', payload);
+      
+      if (response.data) {
+        // Refresh the verified users list
+        await fetchVerifiedUsers();
+        closeRevokeModal();
+        
+        setSuccessMessage('User status changed to Pending Remarks');
+        setTimeout(() => setShowSuccessModal(false), 2000);
+      } else {
+        throw new Error('Failed to update status');
+      }
+    } catch (err) {
+      console.error('Error revoking status:', err);
+      setSuccessMessage('Failed to update status: ' + (err.message || 'Unknown error'));
+      setTimeout(() => setShowSuccessModal(false), 2000);
+    }
+  };
+
   return (
     <div className="solo-parent-container">
       <div className="header-section">
@@ -1181,9 +1250,18 @@ const SoloParentManagement = () => {
                     <i className="fas fa-eye"></i> View
                   </button>
                   {user.status === 'Verified' && (
-                    <button className="btn download-btn" onClick={() => openIDModal(user)}>
-                      <i className="fas fa-download"></i> Download ID
-                    </button>
+                    <>
+                      <button className="btn download-btn" onClick={() => openIDModal(user)}>
+                        <i className="fas fa-download"></i> Download ID
+                      </button>
+                      <button 
+                        className="btn decline-btn" 
+                        onClick={() => openRevokeModal(user)}
+                        title="Revoke verification status"
+                      >
+                        <i className="fas fa-ban"></i> Revoke
+                      </button>
+                    </>
                   )}
                 </td>
               </tr>
@@ -1677,6 +1755,59 @@ const SoloParentManagement = () => {
             <div className="soloparent-success-content">
               <i className="fas fa-check-circle"></i>
               <p>{successMessage}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Revoke Verification Modal */}
+      {showRevokeModal && revokeUser && (
+        <div className="solo-parent-modal-overlay" onClick={closeRevokeModal}>
+          <div className="solo-parent-modal solo-parent-modal-small" onClick={(e) => e.stopPropagation()}>
+            <div className="solo-parent-modal-header">
+              <h3>Add Remarks for Revocation</h3>
+              <button 
+                className="close-btn"
+                onClick={closeRevokeModal}
+              >
+                &times;
+              </button>
+            </div>
+            <div className="solo-parent-modal-content compact">
+              <div className="details-grid compact">
+                <div className="detail-item">
+                  <span className="label">Name:</span>
+                  <span className="value">
+                    {`${revokeUser.first_name || ''} ${revokeUser.middle_name || ''} ${revokeUser.last_name || ''}${revokeUser.suffix && revokeUser.suffix !== 'none' ? ` ${revokeUser.suffix}` : ''}`}
+                  </span>
+                </div>
+                <div className="detail-item">
+                  <span className="label">Code ID:</span>
+                  <span className="value">{revokeUser.code_id}</span>
+                </div>
+              </div>
+              <div className="remarks-section compact">
+                <label>Add remarks for revocation:</label>
+                <textarea
+                  value={remarks}
+                  onChange={(e) => setRemarks(e.target.value)}
+                  placeholder="Enter reason for revocation"
+                  rows="3"
+                  className="compact-textarea"
+                />
+              </div>
+            </div>
+            <div className="solo-parent-modal-footer">
+              <button 
+                className="btn view-btn" 
+                onClick={handleRevoke}
+                disabled={!remarks.trim()}
+              >
+                Save Remarks
+              </button>
+              <button className="btn decline-btn" onClick={closeRevokeModal}>
+                Cancel
+              </button>
             </div>
           </div>
         </div>
