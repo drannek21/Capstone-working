@@ -599,8 +599,8 @@ const SDashboard = () => {
     }]
   };
 
-  const getFamilyAgeChartOptions = () => {
-    // Static mock data for family member ages
+  const getAgeChartOptions = () => {
+    // Static mock data for ages
     const mockAgeData = [
       { age: '0', count: 8 },
       { age: '1', count: 5 },
@@ -611,21 +611,12 @@ const SDashboard = () => {
       { age: '6', count: 10 },
       { age: '7', count: 8 },
       { age: '8', count: 7 },
-      { age: '9', count: 5 },
-      { age: '10', count: 6 },
-      { age: '11', count: 4 },
-      { age: '12', count: 7 },
-      { age: '13', count: 3 },
-      { age: '14', count: 5 },
-      { age: '15', count: 8 },
-      { age: '16', count: 9 },
-      { age: '17', count: 7 },
-      { age: '18', count: 6 }
+      { age: '9', count: 5 }
     ];
     
     return {
       title: {
-        text: 'Age Distribution of Family Members',
+        text: 'Age (lowest to highest)',
         left: 'center',
         textStyle: {
           fontSize: 16,
@@ -635,35 +626,96 @@ const SDashboard = () => {
       tooltip: {
         trigger: 'axis',
         formatter: function(params) {
-          return `Age ${params[0].name}: ${params[0].value} members`;
+          return `Age ${params[0].name}`;
         }
       },
       xAxis: {
         type: 'category',
-        name: 'Age',
         data: mockAgeData.map(item => item.age),
         axisLabel: {
-          interval: 0,
-          rotate: 45
+          interval: 0
         }
       },
       yAxis: {
         type: 'value',
-        name: 'Count'
+        show: false
       },
       series: [
         {
-          name: 'Count',
           type: 'bar',
-          data: mockAgeData.map(item => item.count),
+          data: mockAgeData.map(() => 1), // All bars same height
           label: {
             show: true,
             position: 'top',
-            formatter: '{c}'
+            formatter: function(params) {
+              return mockAgeData[params.dataIndex].age;
+            }
           },
           itemStyle: {
-            color: '#5470C6'
+            color: '#91CC75'
           }
+        }
+      ]
+    };
+  };
+
+  const getChildrenCountChartOptions = () => {
+    // Static mock data for children counts
+    const mockChildrenData = [
+      { count: 1, label: '1 child', value: 15 },
+      { count: 2, label: '2 children', value: 25 },
+      { count: 3, label: '3 children', value: 20 },
+      { count: 4, label: '4 children', value: 18 },
+      { count: 5, label: '5+ children', value: 12 }
+    ];
+    
+    return {
+      title: {
+        text: 'Number of Children',
+        left: 'center',
+        textStyle: {
+          fontSize: 16,
+          fontWeight: 'bold'
+        }
+      },
+      tooltip: {
+        trigger: 'item',
+        formatter: '{b}: {c} families ({d}%)'
+      },
+      legend: {
+        orient: 'vertical',
+        left: 'left',
+        data: mockChildrenData.map(item => item.label)
+      },
+      series: [
+        {
+          name: 'Children Count',
+          type: 'pie',
+          radius: ['40%', '70%'],
+          avoidLabelOverlap: false,
+          itemStyle: {
+            borderRadius: 10,
+            borderColor: '#fff',
+            borderWidth: 2
+          },
+          label: {
+            show: false,
+            position: 'center'
+          },
+          emphasis: {
+            label: {
+              show: true,
+              fontSize: '18',
+              fontWeight: 'bold'
+            }
+          },
+          labelLine: {
+            show: false
+          },
+          data: mockChildrenData.map(item => ({
+            name: item.label,
+            value: item.value
+          }))
         }
       ]
     };
@@ -871,7 +923,7 @@ const SDashboard = () => {
         </div>
 
         <div className="superadmin-chart-card">
-          <h2>Age Distribution</h2>
+          <h2>Application Status</h2>
           <ReactECharts 
             ref={(e) => { chartsRef.current[1] = e; }}
             option={ageDistributionOption}
@@ -880,7 +932,7 @@ const SDashboard = () => {
         </div>
 
         <div className="superadmin-chart-card">
-          <h2>Employment Status</h2>
+          <h2>Beneficiary Status</h2>
           <ReactECharts 
             ref={(e) => { chartsRef.current[2] = e; }}
             option={employmentOption}
@@ -889,10 +941,19 @@ const SDashboard = () => {
         </div>
 
         <div className="superadmin-chart-card">
-          <h2>Age Distribution of Family Members</h2>
+          <h2>Age (lowest to highest)</h2>
           <ReactECharts 
             ref={(e) => { chartsRef.current[3] = e; }}
-            option={getFamilyAgeChartOptions()}
+            option={getAgeChartOptions()}
+            style={{ height: '300px', width: '100%' }}
+          />
+        </div>
+
+        <div className="superadmin-chart-card">
+          <h2>Number of Children</h2>
+          <ReactECharts 
+            ref={(e) => { chartsRef.current[4] = e; }}
+            option={getChildrenCountChartOptions()}
             style={{ height: '300px', width: '100%' }}
           />
         </div>
