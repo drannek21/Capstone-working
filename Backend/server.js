@@ -1092,6 +1092,7 @@ app.post('/updateUserStatus', async (req, res) => {
     }
   }
 });
+
 app.post('/updateDocumentStatus', async (req, res) => {
   const { document_type, status, rejection_reason, file_name } = req.body;
   let connection;
@@ -3596,6 +3597,73 @@ app.get('/family-age-analytics', async (req, res) => {
       error: 'Failed to fetch family member age analytics', 
       details: error.message,
       stack: error.stack 
+    });
+  }
+});
+
+app.post('/update-beneficiary-status', async (req, res) => {
+  const { code_id, status } = req.body;
+  
+  // Validate required fields
+  if (!code_id || !status) {
+    return res.status(400).json({ 
+      error: 'Missing required fields',
+      required: ['code_id', 'status']
+    });
+  }
+
+  try {
+    // First, get the user_id from the code_id
+    const userQuery = await queryDatabase('SELECT id FROM users WHERE code_id = ?', [code_id]);
+    
+    if (!userQuery || userQuery.length === 0) {
+      return res.status(404).json({ error: 'User not found with this code_id' });
+    }
+    
+    const user_id = userQuery[0].id;
+    
+    // Get superadmin ID (using the first superadmin in the system for now)
+    const superadminQuery = await queryDatabase('SELECT id FROM superadmin LIMIT 1');
+    
+    if (!superadminQuery || superadminQuery.length === 0) {
+      return res.status(500).json({ error: 'No superadmin found in the system' });
+    }
+    
+    const superadmin_id = superadminQuery[0].id;
+    
+    // Convert status to the format expected by the database
+    const beneficiary_status = status.toLowerCase();
+    
+    // Validate beneficiary_status value
+    if (!['beneficiary', 'non-beneficiary'].includes(beneficiary_status)) {
+      return res.status(400).json({ 
+        error: 'Invalid beneficiary_status',
+        allowed_values: ['beneficiary', 'non-beneficiary']
+      });
+    }
+    
+    // Update beneficiary status
+    const updateResult = await queryDatabase(
+      'UPDATE users SET beneficiary_status = ? WHERE id = ?',
+      [beneficiary_status, user_id]
+    );
+    
+    if (updateResult.affectedRows === 0) {
+      return res.status(500).json({ error: 'No rows updated - possible database error' });
+    }
+    
+    res.json({ 
+      success: true,
+      message: `User beneficiary status updated to ${beneficiary_status}`,
+      user_id,
+      new_status: beneficiary_status
+    });
+    
+  } catch (err) {
+    console.error('Database error:', err);
+    res.status(500).json({ 
+      error: 'Database operation failed',
+      details: err.message
     });
   }
 });

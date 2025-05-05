@@ -225,7 +225,7 @@ const [acceptAllLoading, setAcceptAllLoading] = useState(false);
         alert('Error: Application data is missing');
         return;
       }
-  
+
       const response = await axios.post('http://localhost:8081/update-beneficiary-status', {
         code_id: selectedApplication.code_id,
         status: status
@@ -1071,13 +1071,13 @@ const [acceptAllLoading, setAcceptAllLoading] = useState(false);
           <div className="modal-buttons">
             <button 
               className="btn-accept-btnsadmin"
-              onClick={() => handleBeneficiaryStatus('beneficiary')}
+              onClick={() => handleBeneficiaryStatus('Beneficiary')}
             >
               <i className="fas fa-check"></i> Yes, Qualified as Subsidy
             </button>
             <button 
               className="btn decline-btnsadmin"
-              onClick={() => handleBeneficiaryStatus('non-beneficiary')}
+              onClick={() => handleBeneficiaryStatus('Non-Beneficiary')}
             >
               <i className="fas fa-times"></i> No, Not Qualified
             </button>
