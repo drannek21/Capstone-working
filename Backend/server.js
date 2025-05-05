@@ -630,10 +630,10 @@ app.get('/verifiedUsersSA', async (req, res) => {
     // Fetch documents for each user from all document tables
     const documentTables = [
       'psa_documents',
-      'itr_documents', 
-      'med_cert_documents', 
-      'marriage_documents', 
-      'cenomar_documents', 
+      'itr_documents',
+      'med_cert_documents',
+      'marriage_documents',
+      'cenomar_documents',
       'death_cert_documents',
       'barangay_cert_documents'
     ];
@@ -1307,10 +1307,13 @@ app.post('/updateDocumentStatus', async (req, res) => {
     });
   } finally {
     if (connection) {
-      connection.release();
+      await new Promise(resolve => {
+        connection.release();
+        resolve();
+      });
     }
   }
-});
+})  ;
 
 
 app.post('/updateUserProfile', async (req, res) => {
@@ -2211,9 +2214,28 @@ app.use((err, req, res, next) => {
 
 // Set port and start server
 const PORT = process.env.PORT || 8081;
-app.listen(PORT, () => {
+try {
+  app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
     console.log(`Face authentication endpoint: http://localhost:${PORT}/api/authenticate-face`);
+  });
+} catch (err) {
+  console.error('Error starting server:', err);
+}
+
+// Add global unhandled exception handler
+process.on('uncaughtException', (err) => {
+  console.error('UNCAUGHT EXCEPTION! Shutting down...');
+  console.error(err.name, err.message);
+  console.error(err.stack);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (err) => {
+  console.error('UNHANDLED REJECTION! Shutting down...');
+  console.error(err.name, err.message);
+  console.error(err.stack);
+  process.exit(1);
 });
 
 process.on('SIGTERM', () => {
@@ -2354,9 +2376,9 @@ app.get('/api/verify-reset-token/:token', async (req, res) => {
     const { token } = req.params;
     
     if (!token) {
-      return res.status(400).json({ 
-        valid: false, 
-        error: 'Token is required' 
+      return res.status(400).json({
+        valid: false,
+        error: 'Token is required'
       });
     }
     
@@ -2367,9 +2389,9 @@ app.get('/api/verify-reset-token/:token', async (req, res) => {
     );
     
     if (!users || users.length === 0) {
-      return res.status(404).json({ 
-        valid: false, 
-        error: 'Invalid or expired token' 
+      return res.status(404).json({
+        valid: false,
+        error: 'Invalid or expired token'
       });
     }
     
@@ -2928,7 +2950,6 @@ app.get('/accepted-users', async (req, res) => {
       INNER JOIN (
         SELECT user_id, MAX(accepted_at) as latest_accepted_at
         FROM accepted_users
-        WHERE message = 'Your application has been accepted.'
         GROUP BY user_id
       ) latest_au ON u.id = latest_au.user_id
       INNER JOIN accepted_users au ON u.id = au.user_id 
@@ -2961,7 +2982,7 @@ app.get('/accepted-users', async (req, res) => {
 app.get('/polulations-users', async (req, res) => {
   try {
     console.log('Fetching population users...');
-    const { barangay, startDate, endDate } = req.query;
+    const { startDate, endDate, barangay } = req.query;
     
     // List of valid barangays
     const validBarangays = [
@@ -2974,17 +2995,16 @@ app.get('/polulations-users', async (req, res) => {
     
     let query = `
         SELECT 
-          au.id,
           au.accepted_at,
           u.status,
           s1.barangay,
           u.id as user_id,
-          u.code_id
+          u.code_id,
+          u.beneficiary_status
         FROM users u
         INNER JOIN (
           SELECT user_id, MAX(accepted_at) as accepted_at
           FROM accepted_users
-          WHERE message = 'Your application has been accepted.'
           GROUP BY user_id
         ) au ON u.id = au.user_id
         INNER JOIN accepted_users au2 ON u.id = au2.user_id 
@@ -2992,11 +3012,10 @@ app.get('/polulations-users', async (req, res) => {
         INNER JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
         WHERE u.status IN ('Verified', 'Renewal', 'Pending Remarks', 'Terminated')
     `;
-
     const params = [];
 
-    // Add barangay filter if specified and valid
-    if (barangay && validBarangays.includes(barangay)) {
+    // Add barangay filter if specified
+    if (barangay && barangay !== 'All') {
       query += ` AND s1.barangay = ?`;
       params.push(barangay);
     }
@@ -3012,7 +3031,7 @@ app.get('/polulations-users', async (req, res) => {
     console.log('Executing query:', query);
     console.log('Query params:', params);
     const results = await queryDatabase(query, params);
-    console.log('Query results:', JSON.stringify(results, null, 2));
+    console.log('Query results:', results);
     
     if (!results || results.length === 0) {
       console.log('No users found');
@@ -3037,45 +3056,209 @@ app.get('/polulations-users', async (req, res) => {
   }
 });
 
-app.post('/update-beneficiary-status', async (req, res) => {
+app.get('/populations-users', async (req, res) => {
   try {
-    const { code_id, status } = req.body;
+    console.log('Fetching population users...');
+    const { startDate, endDate, barangay } = req.query;
+    
+    let query = `
+      SELECT 
+        u.id,
+        u.code_id,
+        u.beneficiary_status,
+        au.accepted_at,
+        s1.barangay
+      FROM users u
+      LEFT JOIN (
+        SELECT user_id, MAX(accepted_at) as accepted_at
+        FROM accepted_users
+        GROUP BY user_id
+      ) au ON u.id = au.user_id
+      LEFT JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
+      WHERE u.status = 'Verified'
+    `;
+
+    const params = [];
+
+    // Add barangay filter if specified
+    if (barangay && barangay !== 'All') {
+      query += ` AND s1.barangay = ?`;
+      params.push(barangay);
+    }
+
+    // Add date range filter if specified
+    if (startDate && endDate) {
+      query += ` AND DATE(au.accepted_at) BETWEEN ? AND ?`;
+      params.push(startDate, endDate);
+    }
+
+    query += ` ORDER BY au.accepted_at DESC`;
+    
+    console.log('Executing query:', query);
+    console.log('Query params:', params);
+    const results = await queryDatabase(query, params);
+    
+    if (!results || results.length === 0) {
+      console.log('No population data found');
+      return res.json({
+        beneficiaries: 0,
+        nonBeneficiaries: 0
+      });
+    }
+
+    // Process the data by month
+    const monthlyData = {};
+    
+    results.forEach(user => {
+      if (user.accepted_at) {
+        const date = new Date(user.accepted_at);
+        const month = date.getMonth();
+        const year = date.getFullYear();
+        const key = `${year}-${month}`;
+        
+        if (!monthlyData[key]) {
+          monthlyData[key] = {
+            month,
+            year,
+            total: 0,
+            beneficiaries: 0,
+            nonBeneficiaries: 0
+          };
+        }
+        
+        monthlyData[key].total++;
+        
+        if (user.beneficiary_status === 'beneficiary') {
+          monthlyData[key].beneficiaries++;
+        } else if (user.beneficiary_status === 'non-beneficiary') {
+          monthlyData[key].nonBeneficiaries++;
+        }
+      }
+    });
+    
+    // Convert to array and sort by date
+    const monthlyArray = Object.values(monthlyData).sort((a, b) => {
+      if (a.year !== b.year) return a.year - b.year;
+      return a.month - b.month;
+    });
+    
+    console.log('Processed monthly data:', monthlyArray);
+    res.json(monthlyArray);
+  } catch (error) {
+    console.error('Error fetching population data:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch population data', 
+      details: error.message,
+      stack: error.stack 
+    });
+  }
+});
+
+app.post('/removeBeneficiary', async (req, res) => {
+  const { user_id, admin_id, superadmin_id } = req.body;
   
-    if (!code_id || !status) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Code ID and status are required' 
-      });
+  if (!user_id || (!admin_id && !superadmin_id)) {
+    return res.status(400).json({ 
+      error: 'Missing required fields',
+      required: ['user_id', 'either admin_id or superadmin_id']
+    });
+  }
+
+  try {
+    // Verify admin/superadmin credentials
+    if (superadmin_id) {
+      const superadminCheck = await queryDatabase('SELECT id FROM superadmin WHERE id = ?', [superadmin_id]);
+      if (!superadminCheck || superadminCheck.length === 0) {
+        return res.status(403).json({ error: 'Invalid superadmin credentials' });
+      }
+    } else {
+      const adminCheck = await queryDatabase('SELECT id FROM admin WHERE id = ?', [admin_id]);
+      if (!adminCheck || adminCheck.length === 0) {
+        return res.status(403).json({ error: 'Invalid admin credentials' });
+      }
     }
-
-    // Validate status value
-    if (!['beneficiary', 'non-beneficiary'].includes(status)) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Invalid status value. Must be either "beneficiary" or "non-beneficiary"' 
-      });
-    }
-
-    const query = 'UPDATE users SET beneficiary_status = ? WHERE code_id = ?';
-    const result = await queryDatabase(query, [status, code_id]);
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'User not found'
-      });
+    
+    // Update beneficiary status to non-beneficiary
+    const updateResult = await queryDatabase(
+      'UPDATE users SET beneficiary_status = ? WHERE id = ?',
+      ['non-beneficiary', user_id]
+    );
+    
+    if (updateResult.affectedRows === 0) {
+      return res.status(500).json({ error: 'No rows updated - possible database error' });
     }
     
     res.json({ 
-      success: true, 
-      message: `User beneficiary status updated to ${status}` 
+      success: true,
+      message: 'User removed as beneficiary',
+      user_id,
+      new_status: 'non-beneficiary'
     });
-  } catch (error) {
-    console.error('Error updating beneficiary status:', error);
+    
+  } catch (err) {
+    console.error('Database error:', err);
     res.status(500).json({ 
-      success: false, 
-      error: 'Failed to update beneficiary status',
-      details: error.message 
+      error: 'Database operation failed',
+      details: err.message
+    });
+  }
+});
+
+app.post('/updateBeneficiaryStatus', async (req, res) => {
+  const { user_id, beneficiary_status, admin_id, superadmin_id } = req.body;
+  
+  // Validate required fields
+  if (!user_id || !beneficiary_status || (!admin_id && !superadmin_id)) {
+    return res.status(400).json({ 
+      error: 'Missing required fields',
+      required: ['user_id', 'beneficiary_status', 'either admin_id or superadmin_id']
+    });
+  }
+
+  // Validate beneficiary_status value
+  if (!['beneficiary', 'non-beneficiary'].includes(beneficiary_status)) {
+    return res.status(400).json({ 
+      error: 'Invalid beneficiary_status',
+      allowed_values: ['beneficiary', 'non-beneficiary']
+    });
+  }
+
+  try {
+    // Verify admin/superadmin credentials
+    if (superadmin_id) {
+      const superadminCheck = await queryDatabase('SELECT id FROM superadmin WHERE id = ?', [superadmin_id]);
+      if (!superadminCheck || superadminCheck.length === 0) {
+        return res.status(403).json({ error: 'Invalid superadmin credentials' });
+      }
+    } else {
+      const adminCheck = await queryDatabase('SELECT id FROM admin WHERE id = ?', [admin_id]);
+      if (!adminCheck || adminCheck.length === 0) {
+        return res.status(403).json({ error: 'Invalid admin credentials' });
+      }
+    }
+    
+    // Update beneficiary status
+    const updateResult = await queryDatabase(
+      'UPDATE users SET beneficiary_status = ? WHERE id = ?',
+      [beneficiary_status, user_id]
+    );
+    
+    if (updateResult.affectedRows === 0) {
+      return res.status(500).json({ error: 'No rows updated - possible database error' });
+    }
+    
+    res.json({ 
+      success: true,
+      message: `User beneficiary status updated to ${beneficiary_status}`,
+      user_id,
+      new_status: beneficiary_status
+    });
+    
+  } catch (err) {
+    console.error('Database error:', err);
+    res.status(500).json({ 
+      error: 'Database operation failed',
+      details: err.message
     });
   }
 });
@@ -3083,24 +3266,32 @@ app.post('/update-beneficiary-status', async (req, res) => {
 app.get('/beneficiaries-users', async (req, res) => {
   try {
     console.log('Fetching beneficiaries data...');
-    const { startDate, endDate } = req.query;
+    const { startDate, endDate, barangay } = req.query;
     
     let query = `
       SELECT 
         u.id,
         u.code_id,
         u.beneficiary_status,
-        au.accepted_at
+        au.accepted_at,
+        s1.barangay
       FROM users u
       LEFT JOIN (
         SELECT user_id, MAX(accepted_at) as accepted_at
         FROM accepted_users
         GROUP BY user_id
       ) au ON u.id = au.user_id
+      LEFT JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
       WHERE u.status = 'Verified'
     `;
 
     const params = [];
+
+    // Add barangay filter if specified
+    if (barangay && barangay !== 'All') {
+      query += ` AND s1.barangay = ?`;
+      params.push(barangay);
+    }
 
     // Add date range filter if specified
     if (startDate && endDate) {
@@ -3144,7 +3335,80 @@ app.get('/beneficiaries-users', async (req, res) => {
   }
 });
 
-// Add the new application-status endpoint
+// Add the beneficiaries-users endpoint
+app.get('/beneficiaries-users', async (req, res) => {
+  try {
+    console.log('Fetching beneficiaries data...');
+    const { startDate, endDate, barangay } = req.query;
+    
+    let query = `
+      SELECT 
+        u.id,
+        u.code_id,
+        u.beneficiary_status,
+        au.accepted_at,
+        s1.barangay
+      FROM users u
+      LEFT JOIN (
+        SELECT user_id, MAX(accepted_at) as accepted_at
+        FROM accepted_users
+        GROUP BY user_id
+      ) au ON u.id = au.user_id
+      LEFT JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
+      WHERE u.status = 'Verified'
+    `;
+
+    const params = [];
+
+    // Add barangay filter if specified
+    if (barangay && barangay !== 'All') {
+      query += ` AND s1.barangay = ?`;
+      params.push(barangay);
+    }
+
+    // Add date range filter if specified
+    if (startDate && endDate) {
+      query += ` AND DATE(au.accepted_at) BETWEEN ? AND ?`;
+      params.push(startDate, endDate);
+    }
+
+    query += ` ORDER BY au.accepted_at DESC`;
+    
+    console.log('Executing query:', query);
+    console.log('Query params:', params);
+    const results = await queryDatabase(query, params);
+    
+    if (!results || results.length === 0) {
+      console.log('No beneficiaries found');
+      return res.json({
+        beneficiaries: 0,
+        nonBeneficiaries: 0
+      });
+    }
+
+    // Count based on beneficiary_status
+    const counts = results.reduce((acc, user) => {
+      if (user.beneficiary_status === 'beneficiary') {
+        acc.beneficiaries++;
+      } else if (user.beneficiary_status === 'non-beneficiary') {
+        acc.nonBeneficiaries++;
+      }
+      return acc;
+    }, { beneficiaries: 0, nonBeneficiaries: 0 });
+
+    console.log('Final beneficiary counts:', counts);
+    res.json(counts);
+  } catch (error) {
+    console.error('Error fetching beneficiaries data:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch beneficiaries data', 
+      details: error.message,
+      stack: error.stack 
+    });
+  }
+});
+
+// Add the application-status endpoint
 app.get('/application-status', async (req, res) => {
   try {
     console.log('Fetching application status...');
@@ -3249,276 +3513,89 @@ app.get('/application-status', async (req, res) => {
   }
 });
 
-// Add new endpoint for admin population data
-app.get('/admin-population-users', async (req, res) => {
+app.get('/family-age-analytics', async (req, res) => {
   try {
-    console.log('Fetching population data...');
-    const { adminId, startDate, endDate } = req.query;
+    console.log('Fetching family member age analytics...');
     
-    if (!adminId) {
-      return res.status(400).json({ error: 'Admin ID is required' });
-    }
-
-    // First get the admin's barangay
-    const adminQuery = 'SELECT barangay FROM admin WHERE id = ?';
-    const adminResult = await queryDatabase(adminQuery, [adminId]);
-    
-    if (adminResult.length === 0) {
-      return res.status(404).json({ error: 'Admin not found' });
-    }
-
-    const adminBarangay = adminResult[0].barangay;
-
     let query = `
       SELECT 
-        au.id,
-        au.accepted_at,
-        u.status,
-        s1.barangay,
-        u.id as user_id,
-        u.code_id,
-        s1.employment_status,
-        s1.gender
-      FROM users u
-      INNER JOIN (
-        SELECT user_id, MAX(accepted_at) as accepted_at
-        FROM accepted_users
-        WHERE message = 'Your application has been accepted.'
-        GROUP BY user_id
-      ) au ON u.id = au.user_id
-      INNER JOIN accepted_users au2 ON u.id = au2.user_id 
-        AND au2.accepted_at = au.accepted_at
-      INNER JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
-      WHERE u.status IN ('Verified', 'Renewal', 'Pending Remarks', 'Terminated')
-      AND s1.barangay = ?
+        f.age,
+        COUNT(*) as count
+      FROM step2_family_occupation f
+      WHERE f.age IS NOT NULL AND f.age > 0 AND f.age < 120
+      GROUP BY f.age 
+      ORDER BY f.age
     `;
-
-    const params = [adminBarangay];
-
-    // Add date range filter if specified
-    if (startDate && endDate) {
-      query += ` AND DATE(au.accepted_at) BETWEEN ? AND ?`;
-      params.push(startDate, endDate);
-    }
-
-    query += ` ORDER BY au.accepted_at ASC`;
     
     console.log('Executing query:', query);
-    console.log('Query params:', params);
-    const results = await queryDatabase(query, params);
-    console.log('Query results:', JSON.stringify(results, null, 2));
-    
-    if (!results || results.length === 0) {
-      console.log('No users found for barangay:', adminBarangay);
-      return res.json([]);
-    }
-    
-    // Log unique status counts
-    const statusCounts = results.reduce((acc, curr) => {
-      acc[curr.status] = (acc[curr.status] || 0) + 1;
-      return acc;
-    }, {});
-    console.log('Status counts:', statusCounts);
-    
-    res.json(results);
-  } catch (error) {
-    console.error('Error fetching population data:', error);
-    res.status(500).json({ 
-      error: 'Failed to fetch population data', 
-      details: error.message,
-      stack: error.stack 
-    });
-  }
-});
-
-// Helper function to standardize employment status
-function standardizeEmploymentStatus(status) {
-  if (!status) return 'Not employed';
-  
-  status = status.toLowerCase().trim();
-  
-  if (status.includes('self') || status.includes('self-employed') || status.includes('business')) {
-    return 'Self-employed';
-  } else if (status.includes('employ') || status.includes('working')) {
-    return 'Employed';
-  } else {
-    return 'Not employed';
-  }
-}
-
-// Add endpoint to fetch admin info
-app.get('/admin-info', async (req, res) => {
-  try {
-    console.log('Fetching admin info...');
-    const adminId = req.query.id || req.headers['x-admin-id'];
-    
-    if (!adminId) {
-      return res.status(400).json({ error: 'Admin ID is required' });
-    }
-
-    const query = 'SELECT id, barangay FROM admin WHERE id = ?';
-    const results = await queryDatabase(query, [adminId]);
-    
-    if (!results || results.length === 0) {
-      return res.status(404).json({ error: 'Admin not found' });
-    }
-
-    res.json(results[0]);
-  } catch (error) {
-    console.error('Error fetching admin info:', error);
-    res.status(500).json({ 
-      error: 'Failed to fetch admin info', 
-      details: error.message 
-    });
-  }
-});
-
-// Add endpoint to fetch remarks data
-app.get('/remarks-users', async (req, res) => {
-  try {
-    console.log('Fetching remarks data...');
-    const { adminId, startDate, endDate } = req.query;
-    
-    if (!adminId) {
-      return res.status(400).json({ error: 'Admin ID is required' });
-    }
-
-    // First get the admin's barangay
-    const adminQuery = 'SELECT barangay FROM admin WHERE id = ?';
-    const adminResult = await queryDatabase(adminQuery, [adminId]);
-    
-    if (!adminResult || adminResult.length === 0) {
-      return res.status(404).json({ error: 'Admin not found' });
-    }
-
-    const adminBarangay = adminResult[0].barangay;
-
-    let query = `
-      SELECT 
-        ur.id,
-        ur.remarks,
-        ur.remarks_at,
-        ur.is_read,
-        ur.user_id,
-        ur.admin_id,
-        u.status,
-        s1.barangay,
-        u.code_id,
-        DATE_FORMAT(ur.remarks_at, '%Y-%m') as remark_month
-      FROM user_remarks ur
-      INNER JOIN users u ON ur.user_id = u.id
-      INNER JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
-      WHERE ur.admin_id = ?
-      AND s1.barangay = ?
-      AND ur.id IN (
-        SELECT MAX(id)
-        FROM user_remarks ur2
-        GROUP BY user_id, DATE_FORMAT(remarks_at, '%Y-%m')
-      )
-    `;
-
-    const params = [adminId, adminBarangay];
-
-    // Add date range filter if specified
-    if (startDate && endDate) {
-      query += ` AND DATE(ur.remarks_at) BETWEEN ? AND ?`;
-      params.push(startDate, endDate);
-    }
-
-    query += ` ORDER BY ur.remarks_at ASC`;
-    
-    console.log('Executing query:', query);
-    console.log('Query params:', params);
-    const results = await queryDatabase(query, params);
-    console.log('Query results:', JSON.stringify(results, null, 2));
-    
-    if (!results || results.length === 0) {
-      console.log('No remarks found for barangay:', adminBarangay);
-      return res.json([]);
-    }
-    
-    res.json(results);
-  } catch (error) {
-    console.error('Error fetching remarks data:', error);
-    res.status(500).json({ 
-      error: 'Failed to fetch remarks data', 
-      details: error.message,
-      stack: error.stack 
-    });
-  }
-});
-app.get('/:id', async (req, res) => {
-  const userId = req.params.id;
-  console.log('Fetching user data for ID:', userId);
-  
-  // Handle the search route separately
-  if (userId === 'search') {
-    const searchTerm = req.query.q;
-    if (!searchTerm) {
-      return res.status(400).json({ error: 'Search term is required' });
-    }
-    
-    try {
-      // Use LIKE query with the correct column names from your database
-      const searchQuery = `
-        SELECT id, email, name, profilePic, status
-        FROM users 
-        WHERE name LIKE ? OR email LIKE ?
-        LIMIT 20
-      `;
-      
-      const searchPattern = `%${searchTerm}%`;
-      const users = await queryDatabase(searchQuery, [searchPattern, searchPattern]);
-      
-      if (!users || users.length === 0) {
-        return res.status(404).json({ error: 'User not found' });
-      }
-      
-      res.json(users);
-    } catch (error) {
-      console.error('Error searching users:', error);
-      res.status(500).json({ error: 'Failed to search users', details: error.message });
-    }
-    return;
-  }
-  
-  try {
-    // Simpler query to get basic user data
-    const userQuery = `
-      SELECT id, email, name, profilePic, status
-      FROM users 
-      WHERE id = ?
-    `;
-    
-    const users = await queryDatabase(userQuery, [userId]);
-    
-    if (!users || users.length === 0) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    
-    const user = users[0];
-    
-    // Return user data
-    res.json(user);
-  } catch (error) {
-    console.error('Error fetching user data:', error);
-    res.status(500).json({ error: 'Failed to fetch user data', details: error.message });
-  }
-});
-
-app.get('/events', async (req, res) => {
-  try {
-    const query = 'SELECT * FROM events ORDER BY created_at DESC';
     const results = await queryDatabase(query);
     
-    res.json(results.map(event => ({
-      ...event,
-      is_read: event.is_read || 0,
-      created_at: event.created_at || new Date().toISOString(),
-      barangay: event.barangay || 'All'  // Ensure barangay has a default value
-    })));
-  } catch (err) {
-    console.error('Error fetching events:', err);
-    res.status(500).json({ error: 'Error fetching events' });
+    // Return the raw data directly
+    res.json(results);
+  } catch (error) {
+    console.error('Error fetching family member age analytics:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch family member age analytics', 
+      details: error.message,
+      stack: error.stack 
+    });
+  }
+});
+
+app.get('/family-age-analytics', async (req, res) => {
+  try {
+    console.log('Fetching family member age analytics...');
+    
+    let query = `
+      SELECT 
+        f.age,
+        COUNT(*) as count
+      FROM step2_family_occupation f
+      WHERE f.age IS NOT NULL AND f.age > 0 AND f.age < 120
+      GROUP BY f.age 
+      ORDER BY f.age
+    `;
+    
+    console.log('Executing query:', query);
+    const results = await queryDatabase(query);
+    
+    // Return the raw data directly
+    res.json(results);
+  } catch (error) {
+    console.error('Error fetching family member age analytics:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch family member age analytics', 
+      details: error.message,
+      stack: error.stack 
+    });
+  }
+});
+
+app.get('/family-age-analytics', async (req, res) => {
+  try {
+    console.log('Fetching family member age analytics...');
+    
+    let query = `
+      SELECT 
+        f.age,
+        COUNT(*) as count
+      FROM step2_family_occupation f
+      WHERE f.age IS NOT NULL AND f.age > 0 AND f.age < 120
+      GROUP BY f.age 
+      ORDER BY f.age
+    `;
+    
+    console.log('Executing query:', query);
+    const results = await queryDatabase(query);
+    
+    // Return the raw data directly
+    res.json(results);
+  } catch (error) {
+    console.error('Error fetching family member age analytics:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch family member age analytics', 
+      details: error.message,
+      stack: error.stack 
+    });
   }
 });

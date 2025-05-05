@@ -437,6 +437,77 @@ const Dashboard = () => {
     }]
   };
 
+  // Add function for age distribution chart options
+  const getAgeDistributionOptions = () => {
+    // Static mock data for family member ages
+    const mockAgeData = [
+      { age: '0', count: 8 },
+      { age: '1', count: 5 },
+      { age: '2', count: 7 },
+      { age: '3', count: 6 },
+      { age: '4', count: 9 },
+      { age: '5', count: 12 },
+      { age: '6', count: 10 },
+      { age: '7', count: 8 },
+      { age: '8', count: 7 },
+      { age: '9', count: 5 },
+      { age: '10', count: 6 },
+      { age: '11', count: 4 },
+      { age: '12', count: 7 },
+      { age: '13', count: 3 },
+      { age: '14', count: 5 },
+      { age: '15', count: 8 },
+      { age: '16', count: 9 },
+      { age: '17', count: 7 },
+      { age: '18', count: 6 }
+    ];
+    
+    return {
+      title: {
+        text: 'Age Distribution of Family Members',
+        left: 'center',
+        textStyle: {
+          fontSize: 16,
+          fontWeight: 'bold'
+        }
+      },
+      tooltip: {
+        trigger: 'axis',
+        formatter: function(params) {
+          return `Age ${params[0].name}: ${params[0].value} members`;
+        }
+      },
+      xAxis: {
+        type: 'category',
+        name: 'Age',
+        data: mockAgeData.map(item => item.age),
+        axisLabel: {
+          interval: 0,
+          rotate: 45
+        }
+      },
+      yAxis: {
+        type: 'value',
+        name: 'Count'
+      },
+      series: [
+        {
+          name: 'Count',
+          type: 'bar',
+          data: mockAgeData.map(item => item.count),
+          label: {
+            show: true,
+            position: 'top',
+            formatter: '{c}'
+          },
+          itemStyle: {
+            color: '#5470C6'
+          }
+        }
+      ]
+    };
+  };
+
   // Update the date validation function
   const validateDates = (start, end) => {
     // Clear previous error
@@ -742,6 +813,16 @@ const Dashboard = () => {
             <ReactECharts
               ref={(e) => { chartsRef.current[3] = e; }}
               option={remarksOption}
+              style={{ height: '300px' }}
+            />
+          </div>
+          
+          {/* Add Age Distribution Chart */}
+          <div className="chart-card">
+            <h2>Age Distribution of Family Members</h2>
+            <ReactECharts
+              ref={(e) => { chartsRef.current[4] = e; }}
+              option={getAgeDistributionOptions()}
               style={{ height: '300px' }}
             />
           </div>

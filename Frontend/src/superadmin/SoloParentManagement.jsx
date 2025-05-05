@@ -31,6 +31,10 @@ const SoloParentManagement = () => {
   const [revokeUser, setRevokeUser] = useState(null);
   const [remarks, setRemarks] = useState("");
   const [adminId, setAdminId] = useState("");
+  const [showRemoveBeneficiaryModal, setShowRemoveBeneficiaryModal] = useState(false);
+  const [beneficiaryToRemove, setBeneficiaryToRemove] = useState(null);
+  const [showSetBeneficiaryModal, setShowSetBeneficiaryModal] = useState(false);
+  const [beneficiaryToSet, setBeneficiaryToSet] = useState(null);
 
   const barangays = [
     'All',
@@ -1163,6 +1167,93 @@ const SoloParentManagement = () => {
     }
   };
 
+  const handleRemoveBeneficiaryClick = (user) => {
+    setBeneficiaryToRemove(user);
+    setShowRemoveBeneficiaryModal(true);
+  };
+
+  const handleRemoveBeneficiary = async () => {
+    if (!beneficiaryToRemove) return;
+    
+    try {
+      setShowRemoveBeneficiaryModal(false);
+      setSuccessMessage('Processing...');
+      setShowSuccessModal(true);
+      
+      const userId = beneficiaryToRemove.id || beneficiaryToRemove.user_id || beneficiaryToRemove.userId;
+      const loggedInUser = JSON.parse(localStorage.getItem('loggedInUser') || '{}');
+      const loggedInUserId = localStorage.getItem('UserId') || localStorage.getItem('id');
+      
+      const payload = {
+        user_id: userId,
+        admin_id: loggedInUser.role === 'admin' ? loggedInUserId : null,
+        superadmin_id: loggedInUser.role === 'superadmin' ? loggedInUserId : null
+      };
+      
+      console.log('Sending payload to removeBeneficiary:', payload);
+      
+      const response = await axios.post('http://localhost:8081/removeBeneficiary', payload);
+      
+      if (response.data.success) {
+        await fetchVerifiedUsers();
+        setSuccessMessage(response.data.message || 'User removed as beneficiary');
+        setTimeout(() => setShowSuccessModal(false), 2000);
+      } else {
+        throw new Error(response.data.error || 'Failed to remove beneficiary');
+      }
+    } catch (err) {
+      console.error('Error removing beneficiary:', err);
+      setSuccessMessage(err.response?.data?.error || err.message || 'Failed to remove beneficiary');
+      setTimeout(() => setShowSuccessModal(false), 2000);
+    } finally {
+      setBeneficiaryToRemove(null);
+    }
+  };
+
+  const handleSetBeneficiary = async () => {
+    if (!beneficiaryToSet) return;
+    
+    try {
+      setShowSetBeneficiaryModal(false);
+      setSuccessMessage('Processing...');
+      setShowSuccessModal(true);
+      
+      const userId = beneficiaryToSet.id || beneficiaryToSet.user_id || beneficiaryToSet.userId;
+      const loggedInUser = JSON.parse(localStorage.getItem('loggedInUser') || '{}');
+      const loggedInUserId = localStorage.getItem('UserId') || localStorage.getItem('id');
+      
+      const payload = {
+        user_id: userId,
+        beneficiary_status: 'beneficiary',
+        admin_id: loggedInUser.role === 'admin' ? loggedInUserId : null,
+        superadmin_id: loggedInUser.role === 'superadmin' ? loggedInUserId : null
+      };
+      
+      console.log('Sending payload to updateBeneficiaryStatus:', payload);
+      
+      const response = await axios.post('http://localhost:8081/updateBeneficiaryStatus', payload);
+      
+      if (response.data.success) {
+        await fetchVerifiedUsers();
+        setSuccessMessage(response.data.message || 'User set as beneficiary');
+        setTimeout(() => setShowSuccessModal(false), 2000);
+      } else {
+        throw new Error(response.data.error || 'Failed to set beneficiary');
+      }
+    } catch (err) {
+      console.error('Error setting beneficiary:', err);
+      setSuccessMessage(err.response?.data?.error || err.message || 'Failed to set beneficiary');
+      setTimeout(() => setShowSuccessModal(false), 2000);
+    } finally {
+      setBeneficiaryToSet(null);
+    }
+  };
+
+  const handleSetBeneficiaryClick = (user) => {
+    setBeneficiaryToSet(user);
+    setShowSetBeneficiaryModal(true);
+  };
+
   return (
     <div className="solo-parent-container">
       <div className="header-section">
@@ -1251,15 +1342,33 @@ const SoloParentManagement = () => {
                   </button>
                   {user.status === 'Verified' && (
                     <>
-                      <button className="btn download-btn" onClick={() => openIDModal(user)}>
-                        <i className="fas fa-download"></i> Download ID
-                      </button>
                       <button 
                         className="btn decline-btn" 
                         onClick={() => openRevokeModal(user)}
                         title="Revoke verification status"
                       >
                         <i className="fas fa-ban"></i> Revoke
+                      </button>
+                      {selectedStatus === 'beneficiaries' && (
+                        <button 
+                          className="btn remove-beneficiary-btn"
+                          onClick={() => handleRemoveBeneficiaryClick(user)}
+                          title="Remove beneficiary status"
+                        >
+                          <i className="fas fa-user-minus"></i> Remove Beneficiary
+                        </button>
+                      )}
+                      {selectedStatus === 'not_beneficiaries' && (
+                        <button 
+                          className="btn set-beneficiary-btn"
+                          onClick={() => handleSetBeneficiaryClick(user)}
+                          title="Set as beneficiary"
+                        >
+                          <i className="fas fa-user-plus"></i> Set as Beneficiary
+                        </button>
+                      )}
+                      <button className="btn download-btn" onClick={() => openIDModal(user)} title="Download ID">
+                        <i className="fas fa-download"></i>
                       </button>
                     </>
                   )}
@@ -1807,6 +1916,55 @@ const SoloParentManagement = () => {
               </button>
               <button className="btn decline-btn" onClick={closeRevokeModal}>
                 Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Remove Beneficiary Confirmation Modal */}
+      {showRemoveBeneficiaryModal && (
+        <div className="modal-overlay" onClick={() => setShowRemoveBeneficiaryModal(false)}>
+          <div className="confirmation-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Confirm Removal</h3>
+            <p>Are you sure you want to remove {beneficiaryToRemove?.first_name || 'this user'} as a beneficiary?</p>
+            <div className="modal-buttons">
+              <button 
+                className="btn cancel-btn" 
+                onClick={() => setShowRemoveBeneficiaryModal(false)}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn confirm-btn" 
+                onClick={handleRemoveBeneficiary}
+              >
+                Confirm Removal
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Set Beneficiary Confirmation Modal */}
+      {showSetBeneficiaryModal && (
+        <div className="modal-overlay" onClick={() => setShowSetBeneficiaryModal(false)}>
+          <div className="confirmation-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Confirm Beneficiary Status</h3>
+            <p>Are you sure you want to set {beneficiaryToSet?.first_name || 'this user'} as a beneficiary?</p>
+            <div className="modal-buttons">
+              <button 
+                className="btn cancel-btn" 
+                onClick={() => setShowSetBeneficiaryModal(false)}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn confirm-btn" 
+                onClick={handleSetBeneficiary}
+                style={{backgroundColor: '#28a745'}}
+              >
+                Confirm
               </button>
             </div>
           </div>
