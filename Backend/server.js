@@ -2982,13 +2982,13 @@ app.get('/polulations-users', async (req, res) => {
           u.code_id
         FROM users u
         INNER JOIN (
-          SELECT user_id, MAX(accepted_at) as latest_accepted_at
+          SELECT user_id, MAX(accepted_at) as accepted_at
           FROM accepted_users
           WHERE message = 'Your application has been accepted.'
           GROUP BY user_id
-        ) latest_au ON u.id = latest_au.user_id
-        INNER JOIN accepted_users au ON u.id = au.user_id 
-          AND au.accepted_at = latest_au.latest_accepted_at
+        ) au ON u.id = au.user_id
+        INNER JOIN accepted_users au2 ON u.id = au2.user_id 
+          AND au2.accepted_at = au.accepted_at
         INNER JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
         WHERE u.status IN ('Verified', 'Renewal', 'Pending Remarks', 'Terminated')
     `;
@@ -3037,113 +3037,46 @@ app.get('/polulations-users', async (req, res) => {
   }
 });
 
-app.post('/superadminUpdateStatus', async (req, res) => {
-  const { userId, status, remarks } = req.body;
-  
+app.post('/update-beneficiary-status', async (req, res) => {
   try {
-    // Get the user info first to get code_id and email
-    const userInfo = await queryDatabase(`
-      SELECT u.code_id, u.email, s1.first_name 
-      FROM users u 
-      JOIN step1_identifying_information s1 ON u.code_id = s1.code_id 
-      WHERE u.id = ?
-    `, [userId]);
-    
-    if (!userInfo || userInfo.length === 0) {
-      return res.status(404).json({ success: false, message: 'User not found' });
+    const { code_id, status } = req.body;
+  
+    if (!code_id || !status) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Code ID and status are required' 
+      });
+    }
+
+    // Validate status value
+    if (!['beneficiary', 'non-beneficiary'].includes(status)) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid status value. Must be either "beneficiary" or "non-beneficiary"' 
+      });
+    }
+
+    const query = 'UPDATE users SET beneficiary_status = ? WHERE code_id = ?';
+    const result = await queryDatabase(query, [status, code_id]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
     }
     
-    console.log('Processing renewal for user:', userInfo[0]);
-    
-    // Update user status
-    await queryDatabase('UPDATE users SET status = ? WHERE id = ?', [status, userId]);
-    console.log(`Updated user status to ${status} for userId: ${userId}`);
-    
-    // Add to accepted_users or declined_users based on status
-    if (status === "Verified") {
-      await queryDatabase(
-        'INSERT INTO accepted_users (user_id, message, accepted_at, is_read) VALUES (?, ?, NOW(), 0)', 
-        [userId, remarks || "Your renewal has been approved by a superadmin"]
-      );
-      console.log(`Added to accepted_users: ${userId}`);
-      
-      // Also set barangay_cert document status to Approved
-      if (userInfo[0] && userInfo[0].code_id) {
-        await queryDatabase(
-          'UPDATE barangay_cert_documents SET status = ? WHERE code_id = ?',
-          ['Approved', userInfo[0].code_id]
-        );
-        console.log(`Updated barangay_cert_documents status to Approved for code_id: ${userInfo[0].code_id}`);
-      }
-      
-      // Send renewal acceptance email
-      if (userInfo[0] && userInfo[0].email && userInfo[0].first_name) {
-        console.log('Preparing to send renewal acceptance email to:', userInfo[0].email);
-        
-        // Use direct email sending instead of requiring the module again
-        const emailResult = await sendRenewalStatusEmail(
-          userInfo[0].email,
-          userInfo[0].first_name,
-          "Accept"
-        );
-        
-        console.log('Renewal acceptance email result:', emailResult ? 'Sent successfully' : 'Failed to send');
-      } else {
-        console.log('Missing user information for email:', userInfo[0]);
-      }
-    } else if (status === "Renewal" && remarks && remarks.toLowerCase().includes("declined")) {
-      // Set barangay_cert document status to Rejected and delete the record
-      if (userInfo[0] && userInfo[0].code_id) {
-        console.log('[DECLINE] Attempting to DELETE barangay_cert_documents for code_id:', userInfo[0].code_id, 'remarks:', remarks);
-        const deleteResult = await queryDatabase(
-          'DELETE FROM barangay_cert_documents WHERE code_id = ?',
-          [userInfo[0].code_id]
-        );
-        console.log('[DECLINE] Delete result:', deleteResult);
-        if (deleteResult.affectedRows === 0) {
-          console.warn('[DECLINE] No barangay_cert_documents row found for code_id:', userInfo[0].code_id);
-        }
-      }
-      
-      // Send renewal decline email
-      if (userInfo[0] && userInfo[0].email && userInfo[0].first_name) {
-        console.log('Preparing to send renewal decline email to:', userInfo[0].email);
-        
-        // Use direct email sending instead of requiring the module again
-        const emailResult = await sendRenewalStatusEmail(
-          userInfo[0].email,
-          userInfo[0].first_name,
-          "Decline",
-          remarks
-        );
-        
-        console.log('Renewal decline email result:', emailResult ? 'Sent successfully' : 'Failed to send');
-      } else {
-        console.log('Missing user information for email:', userInfo[0]);
-      }
-    } else if (status === "Declined" && remarks) {
-      // Also delete barangay_cert_documents if status is Declined
-      if (userInfo[0] && userInfo[0].code_id) {
-        console.log('[DECLINE] Attempting to DELETE barangay_cert_documents for code_id:', userInfo[0].code_id, 'remarks:', remarks);
-        const deleteResult = await queryDatabase(
-          'DELETE FROM barangay_cert_documents WHERE code_id = ?',
-          [userInfo[0].code_id]
-        );
-        console.log('[DECLINE] Delete result:', deleteResult);
-        if (deleteResult.affectedRows === 0) {
-          console.warn('[DECLINE] No barangay_cert_documents row found for code_id:', userInfo[0].code_id);
-        }
-      }
-      await queryDatabase(
-        'INSERT INTO declined_users (user_id, remarks, declined_at, is_read) VALUES (?, ?, NOW(), 0)', 
-        [userId, remarks]
-      );
-    }
-    
-    res.json({ success: true, message: 'Status updated successfully' });
-  } catch (err) {
-    console.error('Error updating user status by superadmin:', err);
-    res.status(500).json({ success: false, message: 'Failed to update user status' });
+    res.json({ 
+      success: true, 
+      message: `User beneficiary status updated to ${status}` 
+    });
+  } catch (error) {
+    console.error('Error updating beneficiary status:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to update beneficiary status',
+      details: error.message 
+    });
   }
 });
 
@@ -3379,7 +3312,7 @@ app.get('/admin-population-users', async (req, res) => {
       console.log('No users found for barangay:', adminBarangay);
       return res.json([]);
     }
-
+    
     // Log unique status counts
     const statusCounts = results.reduce((acc, curr) => {
       acc[curr.status] = (acc[curr.status] || 0) + 1;
