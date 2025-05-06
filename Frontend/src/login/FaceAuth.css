@@ -30,11 +30,12 @@
     border-radius: 60%;
 }
 
-.action-btn {
+.face.action-btn {
     display: block;
     width: 100%;
     padding: 12px;
     margin: 8px 0;
+    font-size: 16px;
     border: none;
     border-radius: 8px;
     background: #2e7d32;
@@ -44,20 +45,20 @@
     transition: all 0.2s;
 }
 
-.action-btn:hover {
+.face.action-btn:hover {
     background: #1b5e20;
 }
 
-.action-btn:disabled {
+.face.action-btn:disabled {
     background: #c8e6c9;
     cursor: not-allowed;
 }
 
-.action-btn.secondary {
+.face.action-btn.secondary {
     background: #43a047;
 }
 
-.action-btn.secondary:hover {
+.face.action-btn.secondary:hover {
     background: #388e3c;
 }
 

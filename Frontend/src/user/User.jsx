@@ -36,11 +36,21 @@ const User = () => {
       if (typeof window !== 'undefined' && window.localStorage) {
         localStorage.clear();
         sessionStorage.clear();
+        
+        // Clear browser history to prevent going back
+        window.history.pushState(null, '', '/login');
+        window.history.replaceState(null, '', '/login');
+        
+        // Use href instead of replace to ensure a clean navigation
+        window.location.href = '/login';
       }
-      window.location.replace('/login');
     } catch (error) {
       console.error('Error during logout:', error);
-      window.location.replace('/login'); // Fallback to login page
+      
+      // Same approach for the error case
+      window.history.pushState(null, '', '/login');
+      window.history.replaceState(null, '', '/login');
+      window.location.href = '/login';
     }
   };
 

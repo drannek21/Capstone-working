@@ -2768,14 +2768,14 @@ app.post('/api/reset-password-request', async (req, res) => {
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
-        user: 'baisasangelo8@gmail.com',
+        user: 'santamariasoloparent@gmail.com',
         pass: process.env.EMAIL_APP_PASSWORD || 'your-app-password-here'
       }
     });
     
     // Set up email options
     const mailOptions = {
-      from: '"Solo Parent Support System" <baisasangelo8@gmail.com>',
+      from: '"Solo Parent Support System" <santamariasoloparent@gmail.com>',
       to: email,
       subject: 'Password Reset - Solo Parent Support System',
       html: `
@@ -4115,7 +4115,7 @@ app.get('/children-count-data-superadmin', async (req, res) => {
     `;
     
     const familyMembers = await queryDatabase(familyQuery, [codeIds]);
-    
+
     // Create a distribution of children counts
     const childrenCountMap = {};
     
@@ -4215,3 +4215,5 @@ app.post('/update-beneficiary-status', async (req, res) => {
     });
   }
 });
+
+

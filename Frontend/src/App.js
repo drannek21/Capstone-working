@@ -48,6 +48,7 @@ const MainContent = () => {
       {!hideNavbar && <Navbar />}
       <Routes>
         <Route path="/" element={<MainPage />} />
+        <Route path="/mainpage" element={<MainPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />

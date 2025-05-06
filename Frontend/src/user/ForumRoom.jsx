@@ -4,6 +4,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faThumbsUp, faComment, faTimes, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
 import defaultAvatar from '../assets/avatar.jpg';
 import bannedWords from '../config/bannedWords.json';
+import { Navigate } from 'react-router-dom';
 
 const ForumRoom = () => {
   const [posts, setPosts] = useState([]);
@@ -18,6 +19,7 @@ const ForumRoom = () => {
   const [showPendingModal, setShowPendingModal] = useState(false);
   const [showBadWordModal, setShowBadWordModal] = useState(false);
   const [badWordFound, setBadWordFound] = useState('');
+  const [userStatus, setUserStatus] = useState(null);
 
   const loggedInUserId = localStorage.getItem("UserId");
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
@@ -28,6 +30,7 @@ const ForumRoom = () => {
       if (!loggedInUserId) {
         console.log("No logged-in user found");
         setCurrentUser({ id: 'guest', name: 'Anonymous', profilePic: defaultAvatar });
+        setLoading(false);
         return;
       }
 
@@ -51,6 +54,8 @@ const ForumRoom = () => {
               : data.name || 'Anonymous',
             profilePic: data.profilePic || defaultAvatar
           });
+          // Store user status for access control
+          setUserStatus(data.status);
         } else {
           console.error("Error fetching user data:", data.message);
           setCurrentUser({ id: loggedInUserId, name: 'Anonymous', profilePic: defaultAvatar });
@@ -356,6 +361,15 @@ const ForumRoom = () => {
 
   if (loading) return <div className="forum-room-loading">Loading forum...</div>;
   if (error) return <div className="forum-room-error">Error: {error}</div>;
+  
+  // Check if user has access to forum based on status
+  const restrictedStatuses = ['Pending', 'Incomplete', 'Declined'];
+  const hasAccess = userStatus && userStatus === 'Verified';
+  
+  // Redirect to profile page if user doesn't have access
+  if (!hasAccess && userStatus && restrictedStatuses.includes(userStatus)) {
+    return <Navigate to="/profile" />;
+  }
 
   return (
     <div className="forum-room-container">

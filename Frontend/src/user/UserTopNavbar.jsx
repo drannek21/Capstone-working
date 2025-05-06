@@ -66,13 +66,13 @@ const UserTopNavbar = ({ onNavigate }) => {
       
       sessionStorage.clear();
       
-      // Redirect to login page
-      window.location.href = '/login';
+      // Redirect to main page
+      window.location.href = '/mainpage';
     } catch (error) {
       console.error('Logout error:', error);
       setIsLoggingOut(false);
       // Force redirect even if there's an error
-      window.location.href = '/login';
+      window.location.href = '/mainpage';
     }
   };
 
@@ -486,16 +486,19 @@ const UserTopNavbar = ({ onNavigate }) => {
             <FontAwesomeIcon icon={faUser} className="usernav-icon" />
             <span>Profile</span>
           </button>
-          <button 
-            className={`usernav-link ${activeSection === 'forum' ? 'active' : ''}`}
-            onClick={() => {
-              setActiveSection('forum');
-              if (onNavigate) onNavigate('forum');
-            }}
-          >
-            <FontAwesomeIcon icon={faComments} className="usernav-icon" />
-            <span>Forum</span>
-          </button>
+          {/* Only show forum link for verified users */}
+          {user && user.status === 'Verified' && (
+            <button 
+              className={`usernav-link ${activeSection === 'forum' ? 'active' : ''}`}
+              onClick={() => {
+                setActiveSection('forum');
+                if (onNavigate) onNavigate('forum');
+              }}
+            >
+              <FontAwesomeIcon icon={faComments} className="usernav-icon" />
+              <span>Forum</span>
+            </button>
+          )}
         </div>
 
         <div className="usernav-actions">

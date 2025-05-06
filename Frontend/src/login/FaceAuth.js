@@ -298,11 +298,11 @@ const FaceAuth = ({ onLoginSuccess, email }) => {
                     setMessage('Login success, but no callback provided.');
                 }
             } else {
-                setMessage((data && data.error) || 'Authentication failed. Please try again.');
+                setMessage((data && data.error) || 'Facial recognition unsuccessful. Your face could not be matched with our records. Please ensure proper lighting and positioning, or contact support if this issue persists.');
             }
         } catch (error) {
             console.error('Authentication error:', error);
-            setMessage(`Authentication failed: ${error.message}`);
+            setMessage(`Authentication failed: We encountered a technical issue during facial verification. Please try again or use an alternative login method.`);
             setIsAuthenticating(false);
             return { success: false };
         }
@@ -474,7 +474,7 @@ const FaceAuth = ({ onLoginSuccess, email }) => {
                 </>
             ) : (
                 <button 
-                    className="action-btn"
+                    className="face action-btn"
                     onClick={startVideo}
                 >
                     Start Camera
