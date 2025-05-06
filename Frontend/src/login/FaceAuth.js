@@ -455,7 +455,7 @@ const FaceAuth = ({ onLoginSuccess, email }) => {
             {isRunning ? (
                 <>
                     <button 
-                        className="action-btn"
+                        className="face action-btn"
                         onClick={captureFace}
                         disabled={isAuthenticating || isRegistering}
                     >
