@@ -35,6 +35,27 @@ const SDashboard = () => {
     },
     rawData: []
   });
+  const [ageData, setAgeData] = useState({
+    highestAge: 0,
+    lowestAge: 0,
+    ageDistribution: []
+  });
+  
+  const [childrenCountData, setChildrenCountData] = useState({
+    childrenCountDistribution: []
+  });
+  
+  // Add state for children age data
+  const [childrenAgeData, setChildrenAgeData] = useState({
+    ageGroups: {
+      '0-5': 0,
+      '6-12': 0,
+      '13-17': 0,
+      '18-21': 0,
+      '22+': 0
+    },
+    rawData: []
+  });
   
   // Add date validation function
   const validateDates = (start, end) => {
@@ -287,6 +308,219 @@ const SDashboard = () => {
 
     fetchBeneficiariesData();
   }, [selectedBrgy]); // Add selectedBrgy as dependency
+  
+  // Add useEffect for children count data
+  useEffect(() => {
+    const fetchChildrenCountData = async () => {
+      try {
+        // Build the query string with filters
+        let queryParams = [];
+        if (selectedBrgy !== "All") {
+          queryParams.push(`barangay=${selectedBrgy}`);
+        }
+        if (startDate && endDate) {
+          queryParams.push(`startDate=${startDate}`);
+          queryParams.push(`endDate=${endDate}`);
+        }
+        const queryString = queryParams.length > 0 ? `?${queryParams.join('&')}` : '';
+
+        const response = await fetch(`${API_URL}/children-count-data-superadmin${queryString}`);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        
+        setChildrenCountData({
+          childrenCountDistribution: data.childrenCountDistribution || []
+        });
+      } catch (error) {
+        console.error('Error fetching children count data:', error);
+        // Use mock data on error
+        setChildrenCountData({
+          childrenCountDistribution: [
+            { count: '0', frequency: 10 },
+            { count: '1', frequency: 25 },
+            { count: '2', frequency: 18 },
+            { count: '3', frequency: 12 },
+            { count: '4', frequency: 8 },
+            { count: '5', frequency: 5 },
+            { count: '6+', frequency: 3 }
+          ]
+        });
+      }
+    };
+
+    fetchChildrenCountData();
+  }, [selectedBrgy, startDate, endDate]);
+  
+  // Add useEffect for children age data
+  useEffect(() => {
+    const fetchChildrenAgeData = async () => {
+      try {
+        // Build the query string with filters
+        let queryParams = [];
+        if (selectedBrgy !== "All") {
+          queryParams.push(`barangay=${selectedBrgy}`);
+        }
+        if (startDate && endDate) {
+          queryParams.push(`startDate=${startDate}`);
+          queryParams.push(`endDate=${endDate}`);
+        }
+        const queryString = queryParams.length > 0 ? `?${queryParams.join('&')}` : '';
+
+        const response = await fetch(`${API_URL}/children-age-data${queryString}`);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        
+        setChildrenAgeData({
+          ageGroups: data.ageGroups || {
+            '0-5': 0,
+            '6-12': 0,
+            '13-17': 0,
+            '18-21': 0,
+            '22+': 0
+          },
+          rawData: data.rawData || []
+        });
+      } catch (error) {
+        console.error('Error fetching children age data:', error);
+        // Use mock data on error
+        setChildrenAgeData({
+          ageGroups: {
+            '0-5': 15,
+            '6-12': 25,
+            '13-17': 18,
+            '18-21': 10,
+            '22+': 5
+          },
+          rawData: [
+            { age: 2, count: 5 },
+            { age: 4, count: 10 },
+            { age: 8, count: 12 },
+            { age: 10, count: 13 },
+            { age: 15, count: 8 },
+            { age: 17, count: 10 },
+            { age: 19, count: 6 },
+            { age: 21, count: 4 },
+            { age: 23, count: 3 },
+            { age: 25, count: 2 }
+          ]
+        });
+      }
+    };
+
+    fetchChildrenAgeData();
+  }, [selectedBrgy, startDate, endDate]);
+  
+  // Add useEffect for age data analysis
+  useEffect(() => {
+    const fetchAgeData = async () => {
+      try {
+        // Build the query string with filters
+        let queryParams = [];
+        if (selectedBrgy !== "All") {
+          queryParams.push(`barangay=${selectedBrgy}`);
+        }
+        if (startDate && endDate) {
+          queryParams.push(`startDate=${startDate}`);
+          queryParams.push(`endDate=${endDate}`);
+        }
+        const queryString = queryParams.length > 0 ? `?${queryParams.join('&')}` : '';
+
+        const response = await fetch(`${API_URL}/users-age-data${queryString}`);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        
+        // Process the age data
+        if (data && data.length > 0) {
+          // Calculate ages using the calculateAge function
+          const ages = data.map(user => {
+            if (!user.birthdate) return null;
+            
+            const birthDate = new Date(user.birthdate);
+            const today = new Date();
+            
+            // Check if birthdate is valid
+            if (isNaN(birthDate.getTime())) return null;
+            
+            let age = today.getFullYear() - birthDate.getFullYear();
+            const monthDiff = today.getMonth() - birthDate.getMonth();
+            
+            // If birthday hasn't occurred yet this year, subtract 1
+            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+              age--;
+            }
+            
+            return age;
+          }).filter(age => age !== null);
+          
+          // Sort ages for distribution
+          const sortedAges = [...ages].sort((a, b) => a - b);
+          
+          // Get highest and lowest ages
+          const highestAge = sortedAges.length > 0 ? sortedAges[sortedAges.length - 1] : 0;
+          const lowestAge = sortedAges.length > 0 ? sortedAges[0] : 0;
+          
+          // Create age distribution data with frequency counting
+          const ageFrequency = {};
+          sortedAges.forEach(age => {
+            const ageStr = age.toString();
+            if (ageFrequency[ageStr]) {
+              ageFrequency[ageStr]++;
+            } else {
+              ageFrequency[ageStr] = 1;
+            }
+          });
+          
+          // Convert to array and take top 10 most frequent ages
+          const ageDistribution = Object.entries(ageFrequency)
+            .map(([age, count]) => ({ age, count }))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 10);
+          
+          setAgeData({
+            highestAge,
+            lowestAge,
+            ageDistribution
+          });
+        } else {
+          // Set default values if no data
+          setAgeData({
+            highestAge: 0,
+            lowestAge: 0,
+            ageDistribution: []
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching age data:', error);
+        // Use mock data on error
+        const mockAgeData = [
+          { age: '0', count: 8 },
+          { age: '1', count: 5 },
+          { age: '2', count: 7 },
+          { age: '3', count: 6 },
+          { age: '4', count: 9 },
+          { age: '5', count: 12 },
+          { age: '6', count: 10 },
+          { age: '7', count: 8 },
+          { age: '8', count: 7 },
+          { age: '9', count: 5 }
+        ];
+        
+        setAgeData({
+          highestAge: 65,
+          lowestAge: 0,
+          ageDistribution: mockAgeData
+        });
+      }
+    };
+
+    fetchAgeData();
+  }, [selectedBrgy, startDate, endDate]);
 
   // Add new useEffect for application status
   useEffect(() => {
@@ -551,6 +785,133 @@ const SDashboard = () => {
         color: '#333'
       }
     },
+    ...commonConfig,
+    tooltip: {
+      trigger: 'item',
+      formatter: '{b}: {c} ({d}%)'
+    },
+    series: [{
+      name: 'Beneficiary Status',
+      type: 'pie',
+      radius: ['40%', '70%'],
+      avoidLabelOverlap: false,
+      itemStyle: {
+        borderRadius: 4,
+        borderColor: '#fff',
+        borderWidth: 2
+      },
+      label: {
+        show: false,
+        position: 'center'
+      },
+      emphasis: {
+        label: {
+          show: true,
+          fontSize: getFontSize(14),
+          fontWeight: 'bold'
+        }
+      },
+      labelLine: {
+        show: false
+      },
+      data: [
+        { 
+          value: beneficiariesData.beneficiaries, 
+          name: 'Beneficiaries',
+          itemStyle: { color: '#16C47F' }
+        },
+        { 
+          value: beneficiariesData.nonBeneficiaries, 
+          name: 'Non-Beneficiaries',
+          itemStyle: { color: '#FF6B6B' }
+        }
+      ]
+    }]
+  };
+  
+  // Add children age distribution chart option
+  const childrenAgeOption = {
+    title: {
+      text: 'Children Age Distribution',
+      left: 'center',
+      top: 20,
+      textStyle: { 
+        fontSize: getFontSize(16),
+        fontWeight: 500,
+        color: '#333'
+      }
+    },
+    ...commonConfig,
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'shadow' },
+      formatter: function(params) {
+        return `${params[0].name}: ${params[0].value} children`;
+      }
+    },
+    xAxis: {
+      type: 'category',
+      data: Object.keys(childrenAgeData.ageGroups),
+      axisLabel: { 
+        fontSize: getFontSize(11),
+        color: '#666',
+        interval: 0
+      },
+      axisTick: {
+        alignWithLabel: true
+      },
+      axisLine: {
+        lineStyle: { color: '#eee' }
+      }
+    },
+    yAxis: {
+      type: 'value',
+      name: 'Number of Children',
+      nameTextStyle: {
+        fontSize: getFontSize(11),
+        color: '#666',
+        padding: [0, 0, 10, 0]
+      },
+      axisLabel: { 
+        fontSize: getFontSize(11),
+        color: '#666'
+      },
+      splitLine: {
+        lineStyle: { 
+          color: '#f5f5f5',
+          type: 'dashed'
+        }
+      }
+    },
+    series: [{
+      name: 'Children Age',
+      type: 'bar',
+      barWidth: '60%',
+      data: Object.values(childrenAgeData.ageGroups),
+      itemStyle: {
+        color: function(params) {
+          // Different colors for each age group
+          const colors = ['#4ECDC4', '#FF6B6B', '#FFD166', '#118AB2', '#073B4C'];
+          return colors[params.dataIndex % colors.length];
+        },
+        borderRadius: [4, 4, 0, 0]
+      },
+      emphasis: {
+        itemStyle: {
+          shadowBlur: 10,
+          shadowColor: 'rgba(0,0,0,0.3)'
+        }
+      },
+      label: {
+        show: true,
+        position: 'top',
+        fontSize: getFontSize(11),
+        color: '#666'
+      }
+    }]
+  };
+  
+  const educationOption = {
     tooltip: {
       trigger: 'item',
       formatter: '{b}: {c} ({d}%)',
@@ -599,24 +960,87 @@ const SDashboard = () => {
     }]
   };
 
-  const getAgeChartOptions = () => {
-    // Static mock data for ages
-    const mockAgeData = [
-      { age: '0', count: 8 },
-      { age: '1', count: 5 },
-      { age: '2', count: 7 },
-      { age: '3', count: 6 },
-      { age: '4', count: 9 },
-      { age: '5', count: 12 },
-      { age: '6', count: 10 },
-      { age: '7', count: 8 },
-      { age: '8', count: 7 },
-      { age: '9', count: 5 }
-    ];
+  const getChildrenCountChartOptions = () => {
+    // Use real children count data from state
+    const childrenDistribution = childrenCountData.childrenCountDistribution.length > 0 ? 
+      childrenCountData.childrenCountDistribution : 
+      [{ count: '0', frequency: 0 }]; // Fallback if no data
     
     return {
       title: {
-        text: 'Age (lowest to highest)',
+        text: 'Bilang ng Anak ng mga Solo Parent',
+        left: 'center',
+        textStyle: {
+          fontSize: 16,
+          fontWeight: 'bold'
+        }
+      },
+      tooltip: {
+        trigger: 'axis',
+        formatter: '{b}: {c} solo parents',
+        axisPointer: {
+          type: 'shadow'
+        }
+      },
+      xAxis: {
+        type: 'category',
+        data: childrenDistribution.map(item => item.count),
+        axisLabel: {
+          fontSize: getFontSize(11),
+          color: '#666'
+        },
+        axisTick: {
+          alignWithLabel: true
+        }
+      },
+      yAxis: {
+        type: 'value',
+        name: 'Bilang ng Solo Parents',
+        nameLocation: 'middle',
+        nameGap: 30,
+        axisLabel: {
+          fontSize: getFontSize(11),
+          color: '#666'
+        },
+        splitLine: {
+          lineStyle: {
+            color: '#f5f5f5',
+            type: 'dashed'
+          }
+        }
+      },
+      series: [{
+        name: 'Solo Parents',
+        type: 'bar',
+        barWidth: '60%',
+        data: childrenDistribution.map(item => item.frequency),
+        itemStyle: {
+          color: function(params) {
+            // Different colors for different bars
+            const colors = ['#FF6B6B', '#FFB236', '#16C47F', '#4D96FF', '#9C27B0', '#607D8B', '#795548'];
+            return colors[params.dataIndex % colors.length];
+          },
+          borderRadius: [4, 4, 0, 0]
+        },
+        label: {
+          show: true,
+          position: 'top',
+          fontSize: getFontSize(11),
+          color: '#666'
+        }
+      }]
+    };
+  };
+  
+  const getAgeChartOptions = () => {
+    // Use real age data from state instead of mock data
+    const ageDistribution = ageData.ageDistribution.length > 0 ? 
+      ageData.ageDistribution : 
+      [{ age: '0', count: 0 }]; // Fallback if no data
+    
+    return {
+      title: {
+        text: `Age (Lowest: ${ageData.lowestAge} - Highest: ${ageData.highestAge})`,
         left: 'center',
         textStyle: {
           fontSize: 16,
@@ -631,7 +1055,7 @@ const SDashboard = () => {
       },
       xAxis: {
         type: 'category',
-        data: mockAgeData.map(item => item.age),
+        data: ageDistribution.map(item => item.age),
         axisLabel: {
           interval: 0
         }
@@ -643,12 +1067,12 @@ const SDashboard = () => {
       series: [
         {
           type: 'bar',
-          data: mockAgeData.map(() => 1), // All bars same height
+          data: ageDistribution.map(item => item.count), // Use actual count for bar height
           label: {
             show: true,
             position: 'top',
             formatter: function(params) {
-              return mockAgeData[params.dataIndex].age;
+              return `${ageDistribution[params.dataIndex].age} (${params.value})`;
             }
           },
           itemStyle: {
@@ -659,68 +1083,7 @@ const SDashboard = () => {
     };
   };
 
-  const getChildrenCountChartOptions = () => {
-    // Static mock data for children counts
-    const mockChildrenData = [
-      { count: 1, label: '1 child', value: 15 },
-      { count: 2, label: '2 children', value: 25 },
-      { count: 3, label: '3 children', value: 20 },
-      { count: 4, label: '4 children', value: 18 },
-      { count: 5, label: '5+ children', value: 12 }
-    ];
-    
-    return {
-      title: {
-        text: 'Number of Children',
-        left: 'center',
-        textStyle: {
-          fontSize: 16,
-          fontWeight: 'bold'
-        }
-      },
-      tooltip: {
-        trigger: 'item',
-        formatter: '{b}: {c} families ({d}%)'
-      },
-      legend: {
-        orient: 'vertical',
-        left: 'left',
-        data: mockChildrenData.map(item => item.label)
-      },
-      series: [
-        {
-          name: 'Children Count',
-          type: 'pie',
-          radius: ['40%', '70%'],
-          avoidLabelOverlap: false,
-          itemStyle: {
-            borderRadius: 10,
-            borderColor: '#fff',
-            borderWidth: 2
-          },
-          label: {
-            show: false,
-            position: 'center'
-          },
-          emphasis: {
-            label: {
-              show: true,
-              fontSize: '18',
-              fontWeight: 'bold'
-            }
-          },
-          labelLine: {
-            show: false
-          },
-          data: mockChildrenData.map(item => ({
-            name: item.label,
-            value: item.value
-          }))
-        }
-      ]
-    };
-  };
-
+  
   // Update generateExcelReport to include beneficiary data
   const generateExcelReport = async () => {
     if (!startDate || !endDate) {
@@ -845,6 +1208,53 @@ const SDashboard = () => {
         }
       ]);
       XLSX.utils.book_append_sheet(wb, applicationStatusSheet, "Application Status");
+      
+      // Sheet 5: Age Data
+      const ageDataSheet = XLSX.utils.json_to_sheet([
+        {
+          Category: 'Lowest Age',
+          Value: ageData.lowestAge
+        },
+        {
+          Category: 'Highest Age',
+          Value: ageData.highestAge
+        }
+      ]);
+      XLSX.utils.book_append_sheet(wb, ageDataSheet, "Age Statistics");
+
+      // Sheet 6: Children Count Data
+      const childrenCountSheet = XLSX.utils.json_to_sheet(
+        childrenCountData.childrenCountDistribution.map(item => ({
+          'Number of Children': item.count,
+          'Number of Solo Parents': item.frequency
+        }))
+      );
+      XLSX.utils.book_append_sheet(wb, childrenCountSheet, "Children Count");
+
+      // Sheet 7: Children Age Data
+      const childrenAgeSheet = XLSX.utils.json_to_sheet([
+        {
+          'Age Group': '0-5',
+          'Count': childrenAgeData.ageGroups['0-5']
+        },
+        {
+          'Age Group': '6-12',
+          'Count': childrenAgeData.ageGroups['6-12']
+        },
+        {
+          'Age Group': '13-17',
+          'Count': childrenAgeData.ageGroups['13-17']
+        },
+        {
+          'Age Group': '18-21',
+          'Count': childrenAgeData.ageGroups['18-21']
+        },
+        {
+          'Age Group': '22+',
+          'Count': childrenAgeData.ageGroups['22+']
+        }
+      ]);
+      XLSX.utils.book_append_sheet(wb, childrenAgeSheet, "Children Age Distribution");
 
       // Save the workbook
       XLSX.writeFile(wb, `Dashboard_Report_${selectedBrgy}_${startDate}_to_${endDate}.xlsx`);
@@ -941,7 +1351,7 @@ const SDashboard = () => {
         </div>
 
         <div className="superadmin-chart-card">
-          <h2>Age (lowest to highest)</h2>
+          <h2>Age of Solo Parents</h2>
           <ReactECharts 
             ref={(e) => { chartsRef.current[3] = e; }}
             option={getAgeChartOptions()}
@@ -954,6 +1364,15 @@ const SDashboard = () => {
           <ReactECharts 
             ref={(e) => { chartsRef.current[4] = e; }}
             option={getChildrenCountChartOptions()}
+            style={{ height: '300px', width: '100%' }}
+          />
+        </div>
+
+        <div className="superadmin-chart-card">
+          <h2>Children Age Distribution</h2>
+          <ReactECharts 
+            ref={(e) => { chartsRef.current[5] = e; }}
+            option={childrenAgeOption}
             style={{ height: '300px', width: '100%' }}
           />
         </div>

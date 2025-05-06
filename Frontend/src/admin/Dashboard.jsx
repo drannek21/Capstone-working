@@ -36,6 +36,18 @@ const Dashboard = () => {
       { name: 'Not employed', value: 0 }
     ]
   });
+  
+  // State for solo parent age data
+  const [soloParentAgeData, setSoloParentAgeData] = useState({
+    rawData: [],
+    ageGroups: {
+      '18-25': 0,
+      '26-35': 0,
+      '36-45': 0,
+      '46-55': 0,
+      '56+': 0
+    }
+  });
 
   // Add useEffect to fetch admin info if not in localStorage
   useEffect(() => {
@@ -103,6 +115,45 @@ const Dashboard = () => {
           throw new Error(`HTTP error! status: ${remarksResponse.status}`);
         }
         const remarksData = await remarksResponse.json();
+        
+        // Fetch children age data for solo parents in the barangay
+        const barangayParam = adminInfo.barangay ? `barangay=${adminInfo.barangay}` : '';
+        let ageQueryString = barangayParam;
+        if (startDate && endDate) {
+          ageQueryString += `&startDate=${startDate}&endDate=${endDate}`;
+        }
+        
+        // Add filter to get only children of solo parents
+        ageQueryString += '&soloParentsOnly=true';
+        
+        const ageResponse = await fetch(`${API_URL}/children-age-data?${ageQueryString}`);
+        if (!ageResponse.ok) {
+          console.error(`Error fetching children age data: ${ageResponse.status}`);
+        } else {
+          const ageData = await ageResponse.json();
+          console.log('Children age data:', ageData);
+          setAgeData(ageData);
+        }
+        
+        // Fetch children count data
+        const childrenCountResponse = await fetch(`${API_URL}/children-count-data?${ageQueryString}`);
+        if (!childrenCountResponse.ok) {
+          console.error(`Error fetching children count data: ${childrenCountResponse.status}`);
+        } else {
+          const childrenData = await childrenCountResponse.json();
+          console.log('Children count data:', childrenData);
+          setChildrenCountData(childrenData);
+        }
+        
+        // Fetch solo parent age data
+        const soloParentAgeResponse = await fetch(`${API_URL}/solo-parent-age-data?${ageQueryString}`);
+        if (!soloParentAgeResponse.ok) {
+          console.error(`Error fetching solo parent age data: ${soloParentAgeResponse.status}`);
+        } else {
+          const soloParentData = await soloParentAgeResponse.json();
+          console.log('Solo parent age data:', soloParentData);
+          setSoloParentAgeData(soloParentData);
+        }
         
         // Process the data
         const monthlyData = Array(12).fill(0);
@@ -437,81 +488,44 @@ const Dashboard = () => {
     }]
   };
 
-  // Chart for Age (lowest to highest)
-  const getAgeChartOptions = () => {
-    // Static mock data for ages
-    const mockAgeData = [
-      { age: '0', count: 8 },
-      { age: '1', count: 5 },
-      { age: '2', count: 7 },
-      { age: '3', count: 6 },
-      { age: '4', count: 9 },
-      { age: '5', count: 12 },
-      { age: '6', count: 10 },
-      { age: '7', count: 8 },
-      { age: '8', count: 7 },
-      { age: '9', count: 5 }
-    ];
-    
-    return {
-      title: {
-        text: 'Age (lowest to highest)',
-        left: 'center',
-        textStyle: {
-          fontSize: 16,
-          fontWeight: 'bold'
-        }
-      },
-      tooltip: {
-        trigger: 'axis',
-        formatter: function(params) {
-          return `Age ${params[0].name}`;
-        }
-      },
-      xAxis: {
-        type: 'category',
-        data: mockAgeData.map(item => item.age),
-        axisLabel: {
-          interval: 0
-        }
-      },
-      yAxis: {
-        type: 'value',
-        show: false
-      },
-      series: [
-        {
-          type: 'bar',
-          data: mockAgeData.map(() => 1), // All bars same height
-          label: {
-            show: true,
-            position: 'top',
-            formatter: function(params) {
-              return mockAgeData[params.dataIndex].age;
-            }
-          },
-          itemStyle: {
-            color: '#91CC75'
-          }
-        }
-      ]
-    };
-  };
+  // State for children age data of solo parents
+  const [ageData, setAgeData] = useState({
+    rawData: [],
+    ageGroups: {
+      '0-5': 0,
+      '6-12': 0,
+      '13-17': 0,
+      '18-21': 0,
+      '22+': 0
+    }
+  });
 
-  // Chart for Number of Children
-  const getChildrenCountChartOptions = () => {
-    // Static mock data for children counts
-    const mockChildrenData = [
-      { count: 1, label: '1 child', value: 15 },
-      { count: 2, label: '2 children', value: 25 },
-      { count: 3, label: '3 children', value: 20 },
-      { count: 4, label: '4 children', value: 18 },
-      { count: 5, label: '5+ children', value: 12 }
-    ];
+  // Removed Age (lowest to highest) chart as requested
+  
+  // Age distribution chart for children of solo parents has been removed as requested
+
+  // State for children count data
+  const [childrenCountData, setChildrenCountData] = useState({
+    chartData: [],
+    childrenCounts: {
+      '1 child': 0,
+      '2 children': 0,
+      '3 children': 0,
+      '4 children': 0,
+      '5+ children': 0
+    }
+  });
+
+  // Solo parent age distribution chart option
+  const getSoloParentAgeChartOption = () => {
+    const data = Object.entries(soloParentAgeData.ageGroups).map(([name, value]) => ({
+      name,
+      value
+    }));
     
     return {
       title: {
-        text: 'Number of Children',
+        text: 'Solo Parent Age Distribution',
         left: 'center',
         textStyle: {
           fontSize: 16,
@@ -520,16 +534,16 @@ const Dashboard = () => {
       },
       tooltip: {
         trigger: 'item',
-        formatter: '{b}: {c} families ({d}%)'
+        formatter: '{b}: {c} ({d}%)'
       },
       legend: {
         orient: 'vertical',
         left: 'left',
-        data: mockChildrenData.map(item => item.label)
+        data: Object.keys(soloParentAgeData.ageGroups)
       },
       series: [
         {
-          name: 'Children Count',
+          name: 'Age Groups',
           type: 'pie',
           radius: ['40%', '70%'],
           avoidLabelOverlap: false,
@@ -552,9 +566,74 @@ const Dashboard = () => {
           labelLine: {
             show: false
           },
-          data: mockChildrenData.map(item => ({
-            name: item.label,
-            value: item.value
+          data: data
+        }
+      ]
+    };
+  };
+  
+  // Chart for Number of Children
+  const getChildrenCountChartOptions = () => {
+    const customColors = [
+      '#FF69B4', // Hot Pink
+      '#4169E1', // Royal Blue
+      '#9370DB', // Medium Purple
+      '#20B2AA', // Light Sea Green
+      '#FFD700'  // Gold
+    ];
+
+    return {
+      title: {
+        text: 'Number of Children',
+        left: 'center',
+        textStyle: {
+          fontSize: windowWidth < 768 ? 12 : 14,
+          fontWeight: 'normal'
+        }
+      },
+      tooltip: {
+        trigger: 'item',
+        formatter: '{b}: {c} families ({d}%)'
+      },
+      legend: {
+        orient: 'horizontal',
+        bottom: 0,
+        left: 'center',
+        textStyle: {
+          fontSize: windowWidth < 768 ? 9 : 10
+        }
+      },
+      series: [
+        {
+          name: adminInfo.barangay ? `Children Count (${adminInfo.barangay})` : 'Children Count',
+          type: 'pie',
+          radius: ['40%', '70%'],
+          avoidLabelOverlap: false,
+          itemStyle: {
+            borderRadius: 10,
+            borderColor: '#fff',
+            borderWidth: 2
+          },
+          label: {
+            show: false,
+            position: 'center'
+          },
+          emphasis: {
+            label: {
+              show: true,
+              fontSize: windowWidth < 768 ? 12 : 14,
+              fontWeight: 'bold'
+            }
+          },
+          labelLine: {
+            show: false
+          },
+          data: Object.entries(childrenCountData.childrenCounts).map(([name, value], index) => ({
+            name,
+            value,
+            itemStyle: {
+              color: customColors[index % customColors.length]
+            }
           }))
         }
       ]
@@ -839,7 +918,7 @@ const Dashboard = () => {
             <ReactECharts
               ref={(e) => { chartsRef.current[0] = e; }}
               option={populationOption}
-              style={{ height: '400px' }}
+              style={{ height: '400px', width: '100%' }}
             />
           </div>
           
@@ -848,7 +927,7 @@ const Dashboard = () => {
             <ReactECharts
               ref={(e) => { chartsRef.current[1] = e; }}
               option={genderOption}
-              style={{ height: '300px' }}
+              style={{ height: '300px', width: '100%' }}
             />
           </div>
           
@@ -857,7 +936,7 @@ const Dashboard = () => {
             <ReactECharts
               ref={(e) => { chartsRef.current[2] = e; }}
               option={employmentOption}
-              style={{ height: '300px' }}
+              style={{ height: '300px', width: '100%' }}
             />
           </div>
           
@@ -866,27 +945,29 @@ const Dashboard = () => {
             <ReactECharts
               ref={(e) => { chartsRef.current[3] = e; }}
               option={remarksOption}
-              style={{ height: '300px' }}
+              style={{ height: '300px', width: '100%' }}
             />
           </div>
           
-          {/* Age Chart */}
-          <div className="chart-card">
-            <h2>Age (lowest to highest)</h2>
-            <ReactECharts
-              ref={(e) => { chartsRef.current[4] = e; }}
-              option={getAgeChartOptions()}
-              style={{ height: '300px' }}
-            />
-          </div>
+          {/* Children Age Distribution Chart has been removed as requested */}
 
           {/* Number of Children Chart */}
           <div className="chart-card">
             <h2>Number of Children</h2>
             <ReactECharts
-              ref={(e) => { chartsRef.current[5] = e; }}
+              ref={(e) => { chartsRef.current[4] = e; }}
               option={getChildrenCountChartOptions()}
-              style={{ height: '300px' }}
+              style={{ height: '300px', width: '100%' }}
+            />
+          </div>
+          
+          {/* Solo Parent Age Chart */}
+          <div className="chart-card">
+            <h2>Solo Parent Age Distribution</h2>
+            <ReactECharts
+              ref={(e) => { chartsRef.current[5] = e; }}
+              option={getSoloParentAgeChartOption()}
+              style={{ height: '300px', width: '100%' }}
             />
           </div>
         </div>

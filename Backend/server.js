@@ -233,9 +233,463 @@ app.get('/api/announcements', async (req, res) => {
   }
 });
 
+// Endpoint to fetch children age data for dashboard
+app.get('/children-age-data', async (req, res) => {
+  try {
+    // Get filter parameters
+    const { barangay, startDate, endDate } = req.query;
+    
+    // Build the base query
+    let query = `
+      SELECT s2.age, COUNT(*) as count
+      FROM step2_family_occupation s2
+      JOIN users u ON s2.code_id = u.code_id
+      JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
+      LEFT JOIN accepted_users au ON u.id = au.user_id
+      WHERE u.status IN ('Verified')
+      AND s2.age IS NOT NULL
+      AND s2.age > 0
+    `;
+    
+    const queryParams = [];
+    
+    // Add barangay filter if specified
+    if (barangay && barangay !== 'All') {
+      query += ` AND s1.barangay = ?`;
+      queryParams.push(barangay);
+    }
+    
+    // Add date range filter if specified
+    if (startDate && endDate) {
+      query += ` AND DATE(au.accepted_at) BETWEEN DATE(?) AND DATE(?)`;
+      queryParams.push(startDate, endDate);
+    }
+    
+    // Group by age and order
+    query += ` GROUP BY s2.age ORDER BY s2.age`;
+    
+    console.log('Executing age data query:', query, 'with params:', queryParams);
+    
+    // Execute the query
+    const results = await queryDatabase(query, queryParams);
+    console.log(`Found ${results ? results.length : 0} age records`);
+    
+    // Process the results into age groups
+    const ageGroups = {
+      '0-5': 0,
+      '6-12': 0,
+      '13-17': 0,
+      '18-21': 0,
+      '22+': 0
+    };
+    
+    // Raw data for detailed analysis
+    const rawData = [];
+    
+    results.forEach(row => {
+      const age = parseInt(row.age);
+      rawData.push({ age, count: row.count });
+      
+      if (age <= 5) {
+        ageGroups['0-5'] += row.count;
+      } else if (age <= 12) {
+        ageGroups['6-12'] += row.count;
+      } else if (age <= 17) {
+        ageGroups['13-17'] += row.count;
+      } else if (age <= 21) {
+        ageGroups['18-21'] += row.count;
+      } else {
+        ageGroups['22+'] += row.count;
+      }
+    });
+    
+    res.json({
+      ageGroups,
+      rawData
+    });
+  } catch (err) {
+    console.error('Error fetching children age data:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch children age data' });
+  }
+});
+
+// Endpoint to fetch solo parent age data for dashboard
+app.get('/solo-parent-age-data', async (req, res) => {
+  try {
+    // Get filter parameters
+    const { barangay, startDate, endDate } = req.query;
+    
+    // Build the base query
+    let query = `
+      SELECT s1.age, COUNT(*) as count
+      FROM step1_identifying_information s1
+      JOIN users u ON s1.code_id = u.code_id
+      LEFT JOIN accepted_users au ON u.id = au.user_id
+      WHERE u.status IN ('Verified')
+      AND s1.age IS NOT NULL
+      AND s1.age > 0
+    `;
+    
+    const queryParams = [];
+    
+    // Add barangay filter if specified
+    if (barangay && barangay !== 'All') {
+      query += ` AND s1.barangay = ?`;
+      queryParams.push(barangay);
+    }
+    
+    // Add date range filter if specified
+    if (startDate && endDate) {
+      query += ` AND DATE(au.accepted_at) BETWEEN DATE(?) AND DATE(?)`;
+      queryParams.push(startDate, endDate);
+    }
+    
+    // Group by age and order
+    query += ` GROUP BY s1.age ORDER BY s1.age`;
+    
+    console.log('Executing solo parent age data query:', query, 'with params:', queryParams);
+    
+    // Execute the query
+    const results = await queryDatabase(query, queryParams);
+    console.log(`Found ${results ? results.length : 0} solo parent age records`);
+    
+    // Process the results into age groups
+    const ageGroups = {
+      '18-25': 0,
+      '26-35': 0,
+      '36-45': 0,
+      '46-55': 0,
+      '56+': 0
+    };
+    
+    // Raw data for detailed analysis
+    const rawData = [];
+    
+    results.forEach(row => {
+      const age = parseInt(row.age);
+      rawData.push({ age, count: row.count });
+      
+      if (age <= 25) {
+        ageGroups['18-25'] += row.count;
+      } else if (age <= 35) {
+        ageGroups['26-35'] += row.count;
+      } else if (age <= 45) {
+        ageGroups['36-45'] += row.count;
+      } else if (age <= 55) {
+        ageGroups['46-55'] += row.count;
+      } else {
+        ageGroups['56+'] += row.count;
+      }
+    });
+    
+    res.json({
+      ageGroups,
+      rawData
+    });
+  } catch (err) {
+    console.error('Error fetching solo parent age data:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch solo parent age data' });
+  }
+});
+
+// Endpoint to fetch children count data for dashboard
+app.get('/children-count-data', async (req, res) => {
+  try {
+    // Get barangay from query parameters
+    const { barangay } = req.query;
+    
+    // Validate barangay parameter
+    if (!barangay) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Barangay parameter is required' 
+      });
+    }
+    
+    console.log('Fetching children count data for barangay:', barangay);
+
+    // Step 1: Get users from the same barangay
+    const userQuery = `
+      SELECT 
+        u.id,
+        u.code_id
+      FROM users u
+      LEFT JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
+      WHERE 
+        u.status IN ('Verified')
+        AND s1.barangay = ?
+    `;
+    const users = await queryDatabase(userQuery, [barangay]);
+
+    if (!users || users.length === 0) {
+      return res.json({ childrenCounts: {}, chartData: [], rawData: [] });
+    }
+
+    const codeIds = users.map(user => user.code_id);
+
+    // Step 2: Count only children for each family
+    const familyQuery = `
+      SELECT 
+        code_id,
+        COUNT(*) as children_count
+      FROM step2_family_occupation
+      WHERE code_id IN (?)
+      GROUP BY code_id
+    `;
+    const familyMembers = await queryDatabase(familyQuery, [codeIds]);
+
+    // Step 3: Format the results
+    const childrenCounts = {
+      '1 child': 0,
+      '2 children': 0,
+      '3 children': 0,
+      '4 children': 0,
+      '5+ children': 0,
+      '0 children': 0
+    };
+
+    const usersWithChildren = new Set(familyMembers.map(fm => fm.code_id));
+    const rawData = [];
+
+    // Count families with no children
+    const zeroChildrenCount = codeIds.filter(codeId => !usersWithChildren.has(codeId)).length;
+    childrenCounts['0 children'] = zeroChildrenCount;
+
+    // Count families with children
+    familyMembers.forEach(row => {
+      const count = parseInt(row.children_count);
+      rawData.push({ count });
+
+      if (count === 1) childrenCounts['1 child']++;
+      else if (count === 2) childrenCounts['2 children']++;
+      else if (count === 3) childrenCounts['3 children']++;
+      else if (count === 4) childrenCounts['4 children']++;
+      else if (count >= 5) childrenCounts['5+ children']++;
+    });
+
+    // Prepare chart data
+    const chartData = Object.entries(childrenCounts).map(([label, value]) => ({
+      label,
+      value,
+      count:
+        label === '1 child' ? 1 :
+        label === '2 children' ? 2 :
+        label === '3 children' ? 3 :
+        label === '4 children' ? 4 :
+        label === '5+ children' ? 5 :
+        0
+    }));
+
+    res.json({
+      childrenCounts,
+      chartData,
+      rawData
+    });
+
+  } catch (err) {
+    console.error('Error fetching children count data:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch children count data' });
+  }
+});
+
 // Test route to verify server is running
 app.get('/api/test', (req, res) => {
     res.json({ message: 'Server is running!' });
+});
+
+// Endpoint to get admin information by ID
+app.get('/admin-info', async (req, res) => {
+  try {
+    const { id } = req.query;
+    
+    if (!id) {
+      return res.status(400).json({ success: false, error: 'Admin ID is required' });
+    }
+    
+    const adminQuery = 'SELECT id, email, barangay FROM admin WHERE id = ?';
+    const results = await queryDatabase(adminQuery, [id]);
+    
+    if (!results || results.length === 0) {
+      return res.status(404).json({ success: false, error: 'Admin not found' });
+    }
+    
+    res.json(results[0]);
+  } catch (err) {
+    console.error('Error fetching admin info:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch admin info' });
+  }
+});
+
+// Endpoint to get population users data for admin dashboard
+app.get('/admin-population-users', async (req, res) => {
+  try {
+    const { adminId, startDate, endDate } = req.query;
+    
+    console.log('Admin population users request:', { adminId, startDate, endDate });
+    
+    if (!adminId) {
+      return res.status(400).json({ success: false, error: 'Admin ID is required' });
+    }
+    
+    // Get admin's barangay
+    const adminQuery = 'SELECT barangay FROM admin WHERE id = ?';
+    console.log('Executing admin query:', adminQuery, 'with adminId:', adminId);
+    
+    const adminResults = await queryDatabase(adminQuery, [adminId]);
+    console.log('Admin query results:', adminResults);
+    
+    if (!adminResults || adminResults.length === 0) {
+      return res.status(404).json({ success: false, error: 'Admin not found' });
+    }
+    
+    const barangay = adminResults[0].barangay;
+    console.log('Found barangay:', barangay);
+    
+    // Build the base query
+    let query = `
+      SELECT u.id, u.email, u.name, u.status, au.accepted_at, u.code_id,
+             s1.gender, s1.employment_status
+      FROM users u
+      LEFT JOIN accepted_users au ON u.id = au.user_id
+      LEFT JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
+      WHERE u.status = 'Verified'
+      AND (s1.barangay = ? OR s1.barangay IS NULL)
+    `;
+    
+    // Alternative query if the above doesn't work
+    // This query first gets all verified users, then filters by barangay
+    const alternativeQuery = `
+      SELECT u.id, u.email, u.name, u.status, au.accepted_at, u.code_id,
+             s1.gender, s1.employment_status
+      FROM users u
+      LEFT JOIN accepted_users au ON u.id = au.user_id
+      LEFT JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
+      WHERE u.status = 'Verified'
+      AND s1.barangay = ?
+    `;
+    
+    console.log('Using query:', query);
+    
+    const queryParams = [barangay];
+    
+    // Add date range filter if specified
+    if (startDate && endDate) {
+      query += ` AND DATE(au.accepted_at) BETWEEN DATE(?) AND DATE(?)`;
+      queryParams.push(startDate, endDate);
+    }
+    
+    console.log('Executing population query with params:', queryParams);
+    
+    // Try the main query first
+    try {
+      const results = await queryDatabase(query, queryParams);
+      console.log(`Found ${results ? results.length : 0} population users with main query`);
+      // Return the array directly instead of wrapping it in an object
+      res.json(results || []);
+    } catch (innerErr) {
+      // If the main query fails, try the alternative approach
+      console.error('Main query failed, trying alternative:', innerErr.message);
+      try {
+        // First get all verified users
+        const userQuery = `
+          SELECT u.id, u.email, u.name, u.status, au.accepted_at, u.code_id
+          FROM users u
+          LEFT JOIN accepted_users au ON u.id = au.user_id
+          WHERE u.status = 'Verified'
+        `;
+        const users = await queryDatabase(userQuery, []);
+        console.log(`Found ${users ? users.length : 0} verified users`);
+        
+        // Then get demographic data separately
+        if (users && users.length > 0) {
+          const codeIds = users.map(user => user.code_id).filter(id => id);
+          
+          if (codeIds.length > 0) {
+            const demoQuery = `
+              SELECT s1.code_id, s1.gender, s1.employment_status
+              FROM step1_identifying_information s1
+              WHERE s1.barangay = ? AND s1.code_id IN (?)
+            `;
+            const demographics = await queryDatabase(demoQuery, [barangay, codeIds]);
+            console.log(`Found ${demographics ? demographics.length : 0} matching demographics`);
+            
+            // Merge the data
+            const mergedResults = users.map(user => {
+              const demo = demographics.find(d => d.code_id === user.code_id) || {};
+              return {
+                ...user,
+                gender: demo.gender || null,
+                employment_status: demo.employment_status || null
+              };
+            });
+            
+            // Return the array directly instead of wrapping it in an object
+            res.json(mergedResults || []);
+            return; // Exit early since we've sent the response
+          }
+        }
+        
+        // If we get here, return empty results
+        res.json([]);
+      } catch (fallbackErr) {
+        console.error('Alternative query also failed:', fallbackErr);
+        throw fallbackErr; // Let the outer catch handle this
+      }
+    }
+  } catch (err) {
+    console.error('Error fetching population users data:', err);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to fetch population users data', 
+      details: err.message 
+    });
+  }
+});
+
+// Endpoint to get remarks data for admin dashboard
+app.get('/remarks-users', async (req, res) => {
+  try {
+    const { adminId, startDate, endDate } = req.query;
+    
+    if (!adminId) {
+      return res.status(400).json({ success: false, error: 'Admin ID is required' });
+    }
+    
+    // Get admin's barangay
+    const adminQuery = 'SELECT barangay FROM admin WHERE id = ?';
+    const adminResults = await queryDatabase(adminQuery, [adminId]);
+    
+    if (!adminResults || adminResults.length === 0) {
+      return res.status(404).json({ success: false, error: 'Admin not found' });
+    }
+    
+    const barangay = adminResults[0].barangay;
+    
+    // Build the base query for remarks
+    let query = `
+      SELECT r.id, r.user_id, r.remarks, r.remarks_at, u.name, u.email
+      FROM user_remarks r
+      JOIN users u ON r.user_id = u.id
+      JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
+      WHERE s1.barangay = ?
+    `;
+    
+    const queryParams = [barangay];
+    
+    // Add date range filter if specified
+    if (startDate && endDate) {
+      query += ` AND r.remarks_at BETWEEN ? AND ?`;
+      queryParams.push(startDate, endDate);
+    }
+    
+    // Execute the query
+    const results = await queryDatabase(query, queryParams);
+    
+    res.json(results);
+  } catch (err) {
+    console.error('Error fetching remarks data:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch remarks data' });
+  }
 });
 
 app.post('/users', async (req, res) => {
@@ -1315,7 +1769,6 @@ app.post('/updateDocumentStatus', async (req, res) => {
     }
   }
 })  ;
-
 
 app.post('/updateUserProfile', async (req, res) => {
   const { userId, profilePic, faceRecognitionPhoto } = req.body;
@@ -3543,58 +3996,153 @@ app.get('/family-age-analytics', async (req, res) => {
   }
 });
 
-app.get('/family-age-analytics', async (req, res) => {
+// Add the users-age-data endpoint
+app.get('/users-age-data', async (req, res) => {
   try {
-    console.log('Fetching family member age analytics...');
+    console.log('Fetching users age data...');
+    const { barangay, startDate, endDate } = req.query;
     
     let query = `
       SELECT 
-        f.age,
-        COUNT(*) as count
-      FROM step2_family_occupation f
-      WHERE f.age IS NOT NULL AND f.age > 0 AND f.age < 120
-      GROUP BY f.age 
-      ORDER BY f.age
+        u.id,
+        u.code_id,
+        s1.date_of_birth as birthdate,
+        s1.age,
+        s1.barangay,
+        au.accepted_at
+      FROM users u
+      LEFT JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
+      LEFT JOIN (
+        SELECT user_id, MAX(accepted_at) as accepted_at
+        FROM accepted_users
+        GROUP BY user_id
+      ) au ON u.id = au.user_id
+      WHERE u.status = 'Verified' AND s1.date_of_birth IS NOT NULL
     `;
+
+    const params = [];
+
+    // Add barangay filter if specified
+    if (barangay && barangay !== 'All') {
+      query += ` AND s1.barangay = ?`;
+      params.push(barangay);
+    }
+
+    // Add date range filter if specified
+    if (startDate && endDate) {
+      query += ` AND DATE(au.accepted_at) BETWEEN ? AND ?`;
+      params.push(startDate, endDate);
+    }
+
+    query += ` ORDER BY s1.age ASC`;
     
     console.log('Executing query:', query);
-    const results = await queryDatabase(query);
+    console.log('Query params:', params);
+    const results = await queryDatabase(query, params);
     
-    // Return the raw data directly
+    if (!results || results.length === 0) {
+      console.log('No users with age data found');
+      return res.json([]);
+    }
+
+    console.log(`Found ${results.length} users with age data`);
     res.json(results);
   } catch (error) {
-    console.error('Error fetching family member age analytics:', error);
+    console.error('Error fetching users age data:', error);
     res.status(500).json({ 
-      error: 'Failed to fetch family member age analytics', 
+      error: 'Failed to fetch users age data', 
       details: error.message,
       stack: error.stack 
     });
   }
 });
 
-app.get('/family-age-analytics', async (req, res) => {
+// Endpoint to get children count data for solo parents
+app.get('/children-count-data-superadmin', async (req, res) => {
   try {
-    console.log('Fetching family member age analytics...');
+    console.log('Fetching children count data for solo parents...');
+    const { barangay, startDate, endDate } = req.query;
     
-    let query = `
+    // First, get all verified users with their code_ids
+    let userQuery = `
       SELECT 
-        f.age,
-        COUNT(*) as count
-      FROM step2_family_occupation f
-      WHERE f.age IS NOT NULL AND f.age > 0 AND f.age < 120
-      GROUP BY f.age 
-      ORDER BY f.age
+        u.id,
+        u.code_id,
+        s1.barangay,
+        au.accepted_at
+      FROM users u
+      LEFT JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
+      LEFT JOIN (
+        SELECT user_id, MAX(accepted_at) as accepted_at
+        FROM accepted_users
+        GROUP BY user_id
+      ) au ON u.id = au.user_id
+      WHERE u.status = 'Verified'
+    `;
+
+    const userParams = [];
+
+    // Add barangay filter if specified
+    if (barangay && barangay !== 'All') {
+      userQuery += ` AND s1.barangay = ?`;
+      userParams.push(barangay);
+    }
+
+    // Add date range filter if specified
+    if (startDate && endDate) {
+      userQuery += ` AND DATE(au.accepted_at) BETWEEN ? AND ?`;
+      userParams.push(startDate, endDate);
+    }
+    
+    const users = await queryDatabase(userQuery, userParams);
+    
+    if (!users || users.length === 0) {
+      console.log('No verified users found');
+      return res.json({ childrenCountDistribution: [] });
+    }
+    
+    // Get code_ids of all verified users
+    const codeIds = users.map(user => user.code_id);
+    
+    // Now get family members for these users
+    const familyQuery = `
+      SELECT 
+        code_id,
+        COUNT(*) as children_count
+      FROM step2_family_occupation
+      WHERE code_id IN (?)
+      GROUP BY code_id
     `;
     
-    console.log('Executing query:', query);
-    const results = await queryDatabase(query);
+    const familyMembers = await queryDatabase(familyQuery, [codeIds]);
     
-    // Return the raw data directly
-    res.json(results);
+    // Create a distribution of children counts
+    const childrenCountMap = {};
+    
+    // Initialize with 0 children (solo parents with no children in the system)
+    childrenCountMap['0'] = codeIds.length - familyMembers.length;
+    
+    // Count frequency of each children count
+    familyMembers.forEach(family => {
+      const count = family.children_count.toString();
+      if (childrenCountMap[count]) {
+        childrenCountMap[count]++;
+      } else {
+        childrenCountMap[count] = 1;
+      }
+    });
+    
+    // Convert to array format for the frontend
+    const childrenCountDistribution = Object.entries(childrenCountMap)
+      .map(([count, frequency]) => ({ count, frequency }))
+      .sort((a, b) => parseInt(a.count) - parseInt(b.count));
+    
+    console.log(`Found children count distribution for ${users.length} users`);
+    res.json({ childrenCountDistribution });
   } catch (error) {
-    console.error('Error fetching family member age analytics:', error);
+    console.error('Error fetching children count data:', error);
     res.status(500).json({ 
-      error: 'Failed to fetch family member age analytics', 
+      error: 'Failed to fetch children count data', 
       details: error.message,
       stack: error.stack 
     });
