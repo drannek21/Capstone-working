@@ -3,7 +3,7 @@ import ReactECharts from "echarts-for-react";
 import * as XLSX from 'xlsx';
 import "./SDashboard.css";
 
-const API_URL = 'http://localhost:8081';
+const API_URL = 'https://travis-article-portions-hope.trycloudflare.com';
 
 const SDashboard = () => {
   const [selectedBrgy, setSelectedBrgy] = useState("All");
@@ -194,7 +194,7 @@ const SDashboard = () => {
       setIsLoading(true);
       setError(null);
       try {
-        const response = await fetch('http://localhost:8081/accepted-users');
+        const response = await fetch('https://travis-article-portions-hope.trycloudflare.com/accepted-users');
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }

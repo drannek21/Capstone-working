@@ -82,7 +82,7 @@ const UserTopNavbar = ({ onNavigate }) => {
   };
 
   const loggedInUserId = localStorage.getItem("UserId");
-  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
+  const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://travis-article-portions-hope.trycloudflare.com';
 
   // Fetch user details
   useEffect(() => {
@@ -147,12 +147,12 @@ const UserTopNavbar = ({ onNavigate }) => {
         const isBeneficiary = userData.beneficiary_status === 'beneficiary';
 
         // Fetch regular notifications
-        const notificationsResponse = await fetch(`http://localhost:8081/notifications/${userId}`);
+        const notificationsResponse = await fetch(`https://travis-article-portions-hope.trycloudflare.com/notifications/${userId}`);
         const notificationsData = await notificationsResponse.json();
 
         // Fetch events
         // Inside the fetchNotifications function, modify the events filtering
-        const eventsResponse = await fetch(`http://localhost:8081/api/events?userId=${userId}`);
+        const eventsResponse = await fetch(`https://travis-article-portions-hope.trycloudflare.com/api/events?userId=${userId}`);
         if (!eventsResponse.ok) {
           throw new Error('Failed to fetch events');
         }
@@ -187,7 +187,7 @@ const UserTopNavbar = ({ onNavigate }) => {
         // Fetch follow-up notifications
         let followupData = [];
         try {
-          const followupResponse = await fetch(`http://localhost:8081/followup-notifications/${userId}`);
+          const followupResponse = await fetch(`https://travis-article-portions-hope.trycloudflare.com/followup-notifications/${userId}`);
           if (followupResponse.ok) {
             followupData = await followupResponse.json();
           } else {
@@ -212,7 +212,7 @@ const UserTopNavbar = ({ onNavigate }) => {
         // Add this new section to fetch forum notifications
         let forumNotifications = [];
         try {
-          const forumResponse = await fetch(`http://localhost:8081/api/forum/notifications/${userId}`);
+          const forumResponse = await fetch(`https://travis-article-portions-hope.trycloudflare.com/api/forum/notifications/${userId}`);
           if (forumResponse.ok) {
             forumNotifications = await forumResponse.json();
             // Convert to notification format
@@ -269,7 +269,7 @@ const UserTopNavbar = ({ onNavigate }) => {
       // Add this new condition for forum notifications
       if (type === 'forum') {
         const forumNotifId = notificationId.replace('forum_', '');
-        await fetch(`http://localhost:8081/api/forum/notifications/mark-as-read/${forumNotifId}`, {
+        await fetch(`https://travis-article-portions-hope.trycloudflare.com/api/forum/notifications/mark-as-read/${forumNotifId}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -280,7 +280,7 @@ const UserTopNavbar = ({ onNavigate }) => {
 
       if (type === 'event') {
         const eventId = notificationId.replace('event_', '');
-        await fetch(`http://localhost:8081/api/events/mark-as-read/${eventId}`, {
+        await fetch(`https://travis-article-portions-hope.trycloudflare.com/api/events/mark-as-read/${eventId}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -294,7 +294,7 @@ const UserTopNavbar = ({ onNavigate }) => {
       }
 
       if (type === 'followup') {
-        await fetch(`http://localhost:8081/followup-notifications/mark-as-read/${userId}/${notificationId}`, {
+        await fetch(`https://travis-article-portions-hope.trycloudflare.com/followup-notifications/mark-as-read/${userId}/${notificationId}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -304,7 +304,7 @@ const UserTopNavbar = ({ onNavigate }) => {
       }
 
       // For regular notifications, mark as read in the backend
-      await fetch(`http://localhost:8081/notifications/mark-as-read/${userId}/${type}`, {
+      await fetch(`https://travis-article-portions-hope.trycloudflare.com/notifications/mark-as-read/${userId}/${type}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -338,13 +338,13 @@ const UserTopNavbar = ({ onNavigate }) => {
       const userId = localStorage.getItem("UserId");
 
       // Mark all regular notifications as read
-      await fetch(`http://localhost:8081/notifications/mark-all-as-read/${userId}`, {
+      await fetch(`https://travis-article-portions-hope.trycloudflare.com/notifications/mark-all-as-read/${userId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
       });
 
       // Mark all follow-up notifications as read
-      await fetch(`http://localhost:8081/followup-notifications/mark-all-as-read/${userId}`, {
+      await fetch(`https://travis-article-portions-hope.trycloudflare.com/followup-notifications/mark-all-as-read/${userId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
       });
@@ -439,7 +439,7 @@ const UserTopNavbar = ({ onNavigate }) => {
         return;
       }
 
-      const response = await fetch('http://localhost:8081/api/users/change-password', {
+      const response = await fetch('https://travis-article-portions-hope.trycloudflare.com/api/users/change-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

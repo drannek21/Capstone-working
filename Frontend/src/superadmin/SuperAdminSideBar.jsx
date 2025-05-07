@@ -19,7 +19,7 @@ const SuperAdminSideBar = () => {
     setNotifLoading(true);
     setNotifError("");
     try {
-      const response = await fetch("http://localhost:8081/api/notifications");
+      const response = await fetch("https://travis-article-portions-hope.trycloudflare.com/api/notifications");
       if (!response.ok) throw new Error("Failed to fetch notifications");
       const data = await response.json();
       // Expect { success, notifications: [...] }
@@ -68,7 +68,7 @@ const SuperAdminSideBar = () => {
     setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, is_read: true } : n));
     // Optionally, update backend if endpoint exists
     try {
-      await fetch(`http://localhost:8081/api/notifications/mark-as-read/${notifId}`, {
+      await fetch(`https://travis-article-portions-hope.trycloudflare.com/api/notifications/mark-as-read/${notifId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -81,7 +81,7 @@ const SuperAdminSideBar = () => {
   const clearAllNotifications = async () => {
     if (!window.confirm('Are you sure you want to clear all notifications?')) return;
     try {
-      await fetch(`http://localhost:8081/api/notifications`, {
+      await fetch(`https://travis-article-portions-hope.trycloudflare.com/api/notifications`, {
         method: 'DELETE',
       });
       setNotifications([]);
@@ -175,7 +175,7 @@ const SuperAdminSideBar = () => {
     }
     setIsAnnLoading(true);
     try {
-      const res = await fetch("http://localhost:8081/api/announcements", {
+      const res = await fetch("https://travis-article-portions-hope.trycloudflare.com/api/announcements", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -283,7 +283,7 @@ const SuperAdminSideBar = () => {
               try {
                 await Promise.all(
                   notifications.filter(n => !n.is_read).map(n =>
-                    fetch(`http://localhost:8081/api/notifications/mark-as-read/${n.id}`, {method: 'PUT'})
+                    fetch(`https://travis-article-portions-hope.trycloudflare.com/api/notifications/mark-as-read/${n.id}`, {method: 'PUT'})
                   )
                 );
                 setNotifications(notifications.map(n => ({...n, is_read: true})));
@@ -294,7 +294,7 @@ const SuperAdminSideBar = () => {
             <button className="notif-action-btn" onClick={async () => {
               if (!window.confirm('Are you sure you want to clear all notifications?')) return;
               try {
-                await fetch(`http://localhost:8081/api/notifications`, {method: 'DELETE'});
+                await fetch(`https://travis-article-portions-hope.trycloudflare.com/api/notifications`, {method: 'DELETE'});
                 setNotifications([]);
               } catch (err) {
                 alert('Failed to clear notifications');

@@ -50,7 +50,7 @@ const Profile = () => {
   useEffect(() => {
     if (showResendModal) {
       setIsDeclinedLoading(true);
-      axios.get(`http://localhost:8081/declineInfo?userId=${loggedInUserId}`, { withCredentials: true })
+      axios.get(`https://travis-article-portions-hope.trycloudflare.com/declineInfo?userId=${loggedInUserId}`, { withCredentials: true })
         .then(res => {
           setDeclinedInfo(res.data);
         })
@@ -89,7 +89,7 @@ const Profile = () => {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   const loggedInUserId = localStorage.getItem("UserId");
-  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
+  const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://travis-article-portions-hope.trycloudflare.com';
   const CLOUD_NAME = 'dskj7oxr7';
   const UPLOAD_PRESET = 'soloparent';
   const CLOUDINARY_FOLDER = 'soloparent/users';
@@ -490,7 +490,7 @@ const Profile = () => {
   // Add this function to fetch events
   const fetchEvents = async () => {
     try {
-      const response = await axios.get(`http://localhost:8081/api/events?userId=${loggedInUserId}`);
+      const response = await axios.get(`https://travis-article-portions-hope.trycloudflare.com/api/events?userId=${loggedInUserId}`);
       if (response.data) {
         // Filter events based on user's barangay
         const userBarangay = user?.barangay;
@@ -548,7 +548,7 @@ const Profile = () => {
       }
 
       const response = await axios.post(
-        'http://localhost:8081/api/events/checkAttendance',
+        'https://travis-article-portions-hope.trycloudflare.com/api/events/checkAttendance',
         { 
           eventId: eventId,
           userId: user.code_id  // Using code_id as the userId for attendance check
@@ -1585,7 +1585,7 @@ function ResendApplicationModal({ onClose }) {
   useEffect(() => {
     setLoading(true);
     const userId = localStorage.getItem('UserId');
-    axios.get(`http://localhost:8081/declineInfo?userId=${userId}`, { withCredentials: true })
+    axios.get(`https://travis-article-portions-hope.trycloudflare.com/declineInfo?userId=${userId}`, { withCredentials: true })
       .then(res => {
         setInfo(res.data);
         setEditValues({
@@ -1762,7 +1762,7 @@ function ResendApplicationModal({ onClose }) {
       };
       const payload = { step1, step2, step3, step4, step5, step6 };
       const toastId = toast.loading('Saving and resubmitting application...');
-      const response = await axios.post(`${process.env.REACT_APP_API_URL || 'http://localhost:8081'}/api/documents/submitAllSteps`, payload, { withCredentials: true });
+      const response = await axios.post(`${process.env.REACT_APP_API_URL || 'https://travis-article-portions-hope.trycloudflare.com'}/api/documents/submitAllSteps`, payload, { withCredentials: true });
       toast.dismiss(toastId);
       if (response.data.success) {
         toast.success('Application resubmitted successfully!');

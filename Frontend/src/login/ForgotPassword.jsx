@@ -34,7 +34,7 @@ const ForgotPassword = () => {
       console.log("Sending password reset request for email:", email);
       
       // First, verify the email exists
-      const checkResponse = await fetch("http://localhost:8081/api/check-user-status", {
+      const checkResponse = await fetch("https://travis-article-portions-hope.trycloudflare.com/api/check-user-status", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -67,7 +67,7 @@ const ForgotPassword = () => {
 
       // If email exists and is verified, send password reset request
       console.log("Sending reset password request to server");
-      const resetResponse = await fetch("http://localhost:8081/api/reset-password-request", {
+      const resetResponse = await fetch("https://travis-article-portions-hope.trycloudflare.com/api/reset-password-request", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

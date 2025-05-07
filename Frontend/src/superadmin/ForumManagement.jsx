@@ -23,7 +23,7 @@ const ForumManagement = () => {
     try {
       setLoading(true);
       // Use environment variable for API URL with fallback
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:8081';
+      const apiUrl = process.env.REACT_APP_API_URL || 'https://travis-article-portions-hope.trycloudflare.com';
       
       // Special admin endpoint to get ALL posts including pending ones
       const response = await axios.get(`${apiUrl}/api/forum/admin/posts`);
@@ -44,7 +44,7 @@ const ForumManagement = () => {
   };
 
   const fetchComments = async (postId) => {
-    const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:8081';
+    const apiUrl = process.env.REACT_APP_API_URL || 'https://travis-article-portions-hope.trycloudflare.com';
     try {
       setCommentsLoading(true);
       // First try admin endpoint
@@ -77,7 +77,7 @@ const ForumManagement = () => {
     try {
       setLoading(true);
       const response = await axios.put(
-        `${process.env.REACT_APP_API_URL || 'http://localhost:3001'}/api/forum/posts/${postId}/status`, 
+        `${process.env.REACT_APP_API_URL || 'http://192.168.1.3:3001'}/api/forum/posts/${postId}/status`, 
         { status }
       );
       
@@ -100,7 +100,7 @@ const ForumManagement = () => {
     if (!window.confirm('Are you sure you want to delete this post?')) return;
     
     try {
-      await axios.delete(`http://localhost:3001/api/forum/posts/${postId}`);
+      await axios.delete(`${process.env.REACT_APP_API_URL}/api/forum/posts/${postId}`);
       setPosts(posts.filter(post => post.id !== postId));
       setSuccessMessage('Post has been deleted');
       setTimeout(() => setSuccessMessage(''), 3000);
@@ -114,7 +114,7 @@ const ForumManagement = () => {
     if (!window.confirm('Are you sure you want to delete this comment?')) return;
     
     try {
-      await axios.delete(`http://localhost:3001/api/forum/comments/${commentId}`);
+      await axios.delete(`http://192.168.1.3:3001/api/forum/comments/${commentId}`);
       setComments(comments.filter(comment => comment.id !== commentId));
       setSuccessMessage('Comment has been deleted');
       setTimeout(() => setSuccessMessage(''), 3000);

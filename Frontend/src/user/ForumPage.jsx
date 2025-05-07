@@ -9,7 +9,7 @@ const ForumPage = () => {
   const [error, setError] = useState(null);
 
   const loggedInUserId = localStorage.getItem("UserId");
-  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
+  const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://travis-article-portions-hope.trycloudflare.com';
 
   // Fetch user data to check status
   useEffect(() => {

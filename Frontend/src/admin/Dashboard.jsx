@@ -3,7 +3,7 @@ import ReactECharts from "echarts-for-react";
 import * as XLSX from 'xlsx';
 import "./Admin-contend-Dashboard.css";
 
-const API_URL = 'http://localhost:8081';
+const API_URL = 'https://travis-article-portions-hope.trycloudflare.com';
 
 const Dashboard = () => {
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);

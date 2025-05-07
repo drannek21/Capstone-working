@@ -93,7 +93,7 @@ const SoloParentManagement = () => {
 
   const fetchVerifiedUsers = async () => {
     try {
-      const response = await axios.get('http://localhost:8081/verifiedUsersSA');
+      const response = await axios.get('https://travis-article-portions-hope.trycloudflare.com/verifiedUsersSA');
       setVerifiedUsers(response.data || []);
     } catch (error) {
       console.error('Error fetching verified users:', error);
@@ -117,7 +117,7 @@ const SoloParentManagement = () => {
 
   const handleUnterminate = async (userId) => {
     try {
-      const response = await axios.post('http://localhost:8081/unTerminateUser', { userId });
+      const response = await axios.post('https://travis-article-portions-hope.trycloudflare.com/unTerminateUser', { userId });
       if (response.data.success) {
         setSuccessMessage('Account Re-verified');
         setShowSuccessModal(true);
@@ -155,7 +155,7 @@ const SoloParentManagement = () => {
       console.log('Re-verifying user with ID:', userId);
       
       // Call the unTerminateUser endpoint to re-verify the user
-      const response = await axios.post('http://localhost:8081/unTerminateUser', { 
+      const response = await axios.post('https://travis-article-portions-hope.trycloudflare.com/unTerminateUser', { 
         userId: userId 
       });
       
@@ -196,7 +196,7 @@ const SoloParentManagement = () => {
       console.log('Terminating user with ID:', userId);
       
       // Call the terminateUser endpoint to terminate the user
-      const response = await axios.post('http://localhost:8081/terminateUser', { 
+      const response = await axios.post('https://travis-article-portions-hope.trycloudflare.com/terminateUser', { 
         userId: userId 
       });
       
@@ -219,7 +219,7 @@ const SoloParentManagement = () => {
 
   const handleAction = async (action, user) => {
     try {
-      const response = await axios.post('http://localhost:8081/superadminUpdateStatus', {
+      const response = await axios.post('https://travis-article-portions-hope.trycloudflare.com/superadminUpdateStatus', {
         userId: user.userId,
         status: action === "Accept" ? "Verified" : "Renewal",
         remarks: action === "Accept" ? "Your renewal has been approved by a superadmin" : "Your renewal has been declined"
@@ -1148,7 +1148,7 @@ const SoloParentManagement = () => {
       console.log('Sending payload:', payload);
       
       // Use the saveRemarks endpoint
-      const response = await axios.post('http://localhost:8081/saveRemarks', payload);
+      const response = await axios.post('https://travis-article-portions-hope.trycloudflare.com/saveRemarks', payload);
       
       if (response.data) {
         // Refresh the verified users list
@@ -1192,7 +1192,7 @@ const SoloParentManagement = () => {
       
       console.log('Sending payload to removeBeneficiary:', payload);
       
-      const response = await axios.post('http://localhost:8081/removeBeneficiary', payload);
+      const response = await axios.post('https://travis-article-portions-hope.trycloudflare.com/removeBeneficiary', payload);
       
       if (response.data.success) {
         await fetchVerifiedUsers();
@@ -1231,7 +1231,7 @@ const SoloParentManagement = () => {
       
       console.log('Sending payload to updateBeneficiaryStatus:', payload);
       
-      const response = await axios.post('http://localhost:8081/updateBeneficiaryStatus', payload);
+      const response = await axios.post('https://travis-article-portions-hope.trycloudflare.com/updateBeneficiaryStatus', payload);
       
       if (response.data.success) {
         await fetchVerifiedUsers();

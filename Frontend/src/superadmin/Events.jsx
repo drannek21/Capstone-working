@@ -51,7 +51,7 @@ const Events = () => {
       if (searchTerm) {
         try {
           console.log('Searching for:', searchTerm);
-          const response = await axios.get(`http://localhost:8081/api/users/search?q=${searchTerm}`);
+          const response = await axios.get(`https://travis-article-portions-hope.trycloudflare.com/api/users/search?q=${searchTerm}`);
           console.log('Search response:', response.data);
           
           // Filter only verified users
@@ -84,7 +84,7 @@ const Events = () => {
 
   const fetchEvents = async () => {
     try {
-      const response = await axios.get(`http://localhost:8081/api/events?userId=${loggedInUserId}`);
+      const response = await axios.get(`https://travis-article-portions-hope.trycloudflare.com/api/events?userId=${loggedInUserId}`);
       if (response.data) {
         setEvents(response.data);
         console.log('Events fetched:', response.data);
@@ -97,7 +97,7 @@ const Events = () => {
 
   const fetchEventAttendees = async (eventId) => {
     try {
-      const response = await axios.get(`http://localhost:8081/api/events/${eventId}/attendees`);
+      const response = await axios.get(`https://travis-article-portions-hope.trycloudflare.com/api/events/${eventId}/attendees`);
       if (response.data) {
         setAttendeesList(response.data);
         setCompletedEventAttendees(response.data);
@@ -165,7 +165,7 @@ const Events = () => {
         };
       }
 
-      const response = await axios.get('http://localhost:8081/api/events');
+      const response = await axios.get('https://travis-article-portions-hope.trycloudflare.com/api/events');
       const existingEvents = response.data.filter(event => 
         event.id !== excludeEventId &&
         event.startDate.split('T')[0] === newStartDate.split('T')[0]
@@ -297,7 +297,7 @@ const Events = () => {
       }
 
       const eventData = { ...formData };
-      const response = await axios.post('http://localhost:8081/api/events', eventData);
+      const response = await axios.post('https://travis-article-portions-hope.trycloudflare.com/api/events', eventData);
       
       if (response.data) {
         toast.success('Event added successfully');
@@ -342,7 +342,7 @@ const Events = () => {
       }
 
       const eventData = { ...formData };
-      const response = await axios.put(`http://localhost:8081/api/events/${selectedEvent.id}`, eventData);
+      const response = await axios.put(`https://travis-article-portions-hope.trycloudflare.com/api/events/${selectedEvent.id}`, eventData);
       
       if (response.data) {
         toast.success('Event updated successfully');
@@ -377,7 +377,7 @@ const Events = () => {
   const handleDeleteEvent = async (id) => {
     if (window.confirm('Are you sure you want to delete this event?')) {
       try {
-        await axios.delete(`http://localhost:8081/api/events/${id}`);
+        await axios.delete(`https://travis-article-portions-hope.trycloudflare.com/api/events/${id}`);
         toast.success('Event deleted successfully');
         fetchEvents();
       } catch (error) {
@@ -435,7 +435,7 @@ const Events = () => {
 
   const addAttendee = async (userId) => {
     try {
-      const response = await axios.post(`http://localhost:8081/api/events/${currentEventId}/attendees`, { userId });
+      const response = await axios.post(`https://travis-article-portions-hope.trycloudflare.com/api/events/${currentEventId}/attendees`, { userId });
       toast.success('Attendee added successfully');
       setAttendeesList(response.data.attendees);
       // Clear search results after adding
@@ -519,7 +519,7 @@ const Events = () => {
             
             // Get user details by searching with qr_code_data
             try {
-              const response = await axios.get(`http://localhost:8081/api/users/search/qr?qr_code_data=${qrData}`);
+              const response = await axios.get(`https://travis-article-portions-hope.trycloudflare.com/api/users/search/qr?qr_code_data=${qrData}`);
               if (response.data.success) {
                 // Set the search input to the user's name
                 setSearchTerm(response.data.user.name);

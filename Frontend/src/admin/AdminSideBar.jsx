@@ -27,7 +27,7 @@ const AdminSideBar = () => {
             const barangay = localStorage.getItem('barangay');
             if (!barangay) return;
             try {
-                const res = await fetch(`http://localhost:8081/api/adminnotifications?barangay=${encodeURIComponent(barangay)}`);
+                const res = await fetch(`https://travis-article-portions-hope.trycloudflare.com/api/adminnotifications?barangay=${encodeURIComponent(barangay)}`);
                 const data = await res.json();
                 if (data.success && Array.isArray(data.notifications)) {
                     // Normalize notification objects for UI
@@ -142,7 +142,7 @@ const AdminSideBar = () => {
                             try {
                                 await Promise.all(
                                     notifications.filter(n => !n.read).map(n =>
-                                        fetch(`http://localhost:8081/api/adminnotifications/mark-as-read/${n.id}`, {method: 'PUT'})
+                                        fetch(`https://travis-article-portions-hope.trycloudflare.com/api/adminnotifications/mark-as-read/${n.id}`, {method: 'PUT'})
                                     )
                                 );
                                 setNotifications(notifications.map(n => ({...n, read: true})));
@@ -155,7 +155,7 @@ const AdminSideBar = () => {
                             const barangay = localStorage.getItem('barangay');
                             if (!window.confirm('Are you sure you want to clear all notifications?')) return;
                             try {
-                                await fetch(`http://localhost:8081/api/adminnotifications?barangay=${encodeURIComponent(barangay)}`, {method: 'DELETE'});
+                                await fetch(`https://travis-article-portions-hope.trycloudflare.com/api/adminnotifications?barangay=${encodeURIComponent(barangay)}`, {method: 'DELETE'});
                                 setNotifications([]);
                             } catch (err) {
                                 alert('Failed to clear notifications');

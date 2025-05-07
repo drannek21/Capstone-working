@@ -54,7 +54,7 @@ const AdminManagement = () => {
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch('http://localhost:8081/admins');
+      const response = await fetch('https://travis-article-portions-hope.trycloudflare.com/admins');
       const data = await response.json();
       
       if (data.success) {
@@ -184,7 +184,7 @@ const AdminManagement = () => {
   const handleAddUser = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch('http://localhost:8081/admins', {
+      const response = await fetch('https://travis-article-portions-hope.trycloudflare.com/admins', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -223,7 +223,7 @@ const AdminManagement = () => {
     setError(null);
 
     try {
-      const response = await fetch(`http://localhost:8081/admins/${editUser.id}`, {
+      const response = await fetch(`https://travis-article-portions-hope.trycloudflare.com/admins/${editUser.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'

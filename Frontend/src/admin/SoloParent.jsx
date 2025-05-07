@@ -42,7 +42,7 @@ const SoloParent = () => {
   const fetchVerifiedUsers = async (currentAdminId) => {
     try {
       setIsLoading(true);
-      let url = `http://localhost:8081/verifiedUsers/${currentAdminId}`;
+      let url = `https://travis-article-portions-hope.trycloudflare.com/verifiedUsers/${currentAdminId}`;
       if (selectedStatus !== 'all') {
         url += `?status=${selectedStatus}`;
       }
@@ -71,7 +71,7 @@ const SoloParent = () => {
     if (!selectedParent || !remarks.trim()) return;
     
     try {
-      const response = await axios.post('http://localhost:8081/saveRemarks', {
+      const response = await axios.post('https://travis-article-portions-hope.trycloudflare.com/saveRemarks', {
         code_id: selectedParent.code_id,
         remarks: remarks,
         user_id: selectedParent.userId,

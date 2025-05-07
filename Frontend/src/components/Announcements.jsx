@@ -17,10 +17,38 @@ const Announcements = () => {
   const [loading, setLoading] = useState(true);
 
   React.useEffect(() => {
+    // Add a direct console error to identify the mixed content issue
+    console.error('IMPORTANT: If you see a mixed content error after this message, check the stack trace');
+    console.error('Current script version timestamp:', new Date().toISOString());
+    
     const fetchAnnouncements = async () => {
       try {
-        const res = await fetch("http://localhost:8081/api/announcements");
+        // Debug information
+        console.log('Current location:', window.location.toString());
+        console.log('Hostname:', window.location.hostname);
+        console.log('Protocol:', window.location.protocol);
+        
+        // Force version check to bypass cache
+        const versionTimestamp = new Date().getTime();
+        console.log('Version timestamp:', versionTimestamp);
+        
+        // Use environment variable for API URL
+        const secureApiUrl = `${process.env.REACT_APP_API_URL}/api/announcements`;
+        console.log('Using secure API URL:', secureApiUrl);
+        
+        const res = await fetch(secureApiUrl, {
+          // Add cache control headers to prevent caching
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+          }
+        });
+        console.log('Fetch response:', res);
+        
         const data = await res.json();
+        console.log('Received data:', data);
+        
         if (data.success && Array.isArray(data.announcements) && data.announcements.length > 0) {
           setAnnouncements(
             data.announcements.map(a => ({

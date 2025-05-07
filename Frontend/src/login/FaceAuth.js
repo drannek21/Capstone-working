@@ -20,7 +20,7 @@ const FaceAuth = ({ onLoginSuccess, email }) => {
     const [userEmail, setUserEmail] = useState(email || localStorage.getItem('faceAuthEmail') || '');
     const [userId, setUserId] = useState(null); // New state for user ID
     
-    const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
+    const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://travis-article-portions-hope.trycloudflare.com';
 
     useEffect(() => {
         loadModels();

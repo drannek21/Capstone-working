@@ -17,7 +17,7 @@ const ResetPassword = () => {
     // Verify the token is valid when component mounts
     const verifyToken = async () => {
       try {
-        const response = await fetch(`http://localhost:8081/api/verify-reset-token/${token}`);
+        const response = await fetch(`https://travis-article-portions-hope.trycloudflare.com/api/verify-reset-token/${token}`);
         const data = await response.json();
         
         if (data.valid) {
@@ -67,7 +67,7 @@ const ResetPassword = () => {
     setLoading(true);
     
     try {
-      const response = await fetch("http://localhost:8081/api/reset-password", {
+      const response = await fetch("https://travis-article-portions-hope.trycloudflare.com/api/reset-password", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

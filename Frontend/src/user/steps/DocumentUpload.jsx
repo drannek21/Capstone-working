@@ -137,7 +137,7 @@ const DocumentUpload = ({ formData, updateFormData, prevStep, handleSubmit }) =>
       // This is a placeholder for the actual API call to your backend
       // Replace with your actual API endpoint
       const response = await axios.post(
-        `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/documents/${documentType}`,
+        `${process.env.REACT_APP_API_URL || 'http://192.168.1.3:5000'}/api/documents/${documentType}`,
         {
           code_id: code_id,
           file_name: url,

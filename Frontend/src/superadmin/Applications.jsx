@@ -65,7 +65,7 @@ const [acceptAllLoading, setAcceptAllLoading] = useState(false);
 
   const fetchApplications = async () => {
     try {
-      const response = await axios.get('http://localhost:8081/pendingUsers');
+      const response = await axios.get('https://travis-article-portions-hope.trycloudflare.com/pendingUsers');
       
       // Log the response to check data structure
       console.log('Fetched Applications:', response.data);
@@ -93,7 +93,7 @@ const [acceptAllLoading, setAcceptAllLoading] = useState(false);
 
   const fetchMissingDocuments = async () => {
     try {
-      const response = await axios.get('http://localhost:8081/api/documents/follow_up_documents');
+      const response = await axios.get('https://travis-article-portions-hope.trycloudflare.com/api/documents/follow_up_documents');
       // Group documents by code_id
       const groupedDocuments = response.data.reduce((acc, doc) => {
         if (!acc[doc.code_id]) {
@@ -181,7 +181,7 @@ const [acceptAllLoading, setAcceptAllLoading] = useState(false);
   
       console.log('User email:', selectedApplication.email);
   
-      const response = await axios.post('http://localhost:8081/updateUserStatus', {
+      const response = await axios.post('https://travis-article-portions-hope.trycloudflare.com/updateUserStatus', {
         code_id: selectedApplication.code_id,
         status: action === "Accept" ? "Created" : "Declined",
         remarks: remarks.trim() || "No remarks provided",
@@ -226,7 +226,7 @@ const [acceptAllLoading, setAcceptAllLoading] = useState(false);
         return;
       }
 
-      const response = await axios.post('http://localhost:8081/update-beneficiary-status', {
+      const response = await axios.post('https://travis-article-portions-hope.trycloudflare.com/update-beneficiary-status', {
         code_id: selectedApplication.code_id,
         status: status
       });
@@ -256,7 +256,7 @@ const [acceptAllLoading, setAcceptAllLoading] = useState(false);
     let failCount = 0;
     for (const doc of docsToAccept) {
       try {
-        const response = await axios.post('http://localhost:8081/updateDocumentStatus', {
+        const response = await axios.post('https://travis-article-portions-hope.trycloudflare.com/updateDocumentStatus', {
           document_type: doc.document_type,
           file_name: doc.file_name,
           status: 'Approved',
@@ -309,7 +309,7 @@ const [acceptAllLoading, setAcceptAllLoading] = useState(false);
         rejection_reason
       });
 
-      const response = await axios.post('http://localhost:8081/updateDocumentStatus', {
+      const response = await axios.post('https://travis-article-portions-hope.trycloudflare.com/updateDocumentStatus', {
         document_type,
         file_name,
         status,
@@ -332,7 +332,7 @@ const [acceptAllLoading, setAcceptAllLoading] = useState(false);
     if (selectedClassification) {
       console.log('Sending code_id:', selectedApplication.code_id); // Log the code_id
       try {
-        const response = await axios.post('http://localhost:8081/pendingUsers/updateClassification', {
+        const response = await axios.post('https://travis-article-portions-hope.trycloudflare.com/pendingUsers/updateClassification', {
           code_id: selectedApplication.code_id,
           classification: selectedClassification,
         });
